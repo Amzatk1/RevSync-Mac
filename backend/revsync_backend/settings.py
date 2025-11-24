@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'tuners',
     'garage',
     'marketplace',
+    'payments',
+    'chat',
     'safety_layer',
 ]
 

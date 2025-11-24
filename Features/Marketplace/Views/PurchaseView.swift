@@ -10,19 +10,25 @@ import SwiftUI
 struct PurchaseView: View {
     let tune: TuneModel
     @Binding var isPresented: Bool
+    @Binding var isPresented: Bool // This binding is still used for the sheet dismissal in the mock
     var onPurchaseComplete: () -> Void
     
+    @Environment(\.dismiss) var dismiss
     @State private var isProcessing = false
-    @State private var errorMessage: String?
+    @State private var showPaymentSheet = false
+    @State private var clientSecret: String?
+    @State private var paymentError: String?
     
     // Dependencies
-    private let service = PurchaseService.shared
+    private let paymentService = PaymentService.shared
+    private let purchaseService = PurchaseService.shared
     @State private var cancellables = Set<AnyCancellable>()
     
     var body: some View {
-        VStack(spacing: 32) {
-            Text("Confirm Purchase")
-                .font(.title.bold())
+        VStack(spacing: 20) {
+            Text("Complete Purchase")
+                .font(.largeTitle.bold())
+                .padding(.top)
             
             VStack(spacing: 16) {
                 Text(tune.name)
@@ -32,24 +38,13 @@ struct PurchaseView: View {
                     .foregroundStyle(.blue)
             }
             
-            if let error = errorMessage {
+            if let error = paymentError {
                 Text(error)
                     .foregroundStyle(.red)
                     .font(.caption)
                     .multilineTextAlignment(.center)
             }
             
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "creditcard.fill")
-                    Text("Visa ending in 4242")
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
             }
             
             Button(action: processPurchase) {

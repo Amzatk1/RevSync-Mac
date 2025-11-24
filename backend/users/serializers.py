@@ -13,10 +13,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
 
+    followers_count = serializers.IntegerField(source='followers.count', read_only=True)
+    following_count = serializers.IntegerField(source='following.count', read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_verified', 'profile']
-        read_only_fields = ['role', 'is_verified']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'is_verified', 'profile', 'followers_count', 'following_count']
+        read_only_fields = ['role', 'is_verified', 'followers_count', 'following_count']
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

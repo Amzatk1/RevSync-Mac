@@ -5,10 +5,12 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('users.urls')),
-    path('api/v1/', include('tuners.urls')),
+    path('api/tuners/', include('tuners.urls')),
     path('api/v1/', include('garage.urls')),
     path('api/v1/', include('marketplace.urls')),
-    path('api/v1/', include('safety_layer.urls')),
+    path('api/safety/', include('safety_layer.urls')),
+    path('api/payments/', include('payments.urls')),
+    path('api/chat/', include('chat.urls')),
     
     # OpenAPI
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

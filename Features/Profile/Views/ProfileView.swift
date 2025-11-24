@@ -38,20 +38,33 @@ struct ProfileView: View {
                     }
                     .padding()
                     
-                    // Follow Button
+                    // Follow & Message Buttons
                     if !viewModel.isCurrentUser {
-                        Button(action: {
-                            viewModel.toggleFollow()
-                        }) {
-                            Text(viewModel.isFollowing ? "Following" : "Follow")
-                                .font(.headline)
-                                .foregroundStyle(viewModel.isFollowing ? .primary : .white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(viewModel.isFollowing ? Color.gray.opacity(0.2) : Color.blue)
-                                .cornerRadius(8)
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                viewModel.toggleFollow()
+                            }) {
+                                Text(viewModel.isFollowing ? "Following" : "Follow")
+                                    .font(.headline)
+                                    .foregroundStyle(viewModel.isFollowing ? .primary : .white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(viewModel.isFollowing ? Color.gray.opacity(0.2) : Color.blue)
+                                    .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            NavigationLink(destination: ChatView(conversation: Conversation(id: 0, participants: [viewModel.user!], lastMessage: nil, unreadCount: 0, updatedAt: ""))) {
+                                Text("Message")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(Color.green)
+                                    .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                         .padding(.horizontal)
                     }
                     
