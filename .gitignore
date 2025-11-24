@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+db.sqlite3
+
+# Xcode
+build/
+*.xcodeproj/project.xcworkspace
+*.xcodeproj/xcuserdata
+DerivedData/
+
+# Swift
+.build/
+Packages/
+Package.resolved
+
+# Supabase
+supabase/functions/

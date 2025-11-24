@@ -1,0 +1,167 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[2/13] Emitting module RevSyncApp
+/Users/ayooluwakarim/RevSyncApp/Features/Garage/Views/GarageView.swift:235:8: error: invalid redeclaration of 'Badge'
+233 | }
+234 | 
+235 | struct Badge: View {
+    |        `- error: invalid redeclaration of 'Badge'
+236 |     let text: String
+237 |     let color: Color
+[3/13] Compiling RevSyncApp LoginViewModel.swift
+[4/13] Compiling RevSyncApp MarketplaceView.swift
+/Users/ayooluwakarim/RevSyncApp/Features/Marketplace/Views/MarketplaceView.swift:234:8: error: invalid redeclaration of 'Badge'
+232 | }
+233 | 
+234 | struct Badge: View {
+    |        `- error: invalid redeclaration of 'Badge'
+235 |     let text: String
+236 |     let color: Color
+
+/Users/ayooluwakarim/RevSyncApp/Features/Marketplace/Views/MarketplaceView.swift:80:14: error: instance member 'padding' cannot be used on type 'View'
+ 78 |                 }
+ 79 |             }
+ 80 |             .padding(.vertical)
+    |              `- error: instance member 'padding' cannot be used on type 'View'
+ 81 |             }
+ 82 | 
+[5/13] Compiling RevSyncApp RegisterView.swift
+/Users/ayooluwakarim/RevSyncApp/Features/Auth/Views/RegisterView.swift:167:73: error: type 'Config' has no member 'shared'
+165 |     private func buildOAuthURL(provider: String) -> URL? {
+166 |         let info = Bundle.main.infoDictionary
+167 |         let supabaseBase = (info?["SUPABASE_URL"] as? String) ?? Config.shared.supabaseUrl
+    |                                                                         `- error: type 'Config' has no member 'shared'
+168 |         let redirect = (info?["SUPABASE_REDIRECT_URI"] as? String) ?? "revsync://auth-callback"
+169 | 
+[6/13] Compiling RevSyncApp LoginView.swift
+/Users/ayooluwakarim/RevSyncApp/Features/Auth/Views/LoginView.swift:136:14: warning: result of call to 'sink(receiveCompletion:receiveValue:)' is unused [#no-usage]
+134 |             .login(email: email, password: password)
+135 |             .receive(on: DispatchQueue.main)
+136 |             .sink { completion in
+    |              `- warning: result of call to 'sink(receiveCompletion:receiveValue:)' is unused [#no-usage]
+137 |                 isLoading = false
+138 |                 if case let .failure(error) = completion {
+
+/Users/ayooluwakarim/RevSyncApp/Features/Auth/Views/LoginView.swift:151:13: error: cannot find 'errorMessage' in scope
+149 |     private func signInWithApple() {
+150 |         guard let url = buildOAuthURL(provider: "apple") else {
+151 |             errorMessage = "Unable to start Sign in with Apple. Check Supabase URL and redirect URI in Info.plist."
+    |             `- error: cannot find 'errorMessage' in scope
+152 |             return
+153 |         }
+
+/Users/ayooluwakarim/RevSyncApp/Features/Auth/Views/LoginView.swift:159:13: error: cannot find 'errorMessage' in scope
+157 |     private func signInWithGoogle() {
+158 |         guard let url = buildOAuthURL(provider: "google") else {
+159 |             errorMessage = "Unable to start Google Sign‑In. Check Supabase URL and redirect URI in Info.plist."
+    |             `- error: cannot find 'errorMessage' in scope
+160 |             return
+161 |         }
+
+/Users/ayooluwakarim/RevSyncApp/Features/Auth/Views/LoginView.swift:169:73: error: type 'Config' has no member 'shared'
+167 |         // Prefer Info.plist settings so you can ship different configs per build configuration.
+168 |         let info = Bundle.main.infoDictionary
+169 |         let supabaseBase = (info?["SUPABASE_URL"] as? String) ?? Config.shared.supabaseUrl
+    |                                                                         `- error: type 'Config' has no member 'shared'
+170 |         let redirect = (info?["SUPABASE_REDIRECT_URI"] as? String) ?? "revsync://auth-callback"
+171 | 
+[7/13] Compiling RevSyncApp RegisterViewModel.swift
+/Users/ayooluwakarim/RevSyncApp/Features/Auth/ViewModels/RegisterViewModel.swift:86:13: error: switch must be exhaustive
+ 84 |         if let localized = (error as? LocalizedError)?.errorDescription { return localized }
+ 85 |         if let api = error as? APIError {
+ 86 |             switch api {
+    |             |- error: switch must be exhaustive
+    |             `- note: add missing case: '.unauthorized'
+ 87 |             case .httpError(let code, let message):
+ 88 |                 if code == 409 { return "An account with this email already exists." }
+[8/13] Compiling RevSyncApp GarageView.swift
+/Users/ayooluwakarim/RevSyncApp/Features/Garage/Views/GarageView.swift:235:8: error: invalid redeclaration of 'Badge'
+233 | }
+234 | 
+235 | struct Badge: View {
+    |        `- error: invalid redeclaration of 'Badge'
+236 |     let text: String
+237 |     let color: Color
+
+/Users/ayooluwakarim/RevSyncApp/Features/Garage/Views/GarageView.swift:89:10: warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+ 87 |             viewModel.loadVehicles()
+ 88 |         }
+ 89 |         .onChange(of: appState.vehicleTypeFilter) { _ in
+    |          `- warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+ 90 |             viewModel.loadVehicles()
+ 91 |         }
+
+/Users/ayooluwakarim/RevSyncApp/Features/Garage/Views/GarageView.swift:145:18: warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+143 |                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+144 |                 .frame(maxWidth: 80)
+145 |                 .onChange(of: filterYear) { newVal in
+    |                  `- warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+146 |                     filterYear = newVal.filter { $0.isNumber }
+147 |                 }
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[9/13] Compiling RevSyncApp RevSyncApp.swift
+/Users/ayooluwakarim/RevSyncApp/App/RevSyncApp.swift:72:18: warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+70 |                         .store(in: &cancellables)
+71 |                 }
+72 |                 .onChange(of: appState.authToken) { newToken in
+   |                  `- warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+73 |                     // Keep a minimal persisted mirror so fresh launches can bootstrap before Keychain fetch completes.
+74 |                     storedAuthToken = newToken
+
+/Users/ayooluwakarim/RevSyncApp/Core/API/APIClient.swift:33:9: error: switch must be exhaustive
+ 31 | 
+ 32 |     var errorDescription: String? {
+ 33 |         switch self {
+    |         |- error: switch must be exhaustive
+    |         |- note: add missing case: '.networkError(_)'
+    |         |- note: add missing case: '.unauthorized'
+    |         `- note: add missing cases
+ 34 |         case .httpError(let statusCode, let message):
+ 35 |             return "HTTP Error \(statusCode): \(message ?? "No message")"
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[10/13] Compiling RevSyncApp APIClient.swift
+/Users/ayooluwakarim/RevSyncApp/App/RevSyncApp.swift:72:18: warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+70 |                         .store(in: &cancellables)
+71 |                 }
+72 |                 .onChange(of: appState.authToken) { newToken in
+   |                  `- warning: 'onChange(of:perform:)' was deprecated in macOS 14.0: Use `onChange` with a two or zero parameter action closure instead. [#DeprecatedDeclaration]
+73 |                     // Keep a minimal persisted mirror so fresh launches can bootstrap before Keychain fetch completes.
+74 |                     storedAuthToken = newToken
+
+/Users/ayooluwakarim/RevSyncApp/Core/API/APIClient.swift:33:9: error: switch must be exhaustive
+ 31 | 
+ 32 |     var errorDescription: String? {
+ 33 |         switch self {
+    |         |- error: switch must be exhaustive
+    |         |- note: add missing case: '.networkError(_)'
+    |         |- note: add missing case: '.unauthorized'
+    |         `- note: add missing cases
+ 34 |         case .httpError(let statusCode, let message):
+ 35 |             return "HTTP Error \(statusCode): \(message ?? "No message")"
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[11/14] Compiling RevSyncApp TuneDetailView.swift
+/Users/ayooluwakarim/RevSyncApp/Features/Marketplace/Views/TuneDetailView.swift:27:9: error: ambiguous use of 'init'
+ 25 |     
+ 26 |     var body: some View {
+ 27 |         ScrollView {
+    |         `- error: ambiguous use of 'init'
+ 28 |             VStack(spacing: 0) {
+ 29 |                 // Header Image & Gradient
+
+SwiftUI.ScrollView.init:6:10: note: found this candidate in module 'SwiftUI'
+4 |   @available(tvOS, introduced: 13.0, deprecated: 100000.0, message: "Use the ScrollView(_:content:) initializer and the scrollIndicators(:_) modifier")
+5 |   @available(watchOS, introduced: 6.0, deprecated: 100000.0, message: "Use the ScrollView(_:content:) initializer and the scrollIndicators(:_) modifier")
+6 |   public init(_ axes: Axis.Set = .vertical, showsIndicators: Bool = true, @ViewBuilder content: () -> Content)}
+  |          `- note: found this candidate in module 'SwiftUI'
+7 | 
+
+SwiftUI.ScrollView.init:3:22: note: found this candidate in module 'SwiftUI'
+1 | generic struct ScrollView {
+2 | @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
+3 |   nonisolated public init(_ axes: Axis.Set = .vertical, @ViewBuilder content: () -> Content)}
+  |                      `- note: found this candidate in module 'SwiftUI'
+4 | 

@@ -1,0 +1,1961 @@
+openapi: 3.0.3
+info:
+  title: RevSync API
+  version: 1.0.0
+  description: API for RevSync - AI-Powered Motorcycle Tuning Ecosystem
+paths:
+  /api/v1/auth/login/:
+    post:
+      operationId: v1_auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomTokenObtainPair'
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: v1_auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: v1_auth_register_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRegistration'
+          description: ''
+  /api/v1/garage/:
+    get:
+      operationId: v1_garage_list
+      description: |-
+        Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
+        Used for efficient delta sync.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVehicleList'
+          description: ''
+    post:
+      operationId: v1_garage_create
+      description: |-
+        Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
+        Used for efficient delta sync.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+          description: ''
+  /api/v1/garage/{id}/:
+    get:
+      operationId: v1_garage_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+          description: ''
+    put:
+      operationId: v1_garage_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+          description: ''
+    patch:
+      operationId: v1_garage_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVehicle'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedVehicle'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedVehicle'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+          description: ''
+    delete:
+      operationId: v1_garage_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/garage/backups/:
+    get:
+      operationId: v1_garage_backups_list
+      description: |-
+        Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
+        Used for efficient delta sync.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEcuBackupList'
+          description: ''
+    post:
+      operationId: v1_garage_backups_create
+      description: |-
+        Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
+        Used for efficient delta sync.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EcuBackup'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EcuBackup'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EcuBackup'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcuBackup'
+          description: ''
+  /api/v1/garage/definitions/:
+    get:
+      operationId: v1_garage_definitions_list
+      description: Public endpoint to get the vehicle database.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVehicleDefinitionList'
+          description: ''
+  /api/v1/garage/flash-jobs/:
+    get:
+      operationId: v1_garage_flash_jobs_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFlashJobList'
+          description: ''
+    post:
+      operationId: v1_garage_flash_jobs_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashJob'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FlashJob'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FlashJob'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashJob'
+          description: ''
+  /api/v1/garage/flash-jobs/{id}/:
+    get:
+      operationId: v1_garage_flash_jobs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashJob'
+          description: ''
+    put:
+      operationId: v1_garage_flash_jobs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashJob'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FlashJob'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FlashJob'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashJob'
+          description: ''
+    patch:
+      operationId: v1_garage_flash_jobs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFlashJob'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFlashJob'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFlashJob'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashJob'
+          description: ''
+  /api/v1/marketplace/analytics/creator/:
+    get:
+      operationId: v1_marketplace_analytics_creator_retrieve
+      description: Get creator analytics (downloads, sales, revenue)
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/my-purchases/:
+    get:
+      operationId: v1_marketplace_my_purchases_list
+      description: |-
+        Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
+        Used for efficient delta sync.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPurchaseList'
+          description: ''
+  /api/v1/marketplace/purchase/:
+    post:
+      operationId: v1_marketplace_purchase_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Purchase'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Purchase'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Purchase'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Purchase'
+          description: ''
+  /api/v1/marketplace/tunes/:
+    get:
+      operationId: v1_marketplace_tunes_list
+      description: |-
+        Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
+        Used for efficient delta sync.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTuneList'
+          description: ''
+  /api/v1/marketplace/tunes/{id}/:
+    get:
+      operationId: v1_marketplace_tunes_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tune'
+          description: ''
+  /api/v1/marketplace/tunes/{id}/publish/:
+    post:
+      operationId: v1_marketplace_tunes_publish_create
+      description: Publish or unpublish a tune
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/upload-url/:
+    post:
+      operationId: v1_marketplace_upload_url_create
+      description: Get a signed URL for file upload
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/profile/me/:
+    get:
+      operationId: v1_profile_me_retrieve
+      description: Get or update the current user's profile.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    put:
+      operationId: v1_profile_me_update
+      description: Get or update the current user's profile.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    patch:
+      operationId: v1_profile_me_partial_update
+      description: Get or update the current user's profile.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfile'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+  /api/v1/safety/analyze/:
+    post:
+      operationId: v1_safety_analyze_create
+      description: Trigger a safety analysis
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyReport'
+          description: ''
+  /api/v1/safety/reports/:
+    get:
+      operationId: v1_safety_reports_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSafetyReportList'
+          description: ''
+  /api/v1/tuners/:
+    get:
+      operationId: v1_tuners_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTunerProfileList'
+          description: ''
+  /api/v1/tuners/{id}/:
+    get:
+      operationId: v1_tuners_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TunerProfile'
+          description: ''
+  /api/v1/tuners/apply/:
+    post:
+      operationId: v1_tuners_apply_create
+      description: Apply to become a tuner.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TunerProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TunerProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TunerProfile'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TunerProfile'
+          description: ''
+  /api/v1/tuners/documents/:
+    post:
+      operationId: v1_tuners_documents_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TunerCertification'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TunerCertification'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TunerCertification'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TunerCertification'
+          description: ''
+  /api/v1/users/{username}/:
+    get:
+      operationId: v1_users_retrieve
+      description: Public view of a user.
+      parameters:
+      - in: path
+        name: username
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/{username}/follow/:
+    post:
+      operationId: v1_users_follow_create
+      parameters:
+      - in: path
+        name: username
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Follow'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Follow'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Follow'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/users/me/:
+    get:
+      operationId: v1_users_me_retrieve
+      description: Get current user details.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    ActionEnum:
+      enum:
+      - follow
+      - unfollow
+      type: string
+      description: |-
+        * `follow` - follow
+        * `unfollow` - unfollow
+    CustomTokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    EcuBackup:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        storage_key:
+          type: string
+          description: Path in storage bucket
+          maxLength: 255
+        checksum:
+          type: string
+          readOnly: true
+          description: SHA-256 checksum
+        file_size_kb:
+          type: integer
+          readOnly: true
+        notes:
+          type: string
+        user:
+          type: integer
+          readOnly: true
+        vehicle:
+          type: integer
+      required:
+      - checksum
+      - created_at
+      - file_size_kb
+      - id
+      - storage_key
+      - updated_at
+      - user
+      - vehicle
+    FlashJob:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tune_detail:
+          allOf:
+          - $ref: '#/components/schemas/Tune'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/FlashJobStatusEnum'
+          readOnly: true
+        progress:
+          type: integer
+          readOnly: true
+          description: 0-100
+        logs:
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        vehicle:
+          type: integer
+        tune:
+          type: integer
+          nullable: true
+      required:
+      - created_at
+      - error_message
+      - id
+      - logs
+      - progress
+      - status
+      - tune_detail
+      - updated_at
+      - user
+      - vehicle
+    FlashJobStatusEnum:
+      enum:
+      - PENDING
+      - FLASHING
+      - COMPLETED
+      - FAILED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `FLASHING` - Flashing
+        * `COMPLETED` - Completed
+        * `FAILED` - Failed
+    Follow:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+      required:
+      - action
+    PaginatedEcuBackupList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/EcuBackup'
+    PaginatedFlashJobList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashJob'
+    PaginatedPurchaseList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Purchase'
+    PaginatedSafetyReportList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SafetyReport'
+    PaginatedTuneList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tune'
+    PaginatedTunerProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TunerProfile'
+    PaginatedVehicleDefinitionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleDefinition'
+    PaginatedVehicleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vehicle'
+    PatchedFlashJob:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tune_detail:
+          allOf:
+          - $ref: '#/components/schemas/Tune'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/FlashJobStatusEnum'
+          readOnly: true
+        progress:
+          type: integer
+          readOnly: true
+          description: 0-100
+        logs:
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        vehicle:
+          type: integer
+        tune:
+          type: integer
+          nullable: true
+    PatchedUserProfile:
+      type: object
+      properties:
+        bio:
+          type: string
+          maxLength: 500
+        country:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        experience_level:
+          type: string
+          maxLength: 50
+        riding_style:
+          type: string
+          maxLength: 50
+        risk_tolerance:
+          type: string
+          maxLength: 50
+        last_active:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedVehicle:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        name:
+          type: string
+          description: Nickname for the vehicle
+          maxLength: 100
+        vehicle_type:
+          $ref: '#/components/schemas/VehicleTypeEnum'
+        make:
+          type: string
+          maxLength: 100
+        model:
+          type: string
+          maxLength: 100
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        vin:
+          type: string
+          nullable: true
+          maxLength: 17
+        ecu_type:
+          type: string
+          description: e.g. Bosch, Keihin
+          maxLength: 50
+        ecu_id:
+          type: string
+          description: ECU Hardware ID
+          maxLength: 100
+        ecu_software_version:
+          type: string
+          maxLength: 100
+        modifications:
+          description: List of installed mods
+        photo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        public_visibility:
+          type: boolean
+          description: Visible to other users?
+        user:
+          type: integer
+          readOnly: true
+    Purchase:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        tune:
+          allOf:
+          - $ref: '#/components/schemas/Tune'
+          readOnly: true
+        tune_id:
+          type: integer
+          writeOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        price_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          readOnly: true
+        transaction_id:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - price_paid
+      - transaction_id
+      - tune
+      - tune_id
+      - updated_at
+      - user
+    RoleEnum:
+      enum:
+      - RIDER
+      - TUNER
+      - CREATOR
+      - ADMIN
+      type: string
+      description: |-
+        * `RIDER` - Rider
+        * `TUNER` - Tuner
+        * `CREATOR` - Creator
+        * `ADMIN` - Admin
+    SafetyReport:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        risk_score:
+          type: integer
+          readOnly: true
+          description: 0-100, higher is riskier
+        status:
+          type: string
+          readOnly: true
+        input_data: {}
+        analysis_result:
+          readOnly: true
+        recommendations:
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+          nullable: true
+        vehicle:
+          type: integer
+          nullable: true
+        tune:
+          type: integer
+          nullable: true
+      required:
+      - analysis_result
+      - created_at
+      - id
+      - recommendations
+      - risk_score
+      - status
+      - updated_at
+      - user
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    Tune:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        creator:
+          allOf:
+          - $ref: '#/components/schemas/TunerProfile'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        vehicle_make:
+          type: string
+          maxLength: 100
+        vehicle_model:
+          type: string
+          maxLength: 100
+        vehicle_year_start:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        vehicle_year_end:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        ecu_compatibility: {}
+        stage:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        horsepower_gain:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
+          nullable: true
+        torque_gain:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
+          nullable: true
+        dyno_chart_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        file_url:
+          type: string
+          format: uri
+          description: Secure URL to the tune file
+          maxLength: 200
+        file_size_kb:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        status:
+          $ref: '#/components/schemas/TuneStatusEnum'
+        is_active:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        safety_rating:
+          type: integer
+          readOnly: true
+        compatibility_index:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: 0-100 score
+        manifest_json: {}
+        metadata: {}
+        versions: {}
+      required:
+      - created_at
+      - creator
+      - description
+      - file_size_kb
+      - file_url
+      - id
+      - name
+      - price
+      - safety_rating
+      - updated_at
+      - vehicle_make
+      - vehicle_model
+      - vehicle_year_end
+      - vehicle_year_start
+    TuneStatusEnum:
+      enum:
+      - DRAFT
+      - PUBLISHED
+      - ARCHIVED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `PUBLISHED` - Published
+        * `ARCHIVED` - Archived
+    TunerCertification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        document_type:
+          type: string
+          maxLength: 100
+        document_url:
+          type: string
+          format: uri
+          maxLength: 200
+        is_approved:
+          type: boolean
+          readOnly: true
+        reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        tuner:
+          type: integer
+          readOnly: true
+      required:
+      - created_at
+      - document_type
+      - document_url
+      - id
+      - is_approved
+      - reviewed_at
+      - tuner
+      - updated_at
+    TunerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        certifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/TunerCertification'
+          readOnly: true
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/TunerReview'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        business_name:
+          type: string
+          maxLength: 255
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        specializations:
+          description: List of specialized brands/ECUs
+        years_experience:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        verification_level:
+          allOf:
+          - $ref: '#/components/schemas/VerificationLevelEnum'
+          readOnly: true
+        is_verified_business:
+          type: boolean
+          readOnly: true
+        total_downloads:
+          type: integer
+          readOnly: true
+        average_rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          readOnly: true
+        tunes_published_count:
+          type: integer
+          readOnly: true
+        quality_score:
+          type: integer
+          readOnly: true
+          description: AI Safety Score (0-100)
+      required:
+      - average_rating
+      - business_name
+      - certifications
+      - created_at
+      - id
+      - is_verified_business
+      - quality_score
+      - reviews
+      - total_downloads
+      - tunes_published_count
+      - updated_at
+      - user
+      - verification_level
+    TunerReview:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        rating:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        comment:
+          type: string
+        tuner:
+          type: integer
+          readOnly: true
+      required:
+      - author
+      - created_at
+      - id
+      - rating
+      - tuner
+      - updated_at
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+          description: |-
+            User role determines permissions.
+
+            * `RIDER` - Rider
+            * `TUNER` - Tuner
+            * `CREATOR` - Creator
+            * `ADMIN` - Admin
+        is_verified:
+          type: boolean
+          readOnly: true
+          description: Email verification status.
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/UserProfile'
+          readOnly: true
+      required:
+      - email
+      - id
+      - is_verified
+      - profile
+      - role
+      - username
+    UserProfile:
+      type: object
+      properties:
+        bio:
+          type: string
+          maxLength: 500
+        country:
+          type: string
+          maxLength: 100
+        photo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        experience_level:
+          type: string
+          maxLength: 50
+        riding_style:
+          type: string
+          maxLength: 50
+        risk_tolerance:
+          type: string
+          maxLength: 50
+        last_active:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - last_active
+    UserRegistration:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            User role determines permissions.
+
+            * `RIDER` - Rider
+            * `TUNER` - Tuner
+            * `CREATOR` - Creator
+            * `ADMIN` - Admin
+      required:
+      - email
+      - password
+      - username
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        name:
+          type: string
+          description: Nickname for the vehicle
+          maxLength: 100
+        vehicle_type:
+          $ref: '#/components/schemas/VehicleTypeEnum'
+        make:
+          type: string
+          maxLength: 100
+        model:
+          type: string
+          maxLength: 100
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        vin:
+          type: string
+          nullable: true
+          maxLength: 17
+        ecu_type:
+          type: string
+          description: e.g. Bosch, Keihin
+          maxLength: 50
+        ecu_id:
+          type: string
+          description: ECU Hardware ID
+          maxLength: 100
+        ecu_software_version:
+          type: string
+          maxLength: 100
+        modifications:
+          description: List of installed mods
+        photo_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        public_visibility:
+          type: boolean
+          description: Visible to other users?
+        user:
+          type: integer
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - make
+      - model
+      - name
+      - updated_at
+      - user
+      - year
+    VehicleDefinition:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        vehicle_type:
+          $ref: '#/components/schemas/VehicleTypeEnum'
+        make:
+          type: string
+          maxLength: 100
+        model:
+          type: string
+          maxLength: 100
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        stock_hp:
+          type: number
+          format: double
+        stock_torque:
+          type: number
+          format: double
+      required:
+      - created_at
+      - id
+      - make
+      - model
+      - updated_at
+      - year
+    VehicleTypeEnum:
+      enum:
+      - BIKE
+      - CAR
+      type: string
+      description: |-
+        * `BIKE` - Motorcycle
+        * `CAR` - Car
+    VerificationLevelEnum:
+      enum:
+      - COMMUNITY
+      - VERIFIED
+      - PRO
+      - MASTER
+      type: string
+      description: |-
+        * `COMMUNITY` - Community Tuner
+        * `VERIFIED` - Verified Tuner
+        * `PRO` - Pro Tuner
+        * `MASTER` - Master Tuner
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

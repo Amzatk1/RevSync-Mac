@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      This file is a placeholder for the Core Data model.
+      Use Xcode's model editor to define entities and attributes.
+    -->
+    <key>entities</key>
+    <array/>
+</dict>
+</plist>

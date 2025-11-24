@@ -1,0 +1,9 @@
+/* Localizable strings for RevSync */
+"login_title" = "Sign In";
+"dashboard_title" = "Dashboard";
+"garage_title" = "Garage";
+"marketplace_title" = "Marketplace";
+"installed_title" = "Installed Tunes";
+"community_title" = "Community";
+"creator_title" = "Creator Hub";
+"settings_title" = "Settings";
