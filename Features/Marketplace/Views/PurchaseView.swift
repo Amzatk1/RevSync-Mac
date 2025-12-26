@@ -6,11 +6,11 @@
 //
 
 import SwiftUI
+import Combine
 
 struct PurchaseView: View {
     let tune: TuneModel
     @Binding var isPresented: Bool
-    @Binding var isPresented: Bool // This binding is still used for the sheet dismissal in the mock
     var onPurchaseComplete: () -> Void
     
     @Environment(\.dismiss) var dismiss
@@ -20,8 +20,7 @@ struct PurchaseView: View {
     @State private var paymentError: String?
     
     // Dependencies
-    private let paymentService = PaymentService.shared
-    private let purchaseService = PurchaseService.shared
+    private let service = MarketplaceService.shared
     @State private var cancellables = Set<AnyCancellable>()
     
     var body: some View {
@@ -43,8 +42,6 @@ struct PurchaseView: View {
                     .foregroundStyle(.red)
                     .font(.caption)
                     .multilineTextAlignment(.center)
-            }
-            
             }
             
             Button(action: processPurchase) {
@@ -72,14 +69,14 @@ struct PurchaseView: View {
     
     private func processPurchase() {
         isProcessing = true
-        errorMessage = nil
+        paymentError = nil
         
         service.purchaseTune(tuneId: tune.id)
             .receive(on: DispatchQueue.main)
             .sink { completion in
                 isProcessing = false
                 if case let .failure(error) = completion {
-                    errorMessage = error.localizedDescription
+                    paymentError = error.localizedDescription
                 }
             } receiveValue: { _ in
                 isPresented = false

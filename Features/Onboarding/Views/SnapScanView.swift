@@ -116,7 +116,6 @@ struct SnapScanView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 80))
                         .foregroundStyle(.green)
-                        .symbolEffect(.bounce)
                     
                     Text("Vehicle Identified")
                         .font(.title.bold())
@@ -161,31 +160,38 @@ struct SnapScanView: View {
         isScanning = true
         scanText = "Analyzing Geometry..."
         
-        // Simulate Multi-step Analysis
-        // Step 1: Geometry
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            scanStep = 1
-            scanText = "Detecting Make & Model..."
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s
+            await MainActor.run {
+                scanStep = 1
+                scanText = "Detecting Make & Model..."
+            }
             
-            // Step 2: Identification
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run {
                 scanStep = 2
                 scanText = "Verifying VIN..."
-                
-                // Step 3: Complete
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation {
-                        showResult = true
-                        detectedVehicle = VehicleModel(
-                            name: "Detected R1",
-                            make: "Yamaha",
-                            model: "YZF-R1",
-                            year: 2024,
-                            vehicleType: .bike,
-                            ecuType: .denso,
-                            modifications: ["Stock Exhaust"]
-                        )
-                    }
+            }
+            
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run {
+                withAnimation {
+                    showResult = true
+                    detectedVehicle = VehicleModel(
+                        id: 0,
+                        name: "Detected R1",
+                        make: "Yamaha",
+                        model: "YZF-R1",
+                        year: 2024,
+                        vehicleType: .bike,
+                        vin: "VN123456789",
+                        ecuId: "DENSO-GEN2",
+                        ecuSoftwareVersion: "1.0",
+                        modifications: ["Stock Exhaust"],
+                        photoUrl: nil,
+                        publicVisibility: true,
+                        ecuType: "OBDII"
+                    )
                 }
             }
         }

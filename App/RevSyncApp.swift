@@ -8,9 +8,9 @@ import Combine
 /// Simple service container to inject shared services via Environment.
 final class AppServices: ObservableObject {
     let api = APIClient.shared
-    let auth = AuthManager()
+    let auth = AuthManager.shared
     let garage = GarageService()
-    let marketplace = MarketplaceService()
+    let marketplace = MarketplaceService.shared
     let toast = ToastManager()
 }
 
@@ -59,15 +59,17 @@ struct RevSyncApp: App {
                     }
 
                     // Sync AuthManager state to AppState
-                    services.auth.$accessToken
-                        .receive(on: DispatchQueue.main)
-                        .assign(to: &$appState.authToken)
-                    
-                    services.auth.currentUserPublisher
-                        .receive(on: DispatchQueue.main)
-                        .assign(to: &$appState.currentUser)
+                    if !services.auth.accessToken.isEmpty {
+                        SyncService.shared.syncAll()
+                    }
                 }
-                .onChange(of: appState.authToken) { newToken in
+                .onReceive(services.auth.$accessToken) { token in
+                    appState.authToken = token
+                }
+                .onReceive(services.auth.currentUserPublisher) { user in
+                    appState.currentUser = user
+                }
+                .onChange(of: appState.authToken) { _, newToken in
                     storedAuthToken = newToken
                 }
         }

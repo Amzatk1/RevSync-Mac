@@ -6,7 +6,7 @@ import Foundation
 import Combine
 
 /// Provides marketplace operations: list tunes, fetch details, and purchase.
-final class MarketplaceService {
+class MarketplaceService {
     private let api = APIClient.shared
 
     // MARK: - Requests
@@ -34,12 +34,46 @@ final class MarketplaceService {
         var body: Data? { jsonBody(Body(tune_id: tuneId)) }
     }
 
-final class MarketplaceService: MarketplaceServiceProtocol {
-    private let api: APIClient
-
-    init(api: APIClient = .shared) {
-        self.api = api
+    private struct CreateTuneRequest: APIRequest {
+        typealias Response = TuneModel
+        let bodyData: Data?
+        var path: String { "/marketplace/tunes/" }
+        var method: HTTPMethod { .POST }
+        var body: Data? { bodyData }
     }
+    
+    // MARK: - Social Requests
+    private struct GetCommentsRequest: APIRequest {
+        typealias Response = [CommentModel]
+        let tuneId: Int
+        var path: String { "/marketplace/tunes/\(tuneId)/comments/" }
+        var method: HTTPMethod { .GET }
+    }
+    
+    private struct PostCommentRequest: APIRequest {
+        typealias Response = CommentModel
+        let tuneId: Int
+        let payload: PostCommentPayload
+        var path: String { "/marketplace/tunes/\(tuneId)/comments/" }
+        var method: HTTPMethod { .POST }
+        var body: Data? { jsonBody(payload) }
+    }
+    
+    private struct ToggleLikeRequest: APIRequest {
+        struct Response: Decodable { let status: String } // "liked" or "unliked"
+        let tuneId: Int
+        var path: String { "/marketplace/tunes/\(tuneId)/like/" }
+        var method: HTTPMethod { .POST }
+    }
+    
+    struct PostCommentPayload: Encodable {
+        let content: String
+    }
+
+    // Singleton for easy access
+    static let shared = MarketplaceService()
+
+    init() {}
 
     // MARK: - Tune Browsing
     /// Lists tunes with rich filters.
@@ -68,6 +102,26 @@ final class MarketplaceService: MarketplaceServiceProtocol {
     /// Initiates a purchase for a given tune.
     func purchaseTune(tuneId: Int) -> AnyPublisher<TransactionModel, Error> {
         api.send(PurchaseRequest(tuneId: tuneId)).eraseToAnyPublisher()
+    }
+    
+    /// Creates a new tune listing.
+    func createTune(name: String, description: String, price: Double, vehicleMake: String, vehicleModel: String, yearStart: Int, yearEnd: Int) -> AnyPublisher<TuneModel, Error> {
+        let payload: [String: Any] = [
+            "name": name,
+            "description": description,
+            "price": price,
+            "vehicle_make": vehicleMake,
+            "vehicle_model": vehicleModel,
+            "vehicle_year_start": yearStart,
+            "vehicle_year_end": yearEnd,
+            "stage": 1 // Default to stage 1 for now
+        ]
+        
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
+            return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+        }
+        
+        return api.send(CreateTuneRequest(bodyData: bodyData)).eraseToAnyPublisher()
     }
 
     // MARK: - Social

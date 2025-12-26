@@ -8,6 +8,8 @@
 import SwiftUI
 
 // MARK: - Welcome Step
+/*
+// MARK: - Welcome Step
 struct WelcomeStepView: View {
     var body: some View {
         VStack(spacing: 24) {
@@ -223,6 +225,7 @@ struct GoalCard: View {
         .animation(.spring(response: 0.3), value: isSelected)
     }
 }
+*/
 
 // MARK: - Completion Step
 struct CompletionStepView: View {

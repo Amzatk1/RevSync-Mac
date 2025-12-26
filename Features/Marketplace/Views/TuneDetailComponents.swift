@@ -18,7 +18,7 @@ struct TuneHeaderView: View {
     @State private var isLiked = false
     @State private var likeCount = 0
     @State private var cancellables = Set<AnyCancellable>()
-    private let service = MarketplaceService()
+    private let service = MarketplaceService.shared
     
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -290,7 +290,7 @@ struct TuneSpecsList: View {
 }
 
 // MARK: - Safety Report
-struct TuneSafetyReport: View {
+struct TuneSafetyReportView: View {
     let report: SafetyReport
     
     var body: some View {

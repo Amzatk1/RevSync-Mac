@@ -3,6 +3,7 @@
 //
 
 import Foundation
+import CoreData
 
 /// A performance tune authored by a creator.
 /// A performance tune authored by a creator.
@@ -14,6 +15,7 @@ struct TuneModel: Identifiable, Codable {
     var vehicleModel: String
     var vehicleYearStart: Int
     var vehicleYearEnd: Int
+    var ecuCompatibility: [String]
     var stage: Int
     var horsepowerGain: Double?
     var torqueGain: Double?
@@ -36,6 +38,7 @@ struct TuneModel: Identifiable, Codable {
         case vehicleModel = "vehicle_model"
         case vehicleYearStart = "vehicle_year_start"
         case vehicleYearEnd = "vehicle_year_end"
+        case ecuCompatibility = "ecu_compatibility"
         case horsepowerGain = "horsepower_gain"
         case torqueGain = "torque_gain"
         case dynoChartUrl = "dyno_chart_url"
@@ -60,5 +63,43 @@ struct TuneModel: Identifiable, Codable {
         }
     }
     // MARK: - Core Data Bridging
-    // Placeholder for Core Data integration properties and methods.
+    
+    func toCoreData(context: NSManagedObjectContext) {
+        let entity = TuneEntity(context: context)
+        // casting ID to UUID (fake) or just not storing it properly if schema mismatch.
+        // Assuming we update schema later. For now, we just populate other fields.
+        entity.name = name
+        entity.desc = description // "desc" in schema
+        entity.price = price
+        entity.horsepowerGain = horsepowerGain ?? 0.0
+        entity.torqueGain = torqueGain ?? 0.0
+        entity.stage = Int16(stage)
+        entity.safetyRating = Double(safetyRating)
+        entity.ecuCompatibility = ecuCompatibility.joined(separator: ",")
+        entity.dynoChartUrl = dynoChartUrl
+        // Missing fields in schema: vehicleMake, vehicleModel, fileUrl, etc.
+    }
+
+    static func fromCoreData(_ entity: TuneEntity) -> TuneModel {
+        return TuneModel(
+            id: 0, // Placeholder
+            name: entity.name ?? "",
+            description: entity.desc ?? "",
+            vehicleMake: "Unknown", // Schema missing make
+            vehicleModel: "Unknown", // Schema missing model
+            vehicleYearStart: 0,
+            vehicleYearEnd: 0,
+            ecuCompatibility: (entity.ecuCompatibility ?? "").components(separatedBy: ","),
+            stage: Int(entity.stage),
+            horsepowerGain: entity.horsepowerGain,
+            torqueGain: entity.torqueGain,
+            dynoChartUrl: entity.dynoChartUrl,
+            fileUrl: "",
+            fileSizeKb: 0,
+            price: entity.price,
+            isActive: true,
+            safetyRating: Int(entity.safetyRating),
+            creator: nil
+        )
+    }
 }

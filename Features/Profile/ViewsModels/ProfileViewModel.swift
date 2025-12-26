@@ -23,6 +23,7 @@ final class ProfileViewModel: ObservableObject {
 
     // MARK: - Dependencies
     private let service: ProfileService
+    private let garageService = GarageService()
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Context
@@ -58,13 +59,26 @@ final class ProfileViewModel: ObservableObject {
             } receiveValue: { [weak self] user in
                 guard let self = self else { return }
                 self.user = user
-                // Placeholder: Backend doesn't return vehicles/stats yet
-                self.vehicles = [] 
                 self.followersCount = 0
                 self.followingCount = 0
+                self.isFollowing = false
                 
-                // Check if following (Mock logic until backend returns this state)
-                self.isFollowing = false 
+                // If current user, fetch their garage
+                if self.isCurrentUser {
+                    self.fetchGarage()
+                } else {
+                    // TODO: Fetch public garage for other users
+                    self.vehicles = []
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func fetchGarage() {
+        garageService.list(page: 1)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in } receiveValue: { [weak self] page in
+                self?.vehicles = page.results
             }
             .store(in: &cancellables)
     }

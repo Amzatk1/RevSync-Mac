@@ -8,89 +8,184 @@
 import SwiftUI
 
 struct MarketplaceView: View {
+    @StateObject private var viewModel = MarketplaceViewModel()
     @State private var selectedCategory: String = "All"
     @State private var showFilters: Bool = false
+    @State private var selectedTune: TuneModel?
+    @State private var searchText: String = ""
+    
+    // Filter State
+    @State private var minPrice: Double = 0
+    @State private var maxPrice: Double = 1000
+    @State private var selectedStage: Int = 0 // 0 = All
+    @State private var showVerifiedOnly: Bool = false
+    
+    // MARK: - Filter Logic
+    private var isFiltering: Bool {
+        !searchText.isEmpty || selectedStage != 0 || showVerifiedOnly || minPrice > 0 || maxPrice < 1000 || selectedCategory != "All"
+    }
+    
+    private var filteredTunes: [TuneModel] {
+        let all = (viewModel.featuredTunes + viewModel.trendingTunes)
+        // Deduplicate
+        var unique = [Int: TuneModel]()
+        for tune in all { unique[tune.id] = tune }
+        let tunes = Array(unique.values)
+        
+        return tunes.filter { tune in
+            // Search
+            if !searchText.isEmpty {
+                let text = searchText.lowercased()
+                if !tune.name.lowercased().contains(text) &&
+                   !tune.vehicleMake.lowercased().contains(text) &&
+                   !tune.vehicleModel.lowercased().contains(text) {
+                    return false
+                }
+            }
+            
+            // Stage
+            // Check both picker and category pill
+            let targetStage = selectedStage
+            if targetStage > 0 && tune.stage != targetStage { return false }
+            
+            // Category Pill (simple mapping)
+            if selectedCategory == "Stage 1" && tune.stage != 1 { return false }
+            if selectedCategory == "Stage 2" && tune.stage != 2 { return false }
+            // "Track", "Eco" not mapped yet, assuming ignored or mapped to tags later
+            
+            // Price
+            if tune.price < minPrice || tune.price > maxPrice { return false }
+            
+            // Verified
+            if showVerifiedOnly && tune.safetyRating < 8 { return false } // Assuming >8 is verified safe
+            
+            return true
+        }
+        .sorted { $0.name < $1.name }
+    }    
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Filter Bar
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        Button(action: { showFilters.toggle() }) {
-                            HStack {
-                                Image(systemName: "slider.horizontal.3")
-                                Text("Filters")
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(20)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        CategoryPill(title: "All", icon: "square.grid.2x2.fill", color: .primary, isSelected: selectedCategory == "All") { selectedCategory = "All" }
-                        CategoryPill(title: "Stage 1", icon: "1.circle.fill", color: .blue, isSelected: selectedCategory == "Stage 1") { selectedCategory = "Stage 1" }
-                        CategoryPill(title: "Stage 2", icon: "2.circle.fill", color: .purple, isSelected: selectedCategory == "Stage 2") { selectedCategory = "Stage 2" }
-                        CategoryPill(title: "Track", icon: "flag.checkered", color: .orange, isSelected: selectedCategory == "Track") { selectedCategory = "Track" }
-                        CategoryPill(title: "Eco", icon: "leaf.fill", color: .green, isSelected: selectedCategory == "Eco") { selectedCategory = "Eco" }
-                    }
-                    .padding()
-                }
-                .background(.ultraThinMaterial)
+            ZStack {
+                // Background Gradient
+                LinearGradient(
+                    colors: [.revSyncBlack, .revSyncDarkGray],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
                 
-                ScrollView {
-                    if viewModel.isLoading {
-                        ProgressView("Loading Marketplace...")
-                            .padding(.top, 50)
-                    } else {
-                        VStack(spacing: 32) {
-                            // Featured Carousel
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Featured")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .padding(.horizontal)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 16) {
-                                        ForEach(viewModel.featuredTunes) { tune in
-                                            FeaturedTuneCard(tune: tune)
-                                                .onTapGesture {
-                                                    selectedTune = tune
-                                                }
-                                        }
-                                    }
-                                    .padding(.horizontal)
+                VStack(spacing: 0) {
+                    // Filter Bar
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            Button(action: { showFilters.toggle() }) {
+                                HStack {
+                                    Image(systemName: "slider.horizontal.3")
+                                    Text("Filters")
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .glass(cornerRadius: 20)
                             }
-                            .padding(.top)
-                        
-                        // Trending Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Trending Now")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                Spacer()
-                                Button("See All") { }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(.blue)
-                            }
-                            .padding(.horizontal)
+                            .buttonStyle(.plain)
                             
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
-                                ForEach(viewModel.trendingTunes) { tune in
-                                    TuneCard(tune: tune)
-                                        .onTapGesture {
-                                            selectedTune = tune
-                                        }
-                                }
+                            CategoryPill(title: "All", icon: "square.grid.2x2.fill", color: .white, isSelected: selectedCategory == "All") {
+                                selectedCategory = "All"; selectedStage = 0
                             }
-                            .padding(.horizontal)
+                            CategoryPill(title: "Stage 1", icon: "1.circle.fill", color: .revSyncNeonBlue, isSelected: selectedCategory == "Stage 1") {
+                                selectedCategory = "Stage 1"; selectedStage = 1
+                            }
+                            CategoryPill(title: "Stage 2", icon: "2.circle.fill", color: .revSyncNeonPurple, isSelected: selectedCategory == "Stage 2") {
+                                selectedCategory = "Stage 2"; selectedStage = 2
+                            }
+                            CategoryPill(title: "Track", icon: "flag.checkered", color: .revSyncWarning, isSelected: selectedCategory == "Track") {
+                                selectedCategory = "Track"
+                            }
+                            CategoryPill(title: "Eco", icon: "leaf.fill", color: .revSyncNeonGreen, isSelected: selectedCategory == "Eco") {
+                                selectedCategory = "Eco"
+                            }
                         }
+                        .padding()
                     }
-                    .padding(.bottom, 40)
+                    .background(.ultraThinMaterial)
+                    
+                    ScrollView {
+                        if viewModel.isLoading {
+                            ProgressView("Loading Marketplace...")
+                                .padding(.top, 50)
+                        } else if isFiltering {
+                             // Filter Results View
+                             VStack(alignment: .leading, spacing: 16) {
+                                 Text("Results (\(filteredTunes.count))")
+                                     .font(.title2)
+                                     .fontWeight(.bold)
+                                     .padding(.horizontal)
+                                 
+                                 if filteredTunes.isEmpty {
+                                     ContentUnavailableView("No tunes found", systemImage: "magnifyingglass", description: Text("Try adjusting filters"))
+                                 } else {
+                                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
+                                         ForEach(filteredTunes) { tune in
+                                             TuneCard(tune: tune)
+                                                 .onTapGesture {
+                                                     selectedTune = tune
+                                                 }
+                                         }
+                                     }
+                                     .padding(.horizontal)
+                                 }
+                             }
+                             .padding(.vertical)
+                        } else {
+                            VStack(spacing: 32) {
+                                // Featured Carousel
+                                VStack(alignment: .leading, spacing: 16) {
+                                    Text("Featured")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .padding(.horizontal)
+                                    
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 16) {
+                                            ForEach(viewModel.featuredTunes) { tune in
+                                                FeaturedTuneCard(tune: tune)
+                                                    .onTapGesture {
+                                                        selectedTune = tune
+                                                    }
+                                            }
+                                        }
+                                        .padding(.horizontal)
+                                    }
+                                }
+                                .padding(.top)
+                            
+                            // Trending Section
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Text("Trending Now")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                    Spacer()
+                                    Button("See All") { }
+                                        .buttonStyle(.plain)
+                                        .foregroundStyle(Color.revSyncNeonBlue)
+                                }
+                                .padding(.horizontal)
+                                
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
+                                    ForEach(viewModel.trendingTunes) { tune in
+                                        TuneCard(tune: tune)
+                                            .onTapGesture {
+                                                selectedTune = tune
+                                            }
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                        }
+                        .padding(.bottom, 40)
+                    }
                 }
             }
             }
@@ -100,8 +195,14 @@ struct MarketplaceView: View {
                 TuneDetailView(tune: tune)
             }
             .sheet(isPresented: $showFilters) {
-                Text("Advanced Filters (Mock)")
-                    .presentationDetents([.medium])
+                MarketFilterSheet(
+                    isPresented: $showFilters,
+                    minPrice: $minPrice,
+                    maxPrice: $maxPrice,
+                    selectedStage: $selectedStage,
+                    showVerifiedOnly: $showVerifiedOnly
+                )
+                .presentationDetents([.medium, .large])
             }
             .onReceive(NotificationCenter.default.publisher(for: .RevSyncDidSubmitGlobalSearch)) { note in
                 if let query = note.userInfo?["query"] as? String {
@@ -118,11 +219,11 @@ struct FeaturedTuneCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [.revSyncNeonBlue, .revSyncNeonPurple], startPoint: .topLeading, endPoint: .bottomTrailing)
                     .frame(height: 160)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Badge(text: "FEATURED", color: .yellow)
+                    Badge(text: "FEATURED", color: .revSyncWarning)
                     Text(tune.name)
                         .font(.title2)
                         .fontWeight(.bold)
@@ -132,26 +233,27 @@ struct FeaturedTuneCard: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("+\(String(format: "%.1f", tune.horsepowerGain)) HP  •  +\(String(format: "%.1f", tune.torqueGain)) Nm")
+                Text("+\(String(format: "%.1f", tune.horsepowerGain ?? 0)) HP  •  +\(String(format: "%.1f", tune.torqueGain ?? 0)) Nm")
                     .font(.headline)
                 
                 HStack {
                     Image(systemName: "star.fill")
-                        .foregroundStyle(.yellow)
-                    Text(String(format: "%.1f", tune.rating))
+                        .foregroundStyle(Color.revSyncWarning)
+                    Text("\(tune.safetyRating)/10")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text("$\(String(format: "%.2f", tune.price))")
                         .fontWeight(.bold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.revSyncNeonBlue)
                 }
             }
             .padding()
-            .background(Color.gray.opacity(0.1))
+            .background(.thinMaterial)
         }
         .frame(width: 300)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
     }
 }
 
@@ -190,7 +292,7 @@ struct TuneCard: View {
                 Text(tune.name)
                     .font(.headline)
                 
-                Text("Stage \(tune.stage) • +\(String(format: "%.0f", tune.horsepowerGain)) HP")
+                Text("Stage \(tune.stage) • +\(String(format: "%.0f", tune.horsepowerGain ?? 0)) HP")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 
@@ -215,16 +317,14 @@ struct TuneCard: View {
                     Image(systemName: "star.fill")
                         .font(.caption)
                         .foregroundStyle(.yellow)
-                    Text(String(format: "%.1f", tune.rating))
+                    Text("\(tune.safetyRating)/10")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .glass(cornerRadius: 16)
         .onHover { hovering in
             // Hover effect handled by .hoverEffect in newer SwiftUI, or custom state
         }
@@ -249,12 +349,14 @@ struct CategoryPill: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(isSelected ? color : Color.gray.opacity(0.1))
-            .cornerRadius(20)
+            .background(.ultraThinMaterial)
+            .background(isSelected ? color.opacity(0.2) : Color.clear)
+            .glass(cornerRadius: 20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(color.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? color : .clear, lineWidth: 1)
             )
+            .shadow(color: isSelected ? color.opacity(0.4) : .clear, radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }

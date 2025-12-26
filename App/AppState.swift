@@ -11,6 +11,8 @@ final class AppState: ObservableObject {
     @Published var authToken: String = ""
     /// The currently logged-in user model, if available.
     @Published var currentUser: UserModel? = nil
+    /// The currently active vehicle (e.g. selected in Garage).
+    @Published var currentVehicle: VehicleModel? = nil
     /// Derived auth flag to simplify view logic.
     var isAuthenticated: Bool { !authToken.isEmpty && currentUser != nil }
 

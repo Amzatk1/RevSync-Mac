@@ -12,12 +12,24 @@ struct LiveMonitorView: View {
     @StateObject private var service = LiveMonitorService()
     @Environment(\.dismiss) var dismiss
     
+    // Connection State
+    @State private var connectionState: ConnectionState = .disconnected
+    
+    enum ConnectionState {
+        case disconnected, connecting, connected
+    }
+    
     var body: some View {
         VStack(spacing: 30) {
             // Header
             HStack {
                 Text("Live Telemetry")
                     .font(.title.bold())
+                
+                if connectionState == .connected {
+                    Badge(text: "DEMO MODE", color: .orange)
+                }
+                
                 Spacer()
                 Button("Stop") {
                     service.stopMonitoring()
@@ -58,12 +70,33 @@ struct LiveMonitorView: View {
             }
             
             Spacer()
+            
+            if connectionState == .connecting {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Connecting to ECU...")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.ultraThinMaterial)
+            }
         }
         .onAppear {
-            service.startMonitoring()
+            connect()
         }
         .onDisappear {
             service.stopMonitoring()
+        }
+    }
+    
+    private func connect() {
+        connectionState = .connecting
+        // Simulate connection delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            connectionState = .connected
+            service.startMonitoring()
         }
     }
 }

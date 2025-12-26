@@ -26,7 +26,7 @@ struct FlashView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 80))
                         .foregroundStyle(.green)
-                        .symbolEffect(.bounce)
+                        .symbolEffect(.bounce, value: viewModel.isComplete)
                     
                     Text("Tune Installed Successfully!")
                         .font(.title.bold())

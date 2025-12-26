@@ -28,6 +28,7 @@ final class OnboardingViewModel: ObservableObject {
     @Published var selectedModel: String = "R1"
     @Published var mileage: String = ""
     @Published var selectedMods: Set<String> = []
+    @Published var selectedECU: ECUType = .obdII
     
     // Rider Profile
     @Published var skillLevel: SkillLevel = .intermediate

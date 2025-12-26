@@ -17,10 +17,10 @@ final class GarageViewModel: ObservableObject {
     @Published var isShowingScanner: Bool = false
 
     // MARK: - Dependencies
-    private let service: GarageService
+    public let garageService: GarageService
     private let persistence: PersistenceController
     private var toast: ToastManager?
-    private var cancellables = Set<AnyCancellable>()
+    var cancellables = Set<AnyCancellable>()
 
     // Pagination (if backend supports page numbers)
     private var nextPage: Int? = 1
@@ -31,7 +31,7 @@ final class GarageViewModel: ObservableObject {
 
     // MARK: - Init
     init(service: GarageService = GarageService(), persistence: PersistenceController = .shared, toast: ToastManager? = nil) {
-        self.service = service
+        self.garageService = service
         self.persistence = persistence
         self.toast = toast
         // Load cached data immediately
@@ -48,7 +48,7 @@ final class GarageViewModel: ObservableObject {
         errorMessage = nil
         lastVehicleType = vehicleType
 
-        service.list(vehicleType: vehicleType, page: nextPage)
+        garageService.list(vehicleType: vehicleType, page: nextPage)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 guard let self = self else { return }
@@ -69,7 +69,7 @@ final class GarageViewModel: ObservableObject {
                 // Update in-memory list from Core Data to ensure consistency
                 self.loadFromCoreData()
                 
-                if let count = page.count, !page.results.isEmpty {
+                if let _ = page.count, !page.results.isEmpty {
                     if let currentPage = self.nextPage { self.nextPage = currentPage + 1 }
                 } else if page.results.isEmpty {
                     self.nextPage = nil
@@ -89,7 +89,7 @@ final class GarageViewModel: ObservableObject {
     private func fetchNextPage() {
         guard !isFetchingMore, let page = nextPage else { return }
         isFetchingMore = true
-        service.list(vehicleType: lastVehicleType, page: page)
+        garageService.list(vehicleType: lastVehicleType, page: page)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 guard let self = self else { return }
@@ -120,7 +120,7 @@ final class GarageViewModel: ObservableObject {
             vehicle.toCoreData(context: context)
         }
 
-        service.create(vehicle)
+        garageService.create(vehicle)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 guard let self = self else { return }
@@ -168,7 +168,7 @@ final class GarageViewModel: ObservableObject {
             updated.toCoreData(context: context)
         }
 
-        service.update(id: id, vehicle: updated)
+        garageService.update(id: id, vehicle: updated)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 guard let self = self else { return }
@@ -210,7 +210,7 @@ final class GarageViewModel: ObservableObject {
             }
         }
 
-        service.delete(id: id)
+        garageService.delete(id: id)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 guard let self = self else { return }
@@ -257,7 +257,7 @@ final class GarageViewModel: ObservableObject {
                 // Better approach: Upsert based on ID.
                 let fetchRequest: NSFetchRequest<NSFetchRequestResult> = VehicleEntity.fetchRequest()
                 let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-                try? context.execute(deleteRequest)
+                _ = try? context.execute(deleteRequest)
             }
             
             for vehicle in vehicles {

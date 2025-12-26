@@ -111,7 +111,7 @@ enum Endpoint {
 
         // Garage (Vehicles)
         case .vehicles(let vehicleType):
-            var base = "/api/v1/garage/vehicles"
+            let base = "/api/v1/garage/vehicles"
             if let type = vehicleType {
                 return base + "?vehicleType=\(type)"
             }

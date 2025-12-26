@@ -99,8 +99,7 @@ final class RegisterViewModel: ObservableObject {
                 return "We couldn't read the server response. Please try again."
             case .networkError:
                 return "Network error. Check your connection and try again."
-            case .networkError:
-                return "Network error. Check your connection and try again."
+
             case .unauthorized:
                 return "Session expired. Please log in again."
             case .unknownError:

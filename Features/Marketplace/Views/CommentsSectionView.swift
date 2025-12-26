@@ -66,7 +66,7 @@ struct CommentRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // Avatar
-            AsyncImage(url: URL(string: comment.user_photo ?? "")) { image in
+            AsyncImage(url: URL(string: comment.user.avatarUrl ?? "")) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Circle().fill(Color.gray.opacity(0.3))
@@ -76,10 +76,10 @@ struct CommentRow: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(comment.username)
+                    Text(comment.user.username)
                         .font(.subheadline.bold())
                     Spacer()
-                    Text(formatDate(comment.created_at))
+                    Text(formatDate(comment.createdAt))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -104,16 +104,16 @@ class CommentsViewModel: ObservableObject {
     @Published var isPosting = false
     @Published var newCommentText = ""
     
-    private let service = MarketplaceService()
+    private let service = MarketplaceService.shared
     private var cancellables = Set<AnyCancellable>()
     
     func loadComments(tuneId: Int) {
         isLoading = true
         service.getComments(tuneId: tuneId)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] completion in
+            .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 self?.isLoading = false
-            } receiveValue: { [weak self] comments in
+            } receiveValue: { [weak self] (comments: [CommentModel]) in
                 self?.comments = comments
             }
             .store(in: &cancellables)
@@ -125,9 +125,9 @@ class CommentsViewModel: ObservableObject {
         
         service.postComment(tuneId: tuneId, content: newCommentText)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] completion in
+            .sink { [weak self] (completion: Subscribers.Completion<Error>) in
                 self?.isPosting = false
-            } receiveValue: { [weak self] newComment in
+            } receiveValue: { [weak self] (newComment: CommentModel) in
                 self?.comments.insert(newComment, at: 0)
                 self?.newCommentText = ""
             }

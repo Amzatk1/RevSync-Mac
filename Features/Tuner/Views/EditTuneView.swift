@@ -8,60 +8,56 @@
 import SwiftUI
 
 struct EditTuneView: View {
-    let tune: TuneModel? // Nil for create
-    
-    @State private var name = ""
-    @State private var description = ""
-    @State private var price = ""
-    @State private var make = ""
-    @State private var model = ""
-    @State private var yearStart = ""
-    @State private var yearEnd = ""
-    
+    @StateObject private var viewModel: EditTuneViewModel
     @Environment(\.dismiss) var dismiss
+    
+    init(tune: TuneModel?) {
+        _viewModel = StateObject(wrappedValue: EditTuneViewModel(tune: tune))
+    }
     
     var body: some View {
         Form {
             Section("Details") {
-                TextField("Tune Name", text: $name)
-                TextField("Description", text: $description, axis: .vertical)
-                TextField("Price ($)", text: $price)
+                TextField("Tune Name", text: $viewModel.name)
+                TextField("Description", text: $viewModel.description, axis: .vertical)
+                TextField("Price ($)", text: $viewModel.price)
+                #if os(iOS)
                     .keyboardType(.decimalPad)
+                #endif
             }
             
             Section("Compatibility") {
-                TextField("Make (e.g. Yamaha)", text: $make)
-                TextField("Model (e.g. R1)", text: $model)
+                TextField("Make (e.g. Yamaha)", text: $viewModel.make)
+                TextField("Model (e.g. R1)", text: $viewModel.model)
                 HStack {
-                    TextField("Start Year", text: $yearStart)
-                    TextField("End Year", text: $yearEnd)
+                    TextField("Start Year", text: $viewModel.yearStart)
+                    TextField("End Year", text: $viewModel.yearEnd)
                 }
+                #if os(iOS)
                 .keyboardType(.numberPad)
+                #endif
+            }
+            
+            if let error = viewModel.errorMessage {
+                Section {
+                    Text(error)
+                        .foregroundStyle(.red)
+                }
             }
             
             Section {
-                Button(tune == nil ? "Create Tune" : "Save Changes") {
-                    save()
+                Button(viewModel.tune == nil ? "Create Tune" : "Save Changes") {
+                    viewModel.save()
                 }
-                .disabled(name.isEmpty || price.isEmpty)
+                .disabled(viewModel.name.isEmpty || viewModel.price.isEmpty || viewModel.isLoading)
             }
         }
-        .navigationTitle(tune == nil ? "New Tune" : "Edit Tune")
-        .onAppear {
-            if let tune = tune {
-                name = tune.name
-                description = tune.description
-                price = String(tune.price)
-                make = tune.vehicleMake
-                model = tune.vehicleModel
-                yearStart = String(tune.vehicleYearStart)
-                yearEnd = String(tune.vehicleYearEnd)
+        .navigationTitle(viewModel.tune == nil ? "New Tune" : "Edit Tune")
+        .onChange(of: viewModel.shouldDismiss) { _, shouldDismiss in
+            if shouldDismiss {
+                dismiss()
             }
         }
-    }
-    
-    private func save() {
-        // Implement save logic via Service
-        dismiss()
     }
 }
+

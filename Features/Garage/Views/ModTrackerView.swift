@@ -8,7 +8,9 @@
 import SwiftUI
 
 struct ModTrackerView: View {
-    @ObservedObject var vehicle: VehicleModel
+    let vehicle: VehicleModel
+    let onUpdate: (VehicleModel) -> Void
+    
     @State private var newModName: String = ""
     @State private var isAddingMod = false
     
@@ -33,8 +35,10 @@ struct ModTrackerView: View {
                     ForEach(vehicle.modifications, id: \.self) { mod in
                         ModChip(name: mod) {
                             // Remove mod action
-                            if let index = vehicle.modifications.firstIndex(of: mod) {
-                                vehicle.modifications.remove(at: index)
+                            var updated = vehicle
+                            if let index = updated.modifications.firstIndex(of: mod) {
+                                updated.modifications.remove(at: index)
+                                onUpdate(updated)
                             }
                         }
                     }
@@ -57,7 +61,9 @@ struct ModTrackerView: View {
                     Button("Cancel") { isAddingMod = false }
                     Button("Add") {
                         if !newModName.isEmpty {
-                            vehicle.modifications.append(newModName)
+                            var updated = vehicle
+                            updated.modifications.append(newModName)
+                            onUpdate(updated)
                             newModName = ""
                             isAddingMod = false
                         }

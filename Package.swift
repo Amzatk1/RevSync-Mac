@@ -18,12 +18,20 @@ let package = Package(
             path: ".",
             exclude: [
                 "RevSyncModel.xcdatamodeld", // Exclude Core Data for now if it causes issues, or handle as resource
-                "Resources/VehicleDatabase.json" // Handle as resource
+                "Resources/VehicleDatabase.json", // Handle as resource
+                "Tests", // Exclude Tests directory
+                "backend", // Exclude backend
+                "mobile" // Exclude mobile
             ],
             resources: [
                 .process("Resources/VehicleDatabase.json"),
                 .process("RevSyncModel.xcdatamodeld")
             ]
+        ),
+        .testTarget(
+            name: "RevSyncAppTests",
+            dependencies: ["RevSyncApp"],
+            path: "Tests/RevSyncAppTests"
         )
     ]
 )

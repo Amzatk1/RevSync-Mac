@@ -85,7 +85,7 @@ final class TunerDashboardViewModel: ObservableObject {
             } receiveValue: { [weak self] tunes in
                 // Filter for current user's tunes (Mock logic until backend endpoint exists)
                 // In reality, backend should filter.
-                self?.tunes = tunes 
+                self?.tunes = tunes.results 
             }
             .store(in: &cancellables)
     }

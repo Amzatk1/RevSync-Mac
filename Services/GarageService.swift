@@ -12,14 +12,19 @@ final class GarageService {
     // MARK: - Requests
     private struct VehicleListRequest: APIRequest {
         typealias Response = Paginated<VehicleModel>
+        let vehicleType: VehicleType?
         let page: Int?
         var path: String { "/garage/" }
         var method: HTTPMethod { .GET }
         var queryItems: [URLQueryItem]? {
+            var items: [URLQueryItem] = []
             if let page = page {
-                return [URLQueryItem(name: "page", value: String(page))]
+                items.append(URLQueryItem(name: "page", value: String(page)))
             }
-            return nil
+            if let type = vehicleType {
+                items.append(URLQueryItem(name: "vehicle_type", value: type.rawValue))
+            }
+            return items.isEmpty ? nil : items
         }
     }
 
@@ -55,10 +60,20 @@ final class GarageService {
         var method: HTTPMethod { .DELETE }
     }
 
+    private struct VehicleSearchRequest: APIRequest {
+        typealias Response = [VehicleDefinition]
+        let query: String
+        var path: String { "/garage/definitions/" }
+        var method: HTTPMethod { .GET }
+        var queryItems: [URLQueryItem]? {
+            [URLQueryItem(name: "search", value: query)]
+        }
+    }
+
     // MARK: - Public API
     /// Lists vehicles.
-    func list(page: Int? = nil) -> AnyPublisher<Paginated<VehicleModel>, Error> {
-        api.send(VehicleListRequest(page: page))
+    func list(vehicleType: VehicleType? = nil, page: Int? = nil) -> AnyPublisher<Paginated<VehicleModel>, Error> {
+        api.send(VehicleListRequest(vehicleType: vehicleType, page: page))
             .eraseToAnyPublisher()
     }
 
@@ -83,6 +98,12 @@ final class GarageService {
     func delete(id: Int) -> AnyPublisher<Void, Error> {
         api.send(VehicleDeleteRequest(id: id))
             .map { _ in () }
+            .eraseToAnyPublisher()
+    }
+
+    /// Searches for vehicle definitions.
+    func searchDefinitions(query: String) -> AnyPublisher<[VehicleDefinition], Error> {
+        api.send(VehicleSearchRequest(query: query))
             .eraseToAnyPublisher()
     }
 }

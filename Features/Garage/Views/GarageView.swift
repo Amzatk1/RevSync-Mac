@@ -23,7 +23,6 @@ struct GarageView: View {
     // Edit sheet toggle (reuses AddVehicleView for now)
     @State private var isEditing: Bool = false
     @State private var vehicleBeingEdited: VehicleModel?
-    @State private var vehicleBeingEdited: VehicleModel?
     @State private var selectedVehicleId: Int?
     @State private var isShowingLiveMonitor: Bool = false
 
@@ -31,13 +30,28 @@ struct GarageView: View {
         ZStack {
             // Background Gradient
             LinearGradient(
-                colors: [Color(hex: "121212"), Color(hex: "1E1E1E")],
+                colors: [.revSyncBlack, .revSyncDarkGray],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
             
             VStack(spacing: 0) {
+                // Offline Indicator
+                if viewModel.errorMessage != nil && !viewModel.vehicles.isEmpty {
+                    HStack {
+                        Image(systemName: "wifi.slash")
+                        Text("Offline Mode - Showing cached data")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal)
+                    .background(Color.revSyncWarning.opacity(0.8))
+                    .foregroundColor(.white)
+                }
+
                 // Premium Filter Bar (Minimal)
                 if !viewModel.vehicles.isEmpty {
                     filterBar
@@ -52,15 +66,17 @@ struct GarageView: View {
                 } else {
                     TabView(selection: $selectedVehicleId) {
                         ForEach(filteredVehicles) { vehicle in
-                            NavigationLink(destination: VehicleDetailView(vehicle: vehicle)) {
+                            NavigationLink(destination: VehicleDetailView(vehicle: vehicle, viewModel: viewModel)) {
                                 VehicleCard3D(vehicle: vehicle, isSelected: selectedVehicleId == vehicle.id)
                             }
                             .buttonStyle(.plain)
                             .tag(vehicle.id)
                         }
                     }
+                    #if os(iOS)
                     .tabViewStyle(.page(indexDisplayMode: .always))
                     .indexViewStyle(.page(backgroundDisplayMode: .always))
+                    #endif
                     .frame(height: 550)
                 }
                 
@@ -72,14 +88,14 @@ struct GarageView: View {
                     
                     // Scan Button
                     Button {
+                        HapticService.shared.play(.light)
                         viewModel.isShowingScanner = true
                     } label: {
                         Image(systemName: "camera.viewfinder")
                             .font(.title2)
                             .foregroundStyle(.white)
                             .padding()
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
+                            .glass(cornerRadius: 30) // Circle-ish
                             .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -93,8 +109,7 @@ struct GarageView: View {
                             .font(.title2)
                             .foregroundStyle(.white)
                             .padding()
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
+                            .glass(cornerRadius: 30)
                             .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -102,6 +117,7 @@ struct GarageView: View {
                     
                     // Add Button
                     Button {
+                        HapticService.shared.play(.medium)
                         viewModel.isShowingAddVehicle = true
                     } label: {
                         HStack {
@@ -109,12 +125,12 @@ struct GarageView: View {
                             Text("Add Vehicle")
                         }
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.revSyncBlack)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
-                        .background(Color.blue)
+                        .background(Color.revSyncNeonBlue)
                         .clipShape(Capsule())
-                        .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                        .neonGlow(color: .revSyncNeonBlue, radius: 10)
                     }
                     .keyboardShortcut("n", modifiers: [.command])
                 }
@@ -126,8 +142,11 @@ struct GarageView: View {
             viewModel.configure(toast: services.toast)
             viewModel.loadVehicles()
         }
-        .onChange(of: appState.vehicleTypeFilter) { _ in
+        .onChange(of: appState.vehicleTypeFilter) { _, _ in
             viewModel.loadVehicles()
+        }
+        .onChange(of: selectedVehicleId) { _, _ in
+            HapticService.shared.selection()
         }
         .sheet(isPresented: $viewModel.isShowingAddVehicle) {
             AddVehicleView(isPresented: $viewModel.isShowingAddVehicle, viewModel: viewModel)
@@ -135,10 +154,10 @@ struct GarageView: View {
         .sheet(isPresented: $isEditing) {
             AddVehicleView(isPresented: $isEditing, viewModel: viewModel)
         }
-        .fullScreenCover(isPresented: $viewModel.isShowingScanner) {
+        .sheet(isPresented: $viewModel.isShowingScanner) {
             SnapScanView()
         }
-        .fullScreenCover(isPresented: $isShowingLiveMonitor) {
+        .sheet(isPresented: $isShowingLiveMonitor) {
             LiveMonitorView()
         }
         .searchable(text: $searchText, placement: .toolbar)
@@ -168,27 +187,21 @@ struct GarageView: View {
             TextField("Make", text: $filterMake)
                 .textFieldStyle(PlainTextFieldStyle())
                 .padding(8)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                .glass(cornerRadius: 8)
                 .frame(maxWidth: 120)
             
             TextField("Model", text: $filterModel)
                 .textFieldStyle(PlainTextFieldStyle())
                 .padding(8)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                .glass(cornerRadius: 8)
                 .frame(maxWidth: 120)
             
             TextField("Year", text: $filterYear)
                 .textFieldStyle(PlainTextFieldStyle())
                 .padding(8)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                .glass(cornerRadius: 8)
                 .frame(maxWidth: 80)
-                .onChange(of: filterYear) { newVal in
+                .onChange(of: filterYear) { _, newVal in
                     filterYear = newVal.filter { $0.isNumber }
                 }
             
@@ -307,18 +320,4 @@ struct VehicleCard: View {
 //   appState.vehicleTypeFilter to keep lists fast on large datasets.
 // • Add inline error banners using `viewModel.errorMessage` if your ViewModel exposes it.
 
-struct Badge: View {
-    let text: String
-    let color: Color
-    var textColor: Color = .white
-    
-    var body: some View {
-        Text(text)
-            .font(.caption.bold())
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color)
-            .foregroundStyle(textColor)
-            .cornerRadius(8)
-    }
-}
+// Badge definition moved to TuneDetailComponents.swift or shared UI file

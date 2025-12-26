@@ -38,46 +38,64 @@ class SyncService: ObservableObject {
     
     // MARK: - Vehicles
     func syncVehicles() -> AnyPublisher<Void, Error> {
-        // 1. Fetch from API
-        return api.send(GetGarageRequest())
-            .handleEvents(receiveOutput: { [weak self] vehicles in
-                // 2. Save to Core Data
-                self?.saveVehiclesToCoreData(vehicles)
+        // Fetch first page of vehicles from API
+        return GarageService().list(page: 1) // Using new instance as workaround or shared if public
+            .handleEvents(receiveOutput: { [weak self] page in
+                self?.saveVehiclesToCoreData(page.results)
             })
             .map { _ in () }
             .eraseToAnyPublisher()
     }
     
     private func saveVehiclesToCoreData(_ vehicles: [VehicleModel]) {
-        context.performAndWait {
-            // Simple strategy: Delete all and re-insert (for MVP)
-            // In production, use merge policy and unique constraints
-            let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Vehicle.fetchRequest()
+        context.perform {
+            // Simple strategy: Delete all and replace for now (or update existing)
+            // For MVP, replacing ensures consistency without complex merging
+            let fetchRequest: NSFetchRequest<NSFetchRequestResult> = VehicleEntity.fetchRequest()
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             
             do {
-                try context.execute(deleteRequest)
+                try self.context.execute(deleteRequest)
                 
                 for vehicle in vehicles {
-                    let cdVehicle = Vehicle(context: context)
-                    cdVehicle.id = UUID(uuidString: String(vehicle.id)) // Assuming ID mapping
-                    cdVehicle.name = vehicle.name
-                    cdVehicle.make = vehicle.make
-                    cdVehicle.model = vehicle.model
-                    cdVehicle.year = Int16(vehicle.year)
-                    cdVehicle.vin = vehicle.vin
-                    // Map other fields...
+                    vehicle.toCoreData(context: self.context)
                 }
-                try context.save()
+                
+                try self.context.save()
             } catch {
-                print("Core Data save error: \(error)")
+                print("Failed to save vehicles to Core Data: \(error)")
             }
         }
     }
     
     // MARK: - Tunes
     func syncTunes() -> AnyPublisher<Void, Error> {
-        // Placeholder for Tune sync logic
-        return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+        // Fetch tunes from marketplace (Phase 1: just first page)
+        return MarketplaceService.shared.getTunes(page: 1)
+            .handleEvents(receiveOutput: { [weak self] page in
+                self?.saveTunesToCoreData(page.results)
+            })
+            .map { _ in () }
+            .eraseToAnyPublisher()
+    }
+    
+    private func saveTunesToCoreData(_ tunes: [TuneModel]) {
+        context.perform {
+             // Clean slate for cache
+            let fetchRequest: NSFetchRequest<NSFetchRequestResult> = TuneEntity.fetchRequest()
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+             
+            do {
+                _ = try self.context.execute(deleteRequest)
+                
+                for tune in tunes {
+                    tune.toCoreData(context: self.context)
+                }
+                
+                try self.context.save()
+            } catch {
+                print("Failed to save tunes to Core Data: \(error)")
+            }
+        }
     }
 }

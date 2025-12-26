@@ -78,7 +78,7 @@ struct OnboardingView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 600)
-        .onChange(of: viewModel.currentStep) { newStep in
+        .onChange(of: viewModel.currentStep) { _, newStep in
             if newStep == .complete {
                 withAnimation {
                     hasCompletedOnboarding = true

@@ -13,9 +13,12 @@ import Combine
 
 /// Handles Authentication and token lifecycle for RevSync.
 final class AuthManager: ObservableObject {
+    static let shared = AuthManager()
     // MARK: - Publishers
     /// Emits the current user whenever it changes (nil when logged out).
     let currentUserPublisher: CurrentValueSubject<UserModel?, Never> = .init(nil)
+    
+    var currentUser: UserModel? { currentUserPublisher.value }
 
     // MARK: - Stored state
     @Published private(set) var accessToken: String = "" // in‑memory mirror; source of truth is Keychain

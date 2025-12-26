@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct VehicleDetailView: View {
-    @ObservedObject var vehicle: VehicleModel
+    let vehicle: VehicleModel
+    let viewModel: GarageViewModel
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -41,7 +42,9 @@ struct VehicleDetailView: View {
                 .padding(.horizontal)
                 
                 // Mods Tracker
-                ModTrackerView(vehicle: vehicle)
+                ModTrackerView(vehicle: vehicle, onUpdate: { updatedVehicle in
+                    viewModel.updateVehicle(id: updatedVehicle.id, with: updatedVehicle)
+                })
                     .padding(.horizontal)
                 
                 // Maintenance / Notes (Placeholder)

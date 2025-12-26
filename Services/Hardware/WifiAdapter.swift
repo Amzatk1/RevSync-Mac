@@ -109,7 +109,4 @@ extension OBDConnectionState {
     }
 }
 
-enum OBDError: Error {
-    case notConnected
-    case invalidResponse
-}
+// OBDError defined in OBDClient.swift

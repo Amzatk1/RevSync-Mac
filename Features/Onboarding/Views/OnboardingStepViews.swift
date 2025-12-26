@@ -127,7 +127,7 @@ struct RiderProfileStepView: View {
                         Text("Skill Level")
                             .font(.headline)
                         Picker("Skill", selection: $viewModel.skillLevel) {
-                            ForEach(UserModel.SkillLevel.allCases) { level in
+                            ForEach(OnboardingViewModel.SkillLevel.allCases) { level in
                                 Text(level.rawValue).tag(level)
                             }
                         }
@@ -139,7 +139,7 @@ struct RiderProfileStepView: View {
                         Text("Primary Riding Style")
                             .font(.headline)
                         Picker("Style", selection: $viewModel.ridingStyle) {
-                            ForEach(UserModel.RidingStyle.allCases) { style in
+                            ForEach(OnboardingViewModel.RidingStyle.allCases) { style in
                                 Text(style.rawValue).tag(style)
                             }
                         }
@@ -158,7 +158,7 @@ struct RiderProfileStepView: View {
                             .foregroundStyle(.secondary)
                         
                         Picker("Risk", selection: $viewModel.riskTolerance) {
-                            ForEach(UserModel.RiskTolerance.allCases) { risk in
+                            ForEach(OnboardingViewModel.RiskTolerance.allCases) { risk in
                                 Text(risk.rawValue).tag(risk)
                             }
                         }
@@ -179,17 +179,17 @@ struct RiderProfileStepView: View {
         }
     }
     
-    func riskDescription(for risk: UserModel.RiskTolerance) -> String {
+    func riskDescription(for risk: OnboardingViewModel.RiskTolerance) -> String {
         switch risk {
-        case .safe: return "Prioritizes engine longevity and reliability over raw power."
+        case .conservative: return "Prioritizes engine longevity and reliability over raw power."
         case .balanced: return "The sweet spot. Good power gains with safe margins."
         case .aggressive: return "Maximum performance. Pushes components to their limits. Requires strict maintenance."
         }
     }
     
-    func riskColor(for risk: UserModel.RiskTolerance) -> Color {
+    func riskColor(for risk: OnboardingViewModel.RiskTolerance) -> Color {
         switch risk {
-        case .safe: return .green
+        case .conservative: return .green
         case .balanced: return .blue
         case .aggressive: return .orange
         }

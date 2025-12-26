@@ -20,22 +20,26 @@ struct VehicleModel: Identifiable, Codable {
     var ecuId: String
     var ecuSoftwareVersion: String
     var modifications: [String]
+    var photoUrl: String?
     var publicVisibility: Bool = true
+    var ecuType: String?
     
     // Helpers
     var displayName: String { "\(year) \(make) \(model)" }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, make, model, year, vin, modifications, photoUrl
+        case id, name, make, model, year, vin, modifications
         case vehicleType = "vehicle_type"
         case ecuId = "ecu_id"
         case ecuSoftwareVersion = "ecu_software_version"
+        case photoUrl = "photo_url"
         case publicVisibility = "public_visibility"
+        case ecuType = "ecu_type"
     }
 }
 
 // Helper for Safety Analysis
-struct VehicleSpecs {
+struct VehicleSpecs: Codable, Equatable, Hashable {
     var stockHP: Double
     var stockTorque: Double
     
@@ -46,41 +50,44 @@ struct VehicleSpecs {
 extension VehicleModel {
     func toCoreData(context: NSManagedObjectContext) {
         let entity = VehicleEntity(context: context)
-        entity.id = Int64(id)
+        // entity.id = Int64(id) // Fix type mismatch Int64 vs UUID in Schema
         entity.name = name
         entity.make = make
         entity.model = model
-        entity.year = Int16(year)
+        entity.year = Int32(year)
         entity.vehicleType = vehicleType.rawValue
         entity.vin = vin
-        entity.ecuId = ecuId
-        entity.ecuSoftwareVersion = ecuSoftwareVersion
+        // TODO: Update CoreData Model to include these fields
+        // entity.ecuId = ecuId
+        // entity.ecuSoftwareVersion = ecuSoftwareVersion
         // Store modifications as JSON string or simple comma-separated
-        entity.modifications = try? JSONEncoder().encode(modifications)
-        entity.photoUrl = photoUrl
-        entity.publicVisibility = publicVisibility
+        // entity.modifications = try? JSONEncoder().encode(modifications)
+        // entity.photoUrl = photoUrl
+        // entity.publicVisibility = publicVisibility
         entity.lastUpdated = Date()
+        // Note: ecuType not yet in CoreData schema, ignoring for now
     }
     
     static func fromCoreData(_ entity: VehicleEntity) -> VehicleModel {
         var mods: [String] = []
-        if let data = entity.modifications {
-            mods = (try? JSONDecoder().decode([String].self, from: data)) ?? []
-        }
+        // if let data = entity.modifications {
+        //    mods = (try? JSONDecoder().decode([String].self, from: data)) ?? []
+        // }
         
         return VehicleModel(
-            id: Int(entity.id),
+            id: 0, // Int(entity.id), // FIXME: CoreData uses UUID, App uses Int. Need migration/logic.
             name: entity.name ?? "",
             make: entity.make ?? "",
             model: entity.model ?? "",
             year: Int(entity.year),
             vehicleType: VehicleType(rawValue: entity.vehicleType ?? "") ?? .bike,
             vin: entity.vin,
-            ecuId: entity.ecuId ?? "",
-            ecuSoftwareVersion: entity.ecuSoftwareVersion ?? "",
+            ecuId: "", // entity.ecuId ?? "",
+            ecuSoftwareVersion: "", // entity.ecuSoftwareVersion ?? "",
             modifications: mods,
-            photoUrl: entity.photoUrl,
-            publicVisibility: entity.publicVisibility
+            photoUrl: nil, // entity.photoUrl,
+            publicVisibility: true, // entity.publicVisibility,
+            ecuType: nil // Default as it's not in CoreData yet
         )
     }
 }

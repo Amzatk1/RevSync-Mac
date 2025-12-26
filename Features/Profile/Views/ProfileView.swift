@@ -17,140 +17,186 @@ struct ProfileView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                if viewModel.isLoading {
-                    ProgressView()
-                } else {
-                    // Header
-                    VStack {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .frame(width: 80, height: 80)
-                            .foregroundStyle(.gray)
-                        
-                        Text(viewModel.user?.username ?? "User")
-                            .font(.title)
-                            .fontWeight(.bold)
-                        
-                        Text("Member since 2024")
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding()
-                    
-                    // Follow & Message Buttons
-                    if !viewModel.isCurrentUser {
-                        HStack(spacing: 12) {
-                            Button(action: {
-                                viewModel.toggleFollow()
-                            }) {
-                                Text(viewModel.isFollowing ? "Following" : "Follow")
-                                    .font(.headline)
-                                    .foregroundStyle(viewModel.isFollowing ? .primary : .white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(viewModel.isFollowing ? Color.gray.opacity(0.2) : Color.blue)
-                                    .cornerRadius(8)
+        ZStack {
+            // Background
+            LinearGradient(
+                colors: [.revSyncBlack, .revSyncDarkGray],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .padding(.top, 50)
+                    } else {
+                        // Header
+                        VStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .stroke(LinearGradient(colors: [.revSyncNeonBlue, .revSyncNeonPurple], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 3)
+                                    .frame(width: 88, height: 88)
+                                    .shadow(color: .revSyncNeonBlue.opacity(0.5), radius: 10)
+                                
+                                Image(systemName: "person.circle.fill")
+                                    .resizable()
+                                    .frame(width: 80, height: 80)
+                                    .foregroundStyle(.gray)
+                                    .clipShape(Circle())
                             }
-                            .buttonStyle(.plain)
                             
-                            NavigationLink(destination: ChatView(conversation: Conversation(id: 0, participants: [viewModel.user!], lastMessage: nil, unreadCount: 0, updatedAt: ""))) {
-                                Text("Message")
-                                    .font(.headline)
+                            VStack(spacing: 4) {
+                                Text(viewModel.user?.username ?? "User")
+                                    .font(.title)
+                                    .fontWeight(.bold)
                                     .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(Color.green)
-                                    .cornerRadius(8)
+                                
+                                Text("Member since 2024")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal)
-                    }
-                    
-                    // Stats
-                    HStack(spacing: 40) {
-                        VStack {
-                            Text("\(viewModel.followersCount)")
-                                .font(.headline)
-                            Text("Followers")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        .padding(.top)
+                        
+                        // Follow & Message Buttons
+                        if !viewModel.isCurrentUser {
+                            HStack(spacing: 16) {
+                                Button(action: {
+                                    HapticService.shared.play(.medium)
+                                    viewModel.toggleFollow()
+                                }) {
+                                    Text(viewModel.isFollowing ? "Following" : "Follow")
+                                        .font(.headline)
+                                        .foregroundStyle(viewModel.isFollowing ? .white : .revSyncBlack)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(viewModel.isFollowing ? Color.white.opacity(0.1) : Color.revSyncNeonBlue)
+                                        .glass(cornerRadius: 12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(viewModel.isFollowing ? Color.white.opacity(0.2) : .clear, lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                
+                                NavigationLink(destination: ChatView(conversation: Conversation(id: 0, participants: [viewModel.user!], lastMessage: nil, unreadCount: 0, updatedAt: ""))) {
+                                    Text("Message")
+                                        .font(.headline)
+                                        .foregroundStyle(Color.revSyncBlack)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.revSyncNeonGreen)
+                                        .cornerRadius(12)
+                                        .neonGlow(color: .revSyncNeonGreen, radius: 10)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal)
                         }
                         
-                        VStack {
-                            Text("\(viewModel.followingCount)")
-                                .font(.headline)
-                            Text("Following")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Rider Profile
-                    if let user = viewModel.user {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Rider Profile")
-                                .font(.headline)
-                            
-                            HStack(spacing: 12) {
-                                ProfileBadge(icon: "figure.seated.seatbelt", label: user.profile?.ridingStyle ?? "Balanced", color: .blue)
-                                ProfileBadge(icon: "star.fill", label: user.profile?.skillLevel ?? "Intermediate", color: .purple)
-                                ProfileBadge(icon: "exclamationmark.shield.fill", label: user.profile?.riskTolerance ?? "Moderate", color: .orange)
+                        // Stats
+                        HStack(spacing: 0) {
+                            NavigationLink(destination: UserListView(title: "Followers", users: [])) {
+                                StatBox(value: "\(viewModel.followersCount ?? 0)", label: "Followers")
                             }
+                            .buttonStyle(.plain)
+                            
+                            Divider().background(.white.opacity(0.2))
+                            
+                            NavigationLink(destination: UserListView(title: "Following", users: [])) {
+                                StatBox(value: "\(viewModel.followingCount ?? 0)", label: "Following")
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Divider().background(.white.opacity(0.2))
+                            
+                            StatBox(value: "\(viewModel.vehicles.count)", label: "Vehicles")
                         }
                         .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(12)
-                        .cornerRadius(12)
-                    }
-                    
-                    // Privacy Settings (Current User Only)
-                    if viewModel.isCurrentUser {
-                        Toggle("Public Garage", isOn: Binding(
-                            get: { viewModel.showVehiclesPublic },
-                            set: { viewModel.updatePrivacy(showVehiclesPublic: $0) }
-                        ))
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(12)
+                        .glass(cornerRadius: 16)
                         .padding(.horizontal)
-                    }
-                    
-                    // Vehicles
-                    if !viewModel.vehicles.isEmpty {
-                        VStack(alignment: .leading) {
-                            Text("Garage")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            ForEach(viewModel.vehicles) { vehicle in
-                                HStack {
-                                    Image(systemName: "car.fill")
-                                    Text(vehicle.name)
-                                    Spacer()
+                        
+                        // Rider Profile
+                        if let user = viewModel.user {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Rider Profile")
+                                    .font(.headline)
+                                    .padding(.horizontal, 4)
+                                
+                                HStack(spacing: 12) {
+                                    ProfileBadge(icon: "figure.seated.seatbelt", label: user.profile?.ridingStyle ?? "Balanced", color: .revSyncNeonBlue)
+                                    ProfileBadge(icon: "star.fill", label: user.profile?.experienceLevel ?? "Intermediate", color: .revSyncNeonPurple)
+                                    ProfileBadge(icon: "exclamationmark.shield.fill", label: user.profile?.riskTolerance ?? "Moderate", color: .revSyncWarning)
                                 }
-
-
-                                .padding()
-                                .background(Color.gray.opacity(0.05))
-                                .cornerRadius(8)
-                                .padding(.horizontal)
+                            }
+                            .padding(.horizontal)
+                        }
+                        
+                        // Privacy Settings (Current User Only)
+                        if viewModel.isCurrentUser {
+                            VStack(alignment: .leading) {
+                                Toggle("Public Garage", isOn: Binding(
+                                    get: { viewModel.showVehiclesPublic },
+                                    set: { val in
+                                        HapticService.shared.play(.light)
+                                        viewModel.updatePrivacy(showVehiclesPublic: val)
+                                    }
+                                ))
+                                .toggleStyle(SwitchToggleStyle(tint: .revSyncNeonBlue))
+                            }
+                            .padding()
+                            .glass(cornerRadius: 12)
+                            .padding(.horizontal)
+                        }
+                        
+                        // Vehicles
+                        if !viewModel.vehicles.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Garage Showcase")
+                                    .font(.headline)
+                                    .padding(.horizontal)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 16) {
+                                        ForEach(viewModel.vehicles) { vehicle in
+                                             VehicleCard3D(vehicle: vehicle, isSelected: false)
+                                                 .frame(width: 280, height: 400)
+                                                 .scaleEffect(0.9)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                }
                             }
                         }
                     }
                 }
+                .padding(.bottom, 40)
             }
-            .padding()
         }
         .navigationTitle("Profile")
         .onAppear {
             viewModel.load()
         }
+    }
+}
+
+struct StatBox: View {
+    let value: String
+    let label: String
+    
+    var body: some View {
+        VStack(spacing: 4) {
+             Text(value)
+                 .font(.title3)
+                 .fontWeight(.bold)
+                 .foregroundStyle(.white)
+             Text(label)
+                 .font(.caption)
+                 .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -171,8 +217,11 @@ struct ProfileBadge: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
+        .padding(.vertical, 12)
+        .glass(cornerRadius: 12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(color.opacity(0.3), lineWidth: 1)
+        )
     }
 }

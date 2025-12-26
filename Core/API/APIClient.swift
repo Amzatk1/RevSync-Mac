@@ -6,7 +6,7 @@ import Foundation
 import Combine
 
 /// Django REST Framework style pagination envelope.
-struct Paginated<T: Decodable>: Decodable {
+struct Paginated<T: Codable>: Codable {
     let count: Int?
     let next: URL?
     let previous: URL?

@@ -59,7 +59,7 @@ struct SettingsView: View {
             // Sync preferred vehicle type with global filter on first load
             appState.vehicleTypeFilter = preferredVehicleType == .bike ? .bike : .car
         }
-        .onChange(of: appState.vehicleTypeFilter) { newVal in
+        .onChange(of: appState.vehicleTypeFilter) { _, newVal in
             // Keep preference in sync when the user changes the global filter (e.g., from Sidebar)
             preferredVehicleTypeRaw = (newVal == .bike ? VehicleType.bike.rawValue : VehicleType.car.rawValue)
         }
@@ -83,16 +83,9 @@ struct SettingsView: View {
             HStack(alignment: .center, spacing: 16) {
                 avatarView
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(appState.currentUser?.name ?? "Signed out")
+                    Text(appState.currentUser?.username ?? "Signed out") // Use username or fullName
                         .font(.headline)
                     Text(appState.currentUser?.email ?? "")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    if let user = appState.currentUser, user.isCreator {
-                        Label("Creator", systemImage: "wand.and.stars")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
                 Spacer()
                 HStack(spacing: 10) {
@@ -136,7 +129,7 @@ struct SettingsView: View {
                         Text(VehicleType.car.description).tag(VehicleType.car.rawValue)
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: preferredVehicleTypeRaw) { newVal in
+                    .onChange(of: preferredVehicleTypeRaw) { _, newVal in
                         // Push selection to global app filter
                         appState.vehicleTypeFilter = (VehicleType(rawValue: newVal) == .bike) ? .bike : .car
                     }
@@ -154,7 +147,7 @@ struct SettingsView: View {
 
                 Section("Notifications") {
                     Toggle("Enable notifications", isOn: $notificationsEnabled)
-                        .onChange(of: notificationsEnabled) { _ in
+                        .onChange(of: notificationsEnabled) { _, _ in
                             print("Notification toggling to be implemented")
                         }
                 }
@@ -195,7 +188,7 @@ struct SettingsView: View {
     // MARK: - Components
     private var avatarView: some View {
         Group {
-            if let urlString = appState.currentUser?.avatarURL, let url = URL(string: urlString) {
+            if let urlString = appState.currentUser?.profile?.photoUrl, let url = URL(string: urlString) {
                 RemoteImage(url: url)
                     .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 10))

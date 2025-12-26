@@ -18,6 +18,7 @@ struct RegisterView: View {
     @EnvironmentObject private var services: AppServices
 
     @State private var email: String = ""
+    @State private var username: String = ""
     @State private var password: String = ""
     @State private var confirmPassword: String = ""
     @State private var isLoading: Bool = false
@@ -27,7 +28,7 @@ struct RegisterView: View {
     @State private var bag = Set<AnyCancellable>()
 
     private var isFormValid: Bool {
-        isValidEmail(email) && password.count >= 8 && password == confirmPassword
+        !username.isEmpty && isValidEmail(email) && password.count >= 8 && password == confirmPassword
     }
 
     var body: some View {
@@ -42,11 +43,15 @@ struct RegisterView: View {
 
             // Email / Password
             VStack(spacing: 12) {
-                TextField("Email", text: $email)
+                TextField("Username", text: $username)
                     .textContentType(.username)
                     .textFieldStyle(.roundedBorder)
                     .disabled(isLoading)
-                    .onSubmit(register)
+                
+                TextField("Email", text: $email)
+                    .textContentType(.emailAddress)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isLoading)
 
                 SecureField("Password (min 8 characters)", text: $password)
                     .textContentType(.newPassword)
@@ -57,6 +62,7 @@ struct RegisterView: View {
                     .textContentType(.newPassword)
                     .textFieldStyle(.roundedBorder)
                     .disabled(isLoading)
+                    .onSubmit(register)
             }
             .frame(maxWidth: 380)
 
@@ -119,7 +125,7 @@ struct RegisterView: View {
         isLoading = true
 
         services.auth
-            .register(email: email, password: password)
+            .register(username: username, email: email, password: password)
             .receive(on: DispatchQueue.main)
             .sink { completion in
                 isLoading = false
