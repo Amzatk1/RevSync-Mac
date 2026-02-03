@@ -2,93 +2,99 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from core.models import TimeStampedModel
 from tuners.models import TunerProfile
+import uuid
 
 User = get_user_model()
 
-class Tune(TimeStampedModel):
+class TuneListing(TimeStampedModel):
     """
-    A tuning file available for purchase/download.
+    The 'Metadata' container for a tune. 
+    A listing has many Versions.
     """
-    creator = models.ForeignKey(TunerProfile, on_delete=models.CASCADE, related_name='tunes')
-    name = models.CharField(max_length=255)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tuner = models.ForeignKey(TunerProfile, on_delete=models.CASCADE, related_name='listings')
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True)
     description = models.TextField()
     
-    # Technical Specs
-    vehicle_make = models.CharField(max_length=100)
-    vehicle_model = models.CharField(max_length=100)
-    vehicle_year_start = models.PositiveIntegerField()
-    vehicle_year_end = models.PositiveIntegerField()
-    ecu_compatibility = models.JSONField(default=list)
-    stage = models.PositiveSmallIntegerField(default=1)
-    
-    # Performance Stats
-    horsepower_gain = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
-    torque_gain = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
-    dyno_chart_url = models.URLField(blank=True, null=True)
-    
-    # File
-    file_url = models.URLField(help_text="Secure URL to the tune file")
-    file_size_kb = models.PositiveIntegerField()
+    # Search / Fitment Filtering
+    vehicle_make = models.CharField(max_length=100, db_index=True)
+    vehicle_model = models.CharField(max_length=100, db_index=True)
+    vehicle_year_start = models.PositiveSmallIntegerField()
+    vehicle_year_end = models.PositiveSmallIntegerField()
     
     # Commercial
     price = models.DecimalField(max_digits=8, decimal_places=2)
+    is_active = models.BooleanField(default=True)
     
-    class Status(models.TextChoices):
+    def __str__(self):
+        return f"{self.title} ({self.tuner.business_name})"
+
+class TuneVersion(TimeStampedModel):
+    """
+    An immutable version of a tune (e.g., v1.0.0, v1.0.1).
+    This tracks the lifecycle from Upload -> Validation -> Publish.
+    """
+    class State(models.TextChoices):
         DRAFT = 'DRAFT', 'Draft'
+        UPLOADED = 'UPLOADED', 'Uploaded'
+        VALIDATING = 'VALIDATING', 'Validating'
+        FAILED = 'FAILED', 'Validation Failed'
+        READY_FOR_REVIEW = 'READY_FOR_REVIEW', 'Ready for Review'
+        APPROVED = 'APPROVED', 'Approved'
         PUBLISHED = 'PUBLISHED', 'Published'
-        ARCHIVED = 'ARCHIVED', 'Archived'
-        
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
-    is_active = models.BooleanField(default=True) # Deprecated in favor of status, but kept for backward compat
-    published_at = models.DateTimeField(blank=True, null=True)
+        SUSPENDED = 'SUSPENDED', 'Suspended'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    listing = models.ForeignKey(TuneListing, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.CharField(max_length=50) # SemVer recommended
+    changelog = models.TextField(blank=True)
     
-    # Safety & Meta
-    safety_rating = models.PositiveSmallIntegerField(default=10) # 1-10
-    compatibility_index = models.PositiveSmallIntegerField(default=100, help_text="0-100 score")
-    manifest_json = models.JSONField(default=dict, blank=True)
-    metadata = models.JSONField(default=dict, blank=True)
-    versions = models.JSONField(default=list, blank=True)
-
-    def __str__(self):
-        return f"{self.name} by {self.creator.business_name}"
-
-class Purchase(TimeStampedModel):
-    """
-    Record of a user purchasing a tune.
-    """
-    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
-    tune = models.ForeignKey(Tune, on_delete=models.PROTECT, related_name='purchases')
-    price_paid = models.DecimalField(max_digits=8, decimal_places=2)
-    transaction_id = models.CharField(max_length=100, unique=True)
+    # State Machine
+    status = models.CharField(max_length=50, choices=State.choices, default=State.DRAFT)
     
-    def __str__(self):
-        return f"Purchase of {self.tune.name} by {self.buyer.username}"
-
-class TuneComment(TimeStampedModel):
-    tune = models.ForeignKey(Tune, on_delete=models.CASCADE, related_name='comments')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tune_comments')
-    content = models.TextField()
+    # File References (Supabase Paths)
+    quarantine_path = models.CharField(max_length=500, blank=True)
+    validated_path = models.CharField(max_length=500, blank=True)
     
-    def __str__(self):
-        return f"Comment by {self.user.username} on {self.tune.name}"
-
-class TuneLike(TimeStampedModel):
-    tune = models.ForeignKey(Tune, on_delete=models.CASCADE, related_name='likes')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='liked_tunes')
+    # Security & Integrity
+    file_hash_sha256 = models.CharField(max_length=64, blank=True, help_text="SHA256 of the tune.bin")
+    manifest_hash_sha256 = models.CharField(max_length=64, blank=True)
+    signature_base64 = models.TextField(blank=True, help_text="Ed25519 Signature by RevSync")
+    signed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Metadata extracted from Manifest
+    manifest_data = models.JSONField(default=dict, blank=True)
+    file_size_bytes = models.BigIntegerField(default=0)
     
     class Meta:
-        unique_together = ('tune', 'user')
-        
-    def __str__(self):
-        return f"{self.user.username} likes {self.tune.name}"
+        unique_together = ('listing', 'version_number')
 
-class Download(TimeStampedModel):
-    """
-    Audit log of file downloads.
-    """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='downloads')
-    tune = models.ForeignKey(Tune, on_delete=models.CASCADE, related_name='downloads')
-    ip_address = models.GenericIPAddressField(blank=True, null=True)
-    
     def __str__(self):
-        return f"{self.user.username} downloaded {self.tune.name}"
+        return f"{self.listing.title} {self.version_number} [{self.status}]"
+
+class ValidationReport(TimeStampedModel):
+    """
+    Detailed results of the validation pipeline.
+    """
+    version = models.OneToOneField(TuneVersion, on_delete=models.CASCADE, related_name='validation_report')
+    is_passed = models.BooleanField(default=False)
+    results = models.JSONField(default=dict) # { "malware": "PASS", "schema": "PASS", "ecu": "FAIL" }
+    blockers = models.JSONField(default=list)
+    warnings = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class PurchaseEntitlement(TimeStampedModel):
+    """
+    Proof that a user owns access to a Listing.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='entitlements')
+    listing = models.ForeignKey(TuneListing, on_delete=models.CASCADE, related_name='entitlements')
+    transaction_id = models.CharField(max_length=100)
+    is_revoked = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ('user', 'listing')
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.listing.title}"

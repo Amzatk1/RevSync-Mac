@@ -6,10 +6,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('users.urls')),
     path('api/tuners/', include('tuners.urls')),
-    path('api/v1/', include('garage.urls')),
+    # path('api/v1/', include('garage.urls')),
     path('api/v1/', include('marketplace.urls')),
-    path('api/safety/', include('safety_layer.urls')),
-    path('api/payments/', include('payments.urls')),
+    # path('api/safety/', include('safety_layer.urls')),
+    # path('api/payments/', include('payments.urls')),
     path('api/chat/', include('chat.urls')),
     
     # OpenAPI

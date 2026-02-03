@@ -2,8 +2,15 @@ django>=5.0
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
-django-storages
 drf-spectacular
 dj-database-url
 psycopg2-binary
 pillow
+celery[redis]>=5.3
+redis>=5.0
+jsonschema>=4.21
+cryptography>=42.0.0
+supabase>=2.4.0
+python-magic>=0.4.27
+requests>=2.31.0
+pyjwt>=2.8.0

@@ -13,14 +13,24 @@ class User(AbstractUser):
         CREATOR = 'CREATOR', _('Creator')
         ADMIN = 'ADMIN', _('Admin')
 
+    # Legacy role retained for backward compatibility; new access is flag-based.
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
         default=Role.RIDER,
-        help_text=_("User role determines permissions.")
+        help_text=_("Legacy role; flag-based access is authoritative.")
     )
     email = models.EmailField(_('email address'), unique=True)
     is_verified = models.BooleanField(default=False, help_text=_("Email verification status."))
+
+    # New flag-based permissions
+    is_tuner = models.BooleanField(default=False, help_text=_("Approved tuner/publisher"))
+    class TunerTier(models.TextChoices):
+        NEW = 'NEW', _('New')
+        TRUSTED = 'TRUSTED', _('Trusted')
+    tuner_tier = models.CharField(max_length=10, choices=TunerTier.choices, default=TunerTier.NEW)
+    is_moderator = models.BooleanField(default=False)
+    is_admin = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
@@ -33,6 +43,7 @@ class UserProfile(TimeStampedModel):
     Extended profile for all users.
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    supabase_user_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
     bio = models.TextField(blank=True, max_length=500)
     country = models.CharField(max_length=100, blank=True)
     photo_url = models.URLField(blank=True, null=True)

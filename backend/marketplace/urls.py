@@ -1,14 +1,20 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import (
+    MarketplaceBrowseView, TunerListingViewSet, TunerVersionViewSet,
+    PurchaseView, DownloadLinkView
+)
+
+router = DefaultRouter()
+router.register(r'tuner/listings', TunerListingViewSet, basename='tuner-listings')
+router.register(r'tuner/versions', TunerVersionViewSet, basename='tuner-versions')
 
 urlpatterns = [
-    path('marketplace/tunes/', views.TuneListView.as_view(), name='tune_list'),
-    path('marketplace/tunes/<int:pk>/', views.TuneDetailView.as_view(), name='tune_detail'),
-    path('tunes/<int:pk>/purchase/', views.PurchaseCreateView.as_view(), name='tune-purchase'),
-    path('tunes/<int:tune_id>/comments/', views.TuneCommentListCreateView.as_view(), name='tune-comments'),
-    path('tunes/<int:tune_id>/like/', views.TuneLikeToggleView.as_view(), name='tune-like'),
-    path('marketplace/my-purchases/', views.MyPurchasesView.as_view(), name='my_purchases'),
-    path('marketplace/upload-url/', views.UploadURLView.as_view(), name='upload_url'),
-    path('marketplace/tunes/<int:pk>/publish/', views.PublishTuneView.as_view(), name='tune_publish'),
-    path('marketplace/analytics/creator/', views.CreatorAnalyticsView.as_view(), name='creator_analytics'),
+    # Public Marketplace
+    path('marketplace/browse/', MarketplaceBrowseView.as_view(), name='marketplace-browse'),
+    path('marketplace/purchase/<uuid:listing_id>/', PurchaseView.as_view(), name='purchase'),
+    path('marketplace/download/<uuid:version_id>/', DownloadLinkView.as_view(), name='download-link'),
+    
+    # Tuner Management (ViewSets)
+    path('', include(router.urls)),
 ]

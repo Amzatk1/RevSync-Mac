@@ -1,38 +1,47 @@
 from rest_framework import serializers
-from .models import Tune, Purchase, TuneComment, TuneLike, Download
-from tuners.serializers import TunerProfileSerializer
-from users.serializers import UserSerializer
+from .models import TuneListing, TuneVersion, ValidationReport, PurchaseEntitlement
+from tuners.models import TunerProfile
 
-class TuneSerializer(serializers.ModelSerializer):
-    creator = TunerProfileSerializer(read_only=True)
-
+class TunerProfileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Tune
-        fields = '__all__'
-        read_only_fields = ['creator', 'downloads_count', 'safety_rating']
+        model = TunerProfile
+        fields = ['id', 'business_name', 'logo_url', 'verification_level', 'average_rating']
 
-class TuneDetailSerializer(TuneSerializer):
-    """
-    Detailed view of a tune, potentially including more fields or related data.
-    For now, it inherits from TuneSerializer but can be expanded.
-    """
-    pass
-
-class PurchaseSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    tune = TuneSerializer(read_only=True)
-    tune_id = serializers.PrimaryKeyRelatedField(queryset=Tune.objects.all(), source='tune', write_only=True)
-
-    class Meta:
-        model = Purchase
-        fields = ['id', 'tune', 'buyer', 'price_paid', 'transaction_id', 'created_at']
-        read_only_fields = ['buyer', 'price_paid', 'transaction_id', 'created_at']
-
-class TuneCommentSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    user_photo = serializers.CharField(source='user.profile.photo_url', read_only=True)
+class TuneListingSerializer(serializers.ModelSerializer):
+    tuner = TunerProfileSerializer(read_only=True)
     
     class Meta:
-        model = TuneComment
-        fields = ['id', 'tune', 'user', 'username', 'user_photo', 'content', 'created_at']
-        read_only_fields = ['user', 'created_at']
+        model = TuneListing
+        fields = [
+            'id', 'tuner', 'title', 'slug', 'description', 
+            'vehicle_make', 'vehicle_model', 'vehicle_year_start', 'vehicle_year_end',
+            'price', 'created_at'
+        ]
+        read_only_fields = ['id', 'tuner', 'slug', 'created_at']
+
+class TuneVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TuneVersion
+        fields = [
+            'id', 'listing', 'version_number', 'changelog', 'status',
+            'file_size_bytes', 'signed_at', 'created_at'
+        ]
+        read_only_fields = ['id', 'status', 'signed_at']
+
+class ValidationReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ValidationReport
+        fields = ['is_passed', 'results', 'blockers', 'warnings', 'created_at']
+
+class TuneVersionDetailSerializer(TuneVersionSerializer):
+    validation_report = ValidationReportSerializer(read_only=True)
+    
+    class Meta(TuneVersionSerializer.Meta):
+        fields = TuneVersionSerializer.Meta.fields + ['validation_report', 'manifest_data']
+
+class PurchaseEntitlementSerializer(serializers.ModelSerializer):
+    listing = TuneListingSerializer(read_only=True)
+    
+    class Meta:
+        model = PurchaseEntitlement
+        fields = ['id', 'listing', 'transaction_id', 'created_at']

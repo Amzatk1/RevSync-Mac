@@ -1,9 +1,15 @@
 from django.urls import path
-from .views import TunerListView, TunerDetailView, TunerApplyView, TunerDocumentUploadView
+from .views import (
+    ApplyTunerView, TunerApplicationStatusView, 
+    AdminTunerApplicationListView, AdminApproveTunerView
+)
 
 urlpatterns = [
-    path('tuners/', TunerListView.as_view(), name='tuner_list'),
-    path('tuners/apply/', TunerApplyView.as_view(), name='tuner_apply'),
-    path('tuners/<int:pk>/', TunerDetailView.as_view(), name='tuner_detail'),
-    path('tuners/documents/', TunerDocumentUploadView.as_view(), name='tuner_document_upload'),
+    # Application Flow
+    path('apply/', ApplyTunerView.as_view(), name='apply-tuner'),
+    path('apply/status/', TunerApplicationStatusView.as_view(), name='tuner-app-status'),
+    
+    # Admin Flow
+    path('admin/applications/', AdminTunerApplicationListView.as_view(), name='admin-tuner-apps'),
+    path('admin/applications/<int:pk>/action/', AdminApproveTunerView.as_view(), name='admin-tuner-action'),
 ]

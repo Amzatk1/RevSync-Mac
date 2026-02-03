@@ -7,7 +7,8 @@ User = get_user_model()
 
 class TunerProfile(TimeStampedModel):
     """
-    Profile for users with TUNER role.
+    Profile for users with TUNER role. 
+    Only created after approval of a TunerApplication.
     """
     class VerificationLevel(models.TextChoices):
         COMMUNITY = 'COMMUNITY', _('Community Tuner')
@@ -15,50 +16,39 @@ class TunerProfile(TimeStampedModel):
         PRO = 'PRO', _('Pro Tuner')
         MASTER = 'MASTER', _('Master Tuner')
 
+    class Tier(models.TextChoices):
+        NEW = 'NEW', _('New (Manual Review Required)')
+        TRUSTED = 'TRUSTED', _('Trusted (Auto-Approve Enabled)')
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tuner_profile')
     business_name = models.CharField(max_length=255)
     logo_url = models.URLField(blank=True, null=True)
-    specializations = models.JSONField(default=list, help_text="List of specialized brands/ECUs")
-    years_experience = models.PositiveIntegerField(default=0)
+    slug = models.SlugField(unique=True)
     
-    # Verification & Stats
-    verification_level = models.CharField(
-        max_length=20,
-        choices=VerificationLevel.choices,
-        default=VerificationLevel.COMMUNITY
-    )
-    is_verified_business = models.BooleanField(default=False)
+    # Levels & Permissions
+    verification_level = models.CharField(max_length=20, choices=VerificationLevel.choices, default=VerificationLevel.COMMUNITY)
+    tier = models.CharField(max_length=20, choices=Tier.choices, default=Tier.NEW)
+    is_suspended = models.BooleanField(default=False)
     
-    # Aggregated Stats (Updated via signals/tasks)
+    # Stats
     total_downloads = models.PositiveIntegerField(default=0)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
-    tunes_published_count = models.PositiveIntegerField(default=0)
-    quality_score = models.PositiveIntegerField(default=100, help_text="AI Safety Score (0-100)")
 
     def __str__(self):
         return self.business_name
 
-class TunerCertification(TimeStampedModel):
-    """
-    Documents uploaded for verification.
-    """
-    tuner = models.ForeignKey(TunerProfile, on_delete=models.CASCADE, related_name='certifications')
-    document_type = models.CharField(max_length=100) # e.g., "Business License", "Dyno Cert"
-    document_url = models.URLField()
-    is_approved = models.BooleanField(default=False)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
+class TunerApplication(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending Review'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tuner_applications')
+    business_name = models.CharField(max_length=255)
+    experience_summary = models.TextField()
+    website_url = models.URLField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    reviewer_notes = models.TextField(blank=True)
+    
     def __str__(self):
-        return f"{self.document_type} - {self.tuner.business_name}"
-
-class TunerReview(TimeStampedModel):
-    """
-    Reviews left by users for a tuner.
-    """
-    tuner = models.ForeignKey(TunerProfile, on_delete=models.CASCADE, related_name='reviews')
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posted_reviews')
-    rating = models.PositiveSmallIntegerField() # 1-5
-    comment = models.TextField(blank=True)
-
-    def __str__(self):
-        return f"{self.rating}★ for {self.tuner.business_name}"
+        return f"{self.business_name} ({self.status})"

@@ -43,11 +43,12 @@ INSTALLED_APPS = [
     'core',
     'users',
     'tuners',
-    'garage',
+    # 'garage',
     'marketplace',
-    'payments',
+    # 'publishing',
+    # 'payments',
     'chat',
-    'safety_layer',
+    # 'safety_layer',
 ]
 
 MIDDLEWARE = [
@@ -168,35 +169,39 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-# Storage (Supabase S3)
-AWS_ACCESS_KEY_ID = os.environ.get('SUPABASE_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('SUPABASE_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('SUPABASE_BUCKET_NAME')
-AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_S3_ENDPOINT')
+# Supabase configuration (Storage + Auth verification)
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
 
-if AWS_ACCESS_KEY_ID:
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3.S3Storage",
-            "OPTIONS": {
-                "endpoint_url": AWS_S3_ENDPOINT_URL,
-                "access_key": AWS_ACCESS_KEY_ID,
-                "secret_key": AWS_SECRET_ACCESS_KEY,
-                "bucket_name": AWS_STORAGE_BUCKET_NAME,
-                "default_acl": "public-read",
-                "querystring_auth": False,
-            }
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-else:
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
+SUPABASE_STORAGE = {
+    "quarantine_bucket": os.environ.get('SUPABASE_QUARANTINE_BUCKET', 'revsync-quarantine'),
+    "validated_bucket": os.environ.get('SUPABASE_VALIDATED_BUCKET', 'revsync-validated'),
+    "public_bucket": os.environ.get('SUPABASE_PUBLIC_BUCKET', 'revsync-public-metadata'),
+}
+
+# Storage backend for static/default files remains local; tune packages use Supabase helpers directly
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+# Celery / async processing
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False') == 'True'
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_DEFAULT_QUEUE = 'revsync'
+CELERY_TASK_ROUTES = {
+    # 'publishing.tasks.*': {'queue': 'revsync'},
+}
+
+# Signing keys
+REVSYNC_SIGNING_PRIVATE_KEY = os.environ.get('REVSYNC_SIGNING_PRIVATE_KEY', '')
+REVSYNC_SIGNING_PUBLIC_KEY = os.environ.get('REVSYNC_SIGNING_PUBLIC_KEY', '')
+REVSYNC_SIGNING_KEY_ID = os.environ.get('REVSYNC_SIGNING_KEY_ID', 'rev-1')
+
