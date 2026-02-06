@@ -10,7 +10,7 @@ export interface Bike {
 
 export interface Tune {
     id: string;
-    name: string;
+    title: string;
     bikeId: string; // ID of the compatible bike model
     stage: number; // 1, 2, 3
     price: number; // in USD

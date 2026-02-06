@@ -1,6 +1,6 @@
 import { AppError } from '../../domain/types/common';
 
-const BASE_URL = 'https://api.revsync.com/v1'; // Mock URL for now
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.revsync.com/v1';
 
 interface ApiRequestConfig extends RequestInit {
     timeout?: number;
@@ -31,6 +31,14 @@ export class ApiClient {
         return this.request<T>(path, {
             ...config,
             method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async put<T>(path: string, body?: any, config?: ApiRequestConfig): Promise<T> {
+        return this.request<T>(path, {
+            ...config,
+            method: 'PUT',
             body: JSON.stringify(body),
         });
     }

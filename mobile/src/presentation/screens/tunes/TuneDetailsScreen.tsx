@@ -25,6 +25,15 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
             const tuneService = ServiceLocator.getTuneService();
             const data = await tuneService.getTuneDetails(tuneId);
             setTune(data);
+
+            // Telemetry
+            if (data) {
+                ServiceLocator.getAnalyticsService().logEvent('tune_details_viewed', {
+                    tuneId: data.id,
+                    title: data.title,
+                    price: data.price
+                });
+            }
         } catch (e: any) {
             setError(e.message || 'Failed to load tune details');
         } finally {
@@ -50,7 +59,7 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
     return (
         <Screen scroll>
             <View style={styles.header}>
-                <Text style={styles.name}>{tune.name}</Text>
+                <Text style={styles.name}>{tune.title}</Text>
                 <View style={styles.row}>
                     <View style={styles.badge}>
                         <Text style={styles.badgeText}>Stage {tune.stage}</Text>
@@ -112,7 +121,10 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
             <View style={styles.footer}>
                 <PrimaryButton
                     title="Validate & Flash"
-                    onPress={() => navigation.navigate('TuneValidation', { tuneId: tune.id })}
+                    onPress={() => {
+                        ServiceLocator.getAnalyticsService().logEvent('tune_validate_initiated', { tuneId: tune.id });
+                        navigation.navigate('TuneValidation', { tuneId: tune.id });
+                    }}
                     disabled={!isCompatible}
                     style={{ marginBottom: Theme.Spacing.md }}
                 />

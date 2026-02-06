@@ -101,11 +101,23 @@ export const OnboardingScreen = () => {
 
     const handleComplete = async () => {
         setIsCompleting(true);
-        // Simulate api call
-        setTimeout(async () => {
+
+        try {
+            // Persist legal acceptances
+            const { legalService } = await import('../../../services/legalService');
+
+            if (legalState.termsAccepted) await legalService.acceptDocument('TERMS', '1.0');
+            if (legalState.privacyAccepted) await legalService.acceptDocument('PRIVACY', '1.0');
+            if (legalState.safetyAccepted) await legalService.acceptDocument('SAFETY', '1.0');
+            if (legalState.analyticsConsent) await legalService.acceptDocument('ANALYTICS', '1.0');
+
             await completeOnboarding(); // Update store
+        } catch (e) {
+            console.error('Onboarding failed', e);
+            Alert.alert('Error', 'Failed to complete onboarding. Please try again.');
+        } finally {
             setIsCompleting(false);
-        }, 1500);
+        }
     };
 
     // Components
@@ -253,8 +265,114 @@ export const OnboardingScreen = () => {
         </View>
     );
 
+    // --- Legal Step Data ---
+    const regions = [
+        { id: 'UK', name: 'United Kingdom' },
+        { id: 'EU', name: 'European Union' },
+        { id: 'US', name: 'United States' },
+        { id: 'ROW', name: 'Rest of World' },
+    ];
+
+    const [legalState, setLegalState] = useState({
+        region: 'UK',
+        termsAccepted: false,
+        privacyAccepted: false,
+        safetyAccepted: false,
+        analyticsConsent: true,
+        crashReportConsent: true,
+    });
+
+    const updateLegal = (field: keyof typeof legalState, value: any) => {
+        setLegalState(prev => ({ ...prev, [field]: value }));
+    };
+
+    const LegalStep = () => (
+        <View style={styles.stepContainer}>
+            <Text style={styles.stepHeader}>Region & Legal</Text>
+            <Text style={styles.stepSubHeader}>To ensure compliance, please confirm your region and accept our terms.</Text>
+
+            <View style={styles.section}>
+                <Text style={styles.label}>Region</Text>
+                <View style={styles.grid}>
+                    {regions.map(r => (
+                        <TouchableOpacity
+                            key={r.id}
+                            style={[
+                                styles.chip,
+                                legalState.region === r.id && styles.chipSelected
+                            ]}
+                            onPress={() => updateLegal('region', r.id)}
+                        >
+                            <Text style={[styles.chipText, legalState.region === r.id && styles.textSelected]}>{r.name}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
+
+            <View style={styles.section}>
+                <Text style={[styles.label, { marginTop: 16 }]}>Required Agreements</Text>
+                <Checkbox
+                    label="I accept the Terms & Conditions"
+                    checked={legalState.termsAccepted}
+                    onPress={(v) => updateLegal('termsAccepted', v)}
+                />
+                <Checkbox
+                    label="I accept the Privacy Policy"
+                    checked={legalState.privacyAccepted}
+                    onPress={(v) => updateLegal('privacyAccepted', v)}
+                />
+                <Checkbox
+                    label="I accept the ECU Flashing Safety Disclaimer"
+                    checked={legalState.safetyAccepted}
+                    onPress={(v) => updateLegal('safetyAccepted', v)}
+                />
+            </View>
+
+            <View style={styles.section}>
+                <Text style={[styles.label, { marginTop: 16 }]}>Privacy Preferences</Text>
+                <ToggleRow
+                    label="Share Analytics"
+                    sub="Help us improve RevSync"
+                    value={legalState.analyticsConsent}
+                    onValueChange={(v) => updateLegal('analyticsConsent', v)}
+                />
+                <ToggleRow
+                    label="Crash Reporting"
+                    sub="Send anonymous crash logs"
+                    value={legalState.crashReportConsent}
+                    onValueChange={(v) => updateLegal('crashReportConsent', v)}
+                />
+            </View>
+        </View>
+    );
+
+    const Checkbox = ({ label, checked, onPress }: any) => (
+        <TouchableOpacity style={styles.checkboxRow} onPress={() => onPress(!checked)}>
+            <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
+                {checked && <Ionicons name="checkmark" size={16} color="#FFF" />}
+            </View>
+            <Text style={styles.checkboxLabel}>{label}</Text>
+        </TouchableOpacity>
+    );
+
+    const ToggleRow = ({ label, sub, value, onValueChange }: any) => (
+        <TouchableOpacity style={styles.checkboxRow} onPress={() => onValueChange(!value)}>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.checkboxLabel}>{label}</Text>
+                <Text style={styles.cardDesc}>{sub}</Text>
+            </View>
+            <View style={[styles.radio, value && styles.radioSelected]}>
+                {value && <View style={styles.radioInner} />}
+            </View>
+        </TouchableOpacity>
+    );
+
     const steps = [
         { component: WelcomeStep, canProceed: true },
+        {
+            component: LegalStep,
+            canProceed: legalState.termsAccepted && legalState.privacyAccepted && legalState.safetyAccepted
+        },
         { component: MotorcycleTypeStep, canProceed: !!onboardingData.motorcycleType },
         { component: SkillLevelStep, canProceed: !!onboardingData.skillLevel },
         { component: RidingStyleStep, canProceed: !!onboardingData.ridingStyle },
@@ -460,4 +578,37 @@ const styles = StyleSheet.create({
         maxWidth: '50%',
         textAlign: 'right',
     },
+    label: {
+        ...Theme.Typography.h3,
+        marginBottom: 8,
+    },
+    chip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: Theme.Colors.surface,
+        borderWidth: 1,
+        borderColor: Theme.Colors.border,
+    },
+    chipSelected: {
+        borderColor: Theme.Colors.primary,
+        backgroundColor: 'rgba(225, 29, 72, 0.1)',
+    },
+    chipText: {
+        color: Theme.Colors.text,
+    },
+    section: {
+        marginTop: 24,
+    },
+    checkboxRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        gap: 12,
+    },
+    checkboxLabel: {
+        color: Theme.Colors.text,
+        fontSize: 14,
+        flex: 1,
+    }
 });

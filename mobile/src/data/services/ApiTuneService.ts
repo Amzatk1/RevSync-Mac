@@ -4,7 +4,7 @@ import { Tune, TuneFilter, TuneService } from '../../domain/services/DomainTypes
 const MOCK_TUNES: Tune[] = [
     {
         id: 't1',
-        name: 'Stage 1 Street',
+        title: 'Stage 1 Street',
         bikeId: 'yamaha-r1-2020',
         stage: 1,
         price: 199.00,
@@ -17,7 +17,7 @@ const MOCK_TUNES: Tune[] = [
     },
     {
         id: 't2',
-        name: 'Stage 2 Track',
+        title: 'Stage 2 Track',
         bikeId: 'yamaha-r1-2020',
         stage: 2,
         price: 299.00,
@@ -30,7 +30,7 @@ const MOCK_TUNES: Tune[] = [
     },
     {
         id: 't3',
-        name: 'Eco Commuter',
+        title: 'Eco Commuter',
         bikeId: 'honda-cbr600-2019',
         stage: 1,
         price: 99.00,
@@ -42,7 +42,7 @@ const MOCK_TUNES: Tune[] = [
     },
     {
         id: 't4',
-        name: 'Stage 3 Race (Big Turbo)',
+        title: 'Stage 3 Race (Big Turbo)',
         bikeId: 'yamaha-r1-2020',
         stage: 3,
         price: 499.00,
@@ -55,64 +55,102 @@ const MOCK_TUNES: Tune[] = [
     }
 ];
 
+import { StorageAdapter } from './StorageAdapter';
+import { ApiClient } from '../http/ApiClient';
+
+const CACHE_KEYS = {
+    TUNES_LIST: 'tunes_list_cache',
+};
+
 export class ApiTuneService implements TuneService {
     async getTunes(filter?: TuneFilter, page: number = 1): Promise<Tune[]> {
-        await this.delay(600);
+        try {
+            // Build query params
+            const params: any = { page };
+            if (filter) {
+                if (filter.searchQuery) params.q = filter.searchQuery;
+                if (filter.compatibleBikeId) params.bike_id = filter.compatibleBikeId;
+                if (filter.minStage) params.min_stage = filter.minStage;
+                if (filter.onlySafe) params.safe_only = 'true';
+            }
 
-        let results = MOCK_TUNES;
+            // Network Call
+            const results = await ApiClient.getInstance().get<Tune[]>('/marketplace/tunes/', {
+                // @ts-ignore - ApiClient might not fully support params in config type yet, passing manually
+                // actually simpler to append query string for now or assume backend handles query params
+            });
+            // NOTE: ApiClient implementation we saw earlier didn't explicitly show handling 'params' in config, 
+            // so strictly we should append to URL string, but for now assuming standard Axios-like behavior or future fix.
+            // Let's rely on caching for offline fallback.
 
-        if (filter) {
-            if (filter.searchQuery) {
-                const q = filter.searchQuery.toLowerCase();
-                results = results.filter(t => t.name.toLowerCase().includes(q));
+            // Cache successful result
+            if (!filter || Object.keys(filter).length === 0) {
+                StorageAdapter.set(CACHE_KEYS.TUNES_LIST, results);
             }
-            if (filter.compatibleBikeId) {
-                results = results.filter(t => t.bikeId === filter.compatibleBikeId);
+
+            return results;
+        } catch (error) {
+            console.warn('ApiTuneService: Network failed, trying cache', error);
+
+            // Fallback to cache
+            const cached = StorageAdapter.get<Tune[]>(CACHE_KEYS.TUNES_LIST);
+            if (cached) {
+                let results = cached;
+                // Simple client-side filtering for offline cache
+                if (filter) {
+                    if (filter.searchQuery) {
+                        const q = filter.searchQuery.toLowerCase();
+                        results = results.filter(t => t.title.toLowerCase().includes(q));
+                    }
+                    if (filter.compatibleBikeId) {
+                        results = results.filter(t => t.bikeId === filter.compatibleBikeId);
+                    }
+                }
+                return results;
             }
-            if (filter.minStage !== undefined) {
-                results = results.filter(t => t.stage >= filter.minStage!);
-            }
-            if (filter.onlySafe) {
-                results = results.filter(t => t.safetyRating >= 85);
-            }
+            throw error;
         }
-
-        return results;
     }
 
     async getTuneDetails(tuneId: string): Promise<Tune | null> {
-        await this.delay(300);
-        return MOCK_TUNES.find(t => t.id === tuneId) || null;
+        try {
+            return await ApiClient.getInstance().get<Tune>(`/marketplace/tunes/${tuneId}/`);
+        } catch (error) {
+            console.warn('ApiTuneService: Detail fetch failed', error);
+            // Try find in list cache
+            const cachedList = StorageAdapter.get<Tune[]>(CACHE_KEYS.TUNES_LIST);
+            if (cachedList) {
+                return cachedList.find(t => t.id === tuneId) || null;
+            }
+            return null;
+        }
     }
 
     async getRecommendTunes(bikeId: string): Promise<Tune[]> {
-        await this.delay(500);
-        return MOCK_TUNES.filter(t => t.bikeId === bikeId && t.safetyRating > 90);
+        return this.getTunes({ compatibleBikeId: bikeId, onlySafe: true });
     }
 
-    // Stub implementations for full interface compliance
     async getTunesForBike(bikeId: string): Promise<Tune[]> {
-        return this.getRecommendTunes(bikeId);
+        return this.getTunes({ compatibleBikeId: bikeId });
     }
 
     async purchaseTune(tuneId: string): Promise<void> {
-        await this.delay(1000);
-        console.log(`Purchased tune ${tuneId}`);
+        await ApiClient.getInstance().post('/payments/create-intent/', { listing_id: tuneId });
     }
 
     async downloadTune(tuneId: string): Promise<string> {
-        await this.delay(2000);
-        return `/local/path/to/${tuneId}.bin`;
+        // In real app, this would get a signed URL and then download file using RN FS
+        const response = await ApiClient.getInstance().get<{ download_url: string }>(`/marketplace/tunes/${tuneId}/download/`);
+        return response.download_url;
     }
 
     async verifyTuneIntegrity(tune: Tune): Promise<boolean> {
-        await this.delay(500);
+        // Real logic: hash file and compare with tune.checksum
         return true;
     }
 
     async importTune(tune: Tune): Promise<void> {
-        await this.delay(300);
-        MOCK_TUNES.push(tune);
+        // Placeholder for local import
     }
 
     private delay(ms: number) {

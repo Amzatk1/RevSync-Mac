@@ -7,7 +7,7 @@ export const marketplaceService = {
      */
     async getTunes(params?: { make?: string; model?: string; year?: number }): Promise<Tune[]> {
         try {
-            const response = await api.get<Tune[]>('/marketplace/tunes/', { params });
+            const response = await api.get<Tune[]>('/marketplace/browse/', { params });
             return response.data;
         } catch (error) {
             console.error('Error fetching tunes:', error);
@@ -18,9 +18,9 @@ export const marketplaceService = {
     /**
      * Get a single tune details.
      */
-    async getTune(id: number): Promise<Tune> {
+    async getTune(id: string): Promise<Tune> {
         try {
-            const response = await api.get<Tune>(`/marketplace/tunes/${id}/`);
+            const response = await api.get<Tune>(`/marketplace/listing/${id}/`);
             return response.data;
         } catch (error) {
             console.error(`Error fetching tune ${id}:`, error);
@@ -31,9 +31,9 @@ export const marketplaceService = {
     /**
      * Purchase a tune.
      */
-    async purchaseTune(tuneId: number): Promise<any> {
+    async purchaseTune(tuneId: string): Promise<any> {
         try {
-            const response = await api.post(`/marketplace/tunes/${tuneId}/purchase/`);
+            const response = await api.post(`/marketplace/purchase/${tuneId}/`);
             return response.data;
         } catch (error) {
             console.error(`Error purchasing tune ${tuneId}:`, error);

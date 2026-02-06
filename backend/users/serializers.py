@@ -84,3 +84,34 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class FollowSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=['follow', 'unfollow'])
+
+from .models import UserLegalAcceptance, UserPreference
+
+class UserLegalAcceptanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserLegalAcceptance
+        fields = ['id', 'document_type', 'version', 'accepted_at', 'ip_address']
+        read_only_fields = ['id', 'accepted_at', 'ip_address']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        ip_address = self.context['request'].META.get('REMOTE_ADDR')
+        return UserLegalAcceptance.objects.create(user=user, ip_address=ip_address, **validated_data)
+
+class UserPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPreference
+        fields = ['key', 'value', 'updated_at']
+        read_only_fields = ['updated_at']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        key = validated_data.get('key')
+        value = validated_data.get('value')
+        
+        pref, created = UserPreference.objects.update_or_create(
+            user=user,
+            key=key,
+            defaults={'value': value}
+        )
+        return pref

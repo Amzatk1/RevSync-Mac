@@ -95,3 +95,48 @@ class Follow(TimeStampedModel):
         
     def __str__(self):
         return f"{self.follower.username} follows {self.following.username}"
+
+class UserLegalAcceptance(models.Model):
+    """
+    Audit log of legal document acceptances (Terms, Privacy, Safety).
+    Critical for compliance and liability.
+    """
+    class DocumentType(models.TextChoices):
+        TERMS = 'TERMS', _('Terms & Conditions')
+        PRIVACY = 'PRIVACY', _('Privacy Policy')
+        SAFETY = 'SAFETY', _('Safety Disclaimer')
+        REFUND = 'REFUND', _('Refund Policy')
+        MARKETING = 'MARKETING', _('Marketing Consent')
+        ANALYTICS = 'ANALYTICS', _('Analytics Consent')
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='legal_acceptances')
+    document_type = models.CharField(max_length=50, choices=DocumentType.choices)
+    version = models.CharField(max_length=20, help_text="e.g., '1.0' or '2026-01'")
+    accepted_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    
+    # Snapshot of what they accepted (optional, but good for robust audit)
+    # content_hash = models.CharField(max_length=64, blank=True) 
+
+    class Meta:
+        ordering = ['-accepted_at']
+        indexes = [
+            models.Index(fields=['user', 'document_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} accepted {self.document_type} v{self.version}"
+
+class UserPreference(TimeStampedModel):
+    """
+    Store user settings and revocable consents.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='preferences')
+    key = models.CharField(max_length=100, db_index=True) # e.g., "analytics_enabled", "safety_mode"
+    value = models.JSONField(default=dict) # Flexible storage (bool, string, or complex config)
+    
+    class Meta:
+        unique_together = ('user', 'key')
+
+    def __str__(self):
+        return f"{self.user.username}: {self.key}={self.value}"

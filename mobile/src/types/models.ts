@@ -18,25 +18,26 @@ export interface Vehicle {
 }
 
 export interface Tune {
-    id: number;
-    creator: number; // TunerProfile ID
-    name: string;
+    id: string; // UUID
+    title: string;
+    slug?: string;
     description: string;
     vehicle_make: string;
     vehicle_model: string;
     vehicle_year_start: number;
     vehicle_year_end: number;
-    ecu_compatibility: string[];
-    stage: number;
+    price: string;
+    tuner_id?: string;
+    tuner_name?: string;
+
+    // Optional Extended
+    stage?: number;
     horsepower_gain?: number;
     torque_gain?: number;
-    dyno_chart_url?: string;
-    file_url: string;
-    file_size_kb: number;
-    price: string; // Decimal comes as string often in JSON
+    file_size_kb?: number;
+    safety_rating?: number;
+
     status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-    safety_rating: number;
-    compatibility_index: number;
     created_at?: string;
     updated_at?: string;
 }

@@ -33,21 +33,49 @@ This is the cross-platform mobile application for RevSync, built with **React Na
 
 ## 📁 Project Structure
 
+## 📁 Project Structure (Clean Architecture)
+
 ```
 mobile/
 ├── src/
-│   ├── auth/           # Authentication (Screens, Context, Services)
-│   ├── components/     # Reusable UI components
-│   ├── navigation/     # Navigation configuration
-│   ├── screens/        # Main app screens
-│   ├── services/       # API and Supabase services
-│   ├── settings/       # Settings screens and logic
-│   ├── store/          # Redux store
-│   ├── styles/         # Global styles
-│   └── types/          # TypeScript definitions
-├── App.tsx             # Entry point
-└── app.json            # Expo configuration
+│   ├── auth/                # Auth logic (Context, legacy files) -- To be migrated
+│   ├── presentation/        # UI Layer (Screens, Components, Navigation)
+│   │   ├── components/
+│   │   ├── navigation/
+│   │   └── screens/
+│   │       ├── auth/
+│   │       ├── flash/
+│   │       ├── garage/
+│   │       ├── profile/
+│   │       └── tunes/
+│   ├── domain/              # Business Logic (Entities, Usecases)
+│   ├── data/                # Data Layer (Repositories, API Implementation)
+│   ├── services/            # Legacy Services (Migration in progress)
+│   ├── types/               # Shared Type Definitions
+│   ├── styles/              # Global Styles
+│   └── store/               # State Management
+├── App.tsx                  # Entry point
+└── app.json                 # Expo configuration
 ```
+
+## 🛡️ Architecture Guardrails
+
+To maintain scalability and reliability, strict layer boundaries are enforced:
+
+1.  **Strict Layering**:
+    *   **Presentation Layer** (`src/presentation`) should ONLY import from `domain` or `services` (legacy). It should NEVER import from `data` directly.
+    *   **Domain Layer** (`src/domain`) must be pure TypeScript. It cannot import from `presentation` (no React components) or `data` (no axios/API implementations).
+    *   **Data Layer** (`src/data`) implements the interfaces defined in `domain`. It owns the HTTP client (axios) and storage mechanics.
+
+2.  **State Management**:
+    *   Global state (User, Settings) is managed via **Zustand** stores in `src/presentation/store` (or legacy `src/store`).
+    *   Local state should remain in components.
+
+3.  **Cross-Platform Only**:
+    *   Do not use iOS-only or Android-only libraries without a fallback or platform check.
+
+4.  **One Source of Truth**:
+    *   Models are defined in `src/types/models.ts` or `domain/entities`. Do not duplicate interface definitions in screens.
 
 ## 🔌 Backend Integration
 

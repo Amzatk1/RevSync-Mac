@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Vehicle, EcuBackup, FlashJob
-from marketplace.serializers import TuneSerializer
+from marketplace.serializers import TuneListingSerializer, TuneVersionSerializer
 from .models import Vehicle, EcuBackup, FlashJob, VehicleDefinition
 
 class VehicleDefinitionSerializer(serializers.ModelSerializer):
@@ -21,7 +21,8 @@ class EcuBackupSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'file_size_kb', 'checksum']
 
 class FlashJobSerializer(serializers.ModelSerializer):
-    tune_detail = TuneSerializer(source='tune', read_only=True)
+    tune_detail = TuneListingSerializer(source='tune', read_only=True)
+    version_detail = TuneVersionSerializer(source='version', read_only=True)
 
     class Meta:
         model = FlashJob

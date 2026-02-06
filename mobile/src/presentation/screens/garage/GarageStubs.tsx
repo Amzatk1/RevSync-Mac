@@ -107,13 +107,21 @@ export const BikeDetailsScreen = ({ navigation, route }: any) => {
     const { bikeId } = route.params;
     const [bike, setBike] = useState<any>(null);
 
-    // Mock load for detail stub
     React.useEffect(() => {
         const load = async () => {
             const bikeService = ServiceLocator.getBikeService();
             const all = await bikeService.getBikes();
             const found = all.find(b => b.id === bikeId);
             setBike(found);
+
+            // Telemetry
+            if (found) {
+                ServiceLocator.getAnalyticsService().logEvent('bike_details_viewed', {
+                    bikeId: found.id,
+                    make: found.make,
+                    model: found.model
+                });
+            }
         };
         load();
     }, [bikeId]);
@@ -135,9 +143,36 @@ export const BikeDetailsScreen = ({ navigation, route }: any) => {
 
             <View style={styles.footer}>
                 <PrimaryButton
+                    title="Identify ECU"
+                    onPress={() => {
+                        ServiceLocator.getAnalyticsService().logEvent('ecu_identify_initiated', { bikeId: bike.id });
+                        // Navigate to Flash tab -> ECUIdentifyScreen
+                        // Note: Navigation structure might require navigating to Tab 'Flash', then stack screen
+                        navigation.navigate('Flash', {
+                            screen: 'ECUIdentify',
+                            params: { bikeId: bike.id }
+                        });
+                    }}
+                    style={{ marginBottom: 12 }}
+                />
+
+                <PrimaryButton
+                    title="View Backups"
+                    onPress={() => {
+                        navigation.navigate('Flash', {
+                            screen: 'Backup',
+                            params: { bikeId: bike.id }
+                        });
+                    }}
+                    style={{ marginBottom: 12, backgroundColor: Theme.Colors.surfaceHighlight }}
+                    textStyle={{ color: Theme.Colors.text }}
+                />
+
+                <PrimaryButton
                     title="Edit Details"
                     onPress={() => { }}
-                    style={{ marginBottom: 16 }}
+                    style={{ marginBottom: 16, backgroundColor: 'transparent', borderWidth: 1, borderColor: Theme.Colors.border }}
+                    textStyle={{ color: Theme.Colors.textSecondary }}
                     disabled // Not implemented yet
                 />
             </View>

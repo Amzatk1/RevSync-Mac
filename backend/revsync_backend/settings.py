@@ -43,12 +43,12 @@ INSTALLED_APPS = [
     'core',
     'users',
     'tuners',
-    # 'garage',
+    'garage',
     'marketplace',
-    # 'publishing',
-    # 'payments',
+    'publishing',
+    'payments',
     'chat',
-    # 'safety_layer',
+    'safety_layer',
 ]
 
 MIDDLEWARE = [

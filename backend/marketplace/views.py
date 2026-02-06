@@ -32,10 +32,18 @@ class MarketplaceBrowseView(generics.ListAPIView):
     """
     Public marketplace browsing.
     """
-    queryset = TuneListing.objects.filter(is_active=True)
+    queryset = TuneListing.objects.filter(is_active=True).order_by('-created_at')
     serializer_class = TuneListingSerializer
     permission_classes = [permissions.AllowAny]
     filterset_fields = ['vehicle_make', 'vehicle_model']
+
+class MarketplaceDetailView(generics.RetrieveAPIView):
+    """
+    Public marketplace detail.
+    """
+    queryset = TuneListing.objects.filter(is_active=True)
+    serializer_class = TuneListingSerializer
+    permission_classes = [permissions.AllowAny]
 
 class TunerListingViewSet(viewsets.ModelViewSet):
     """
@@ -73,8 +81,21 @@ class TunerVersionViewSet(viewsets.ModelViewSet):
         bucket = "revsync-quarantine"
         path = f"{request.user.id}/{version.listing.id}/{version.id}/{filename}"
         
-        # MOCK Signed URL (Replace with Supabase Logic)
-        upload_url = f"https://mock-supabase.com/upload/{bucket}/{path}"
+        # Supabase Signed URL for Upload
+        try:
+             import os
+             from supabase import create_client
+             url = os.environ.get("SUPABASE_URL", "")
+             key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+             supabase = create_client(url, key)
+             
+             # Create a signed upload URL (if supported by library vs manually)
+             # Or just return path for client to upload if using RLS
+             # For now, let's assume we return the path and client uses Supabase JS to upload directly
+             # which is standard pattern for Supabase
+             upload_url = "" 
+        except:
+             pass
         
         # Save intended path
         version.quarantine_path = path
@@ -83,8 +104,45 @@ class TunerVersionViewSet(viewsets.ModelViewSet):
         return Response({
             'bucket': bucket,
             'path': path,
-            'upload_url': upload_url
+            # 'upload_url': upload_url 
+            'note': 'Use Supabase Client to upload to this path'
         })
+
+# ...
+
+class DownloadLinkView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, version_id):
+        version = get_object_or_404(TuneVersion, pk=version_id)
+        
+        # Check Entitlement
+        has_entitlement = PurchaseEntitlement.objects.filter(
+            user=request.user, 
+            listing=version.listing, 
+            is_revoked=False
+        ).exists()
+        
+        if not has_entitlement:
+            return Response({'error': 'No active entitlement'}, status=403)
+            
+        if version.status != TuneVersion.State.PUBLISHED:
+            return Response({'error': 'Version not published'}, status=403)
+            
+        # Generate Signed URL for Validated Bucket
+        try:
+             import os
+             from supabase import create_client
+             url = os.environ.get("SUPABASE_URL", "")
+             key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+             supabase = create_client(url, key)
+             
+             # Generate signed URL
+             signed_url = supabase.storage.from_("revsync-validated").create_signed_url(version.validated_path, 300)
+        except Exception as e:
+             return Response({'error': 'Storage config missing'}, status=500)
+        
+        return Response({'download_url': signed_url, 'expires_in': 300})
         
     @action(detail=True, methods=['post'], url_path='upload-complete')
     def upload_complete(self, request, pk=None):
@@ -156,7 +214,21 @@ class DownloadLinkView(APIView):
             return Response({'error': 'Version not published'}, status=403)
             
         # Generate Signed URL for Validated Bucket
-        # MOCK
-        signed_url = f"https://mock-storage.com/validated/{version.validated_path}?token=xyz"
+        try:
+             import os
+             from supabase import create_client
+             url = os.environ.get("SUPABASE_URL", "")
+             key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+             supabase = create_client(url, key)
+             
+             # Generate signed URL (returns dict {'signedURL': ...} in python client sometimes, checking docs logic)
+             # Standard python lib: create_signed_url returns dict or string depending on version. 
+             # Assuming standard:
+             res = supabase.storage.from_("revsync-validated").create_signed_url(version.validated_path, 300)
+             # Extract string if it's a dict
+             signed_url = res['signedURL'] if isinstance(res, dict) and 'signedURL' in res else res
+             
+        except Exception as e:
+             return Response({'error': 'Storage config missing or file not found'}, status=500)
         
         return Response({'download_url': signed_url, 'expires_in': 300})

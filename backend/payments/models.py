@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from marketplace.models import Tune
+from marketplace.models import TuneListing
 
 class PaymentTransaction(models.Model):
     STATUS_CHOICES = [
@@ -10,7 +10,7 @@ class PaymentTransaction(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='payments')
-    tune = models.ForeignKey(Tune, on_delete=models.CASCADE, related_name='transactions')
+    listing = models.ForeignKey(TuneListing, on_delete=models.CASCADE, related_name='transactions')
     stripe_payment_intent_id = models.CharField(max_length=255, unique=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default='usd')

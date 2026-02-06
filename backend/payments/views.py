@@ -1,49 +1,52 @@
 from rest_framework import views, status, permissions
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from marketplace.models import Tune
+from django.conf import settings
+from marketplace.models import TuneListing
 from .models import PaymentTransaction
+import stripe
 import uuid
 
-# Mock Stripe for now
-class StripeMock:
-    @staticmethod
-    def PaymentIntent_create(amount, currency, metadata):
-        return {
-            'id': f"pi_mock_{uuid.uuid4()}",
-            'client_secret': f"pi_mock_secret_{uuid.uuid4()}"
-        }
+# Configure Stripe
+stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', None)
 
 class CreatePaymentIntentView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        tune_id = request.data.get('tune_id')
-        tune = get_object_or_404(Tune, id=tune_id)
+        if not stripe.api_key:
+             return Response({"error": "Stripe is not configured on the server"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        listing_id = request.data.get('listing_id')
+        listing = get_object_or_404(TuneListing, id=listing_id)
 
         # Calculate amount (in cents)
-        amount = int(tune.price * 100)
+        amount = int(listing.price * 100)
 
-        # Create Stripe PaymentIntent (Mocked)
-        intent = StripeMock.PaymentIntent_create(
-            amount=amount,
-            currency='usd',
-            metadata={'tune_id': str(tune.id), 'user_id': str(request.user.id)}
-        )
+        try:
+            # Create Stripe PaymentIntent
+            intent = stripe.PaymentIntent.create(
+                amount=amount,
+                currency='usd',
+                metadata={'listing_id': str(listing.id), 'user_id': str(request.user.id)},
+                automatic_payment_methods={'enabled': True},
+            )
 
-        # Create Transaction Record
-        PaymentTransaction.objects.create(
-            user=request.user,
-            tune=tune,
-            stripe_payment_intent_id=intent['id'],
-            amount=tune.price,
-            status='pending'
-        )
+            # Create Transaction Record
+            PaymentTransaction.objects.create(
+                user=request.user,
+                listing=listing,
+                stripe_payment_intent_id=intent['id'],
+                amount=listing.price,
+                status='pending'
+            )
 
-        return Response({
-            'clientSecret': intent['client_secret'],
-            'paymentIntentId': intent['id']
-        })
+            return Response({
+                'clientSecret': intent['client_secret'],
+                'paymentIntentId': intent['id']
+            })
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class WebhookView(views.APIView):
     permission_classes = [permissions.AllowAny]
@@ -61,9 +64,9 @@ class WebhookView(views.APIView):
                 transaction.status = 'succeeded'
                 transaction.save()
                 
-                # Unlock content (Create Purchase record)
-                from marketplace.models import Purchase
-                Purchase.objects.get_or_create(buyer=transaction.user, tune=transaction.tune)
+                # Unlock content (Create Purchase Entitlement)
+                from marketplace.models import PurchaseEntitlement
+                PurchaseEntitlement.objects.get_or_create(user=transaction.user, listing=transaction.listing)
                 
             except PaymentTransaction.DoesNotExist:
                 pass

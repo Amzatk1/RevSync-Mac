@@ -62,7 +62,8 @@ class FlashJob(TimeStampedModel):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='flash_jobs')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='flash_jobs')
-    tune = models.ForeignKey('marketplace.Tune', on_delete=models.SET_NULL, null=True, blank=True, related_name='flash_jobs')
+    tune = models.ForeignKey('marketplace.TuneListing', on_delete=models.SET_NULL, null=True, blank=True, related_name='flash_jobs')
+    version = models.ForeignKey('marketplace.TuneVersion', on_delete=models.SET_NULL, null=True, blank=True, related_name='flash_jobs')
     
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     progress = models.PositiveSmallIntegerField(default=0, help_text="0-100")

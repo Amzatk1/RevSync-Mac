@@ -1,10 +1,12 @@
 import { AuthService, AuthResult } from '../../domain/services/AuthService';
 import { User } from '../../domain/entities/User';
 import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
 
 // NOTE: Replace these with actual environment variables in production
 const SUPABASE_URL = 'https://xyzcompany.supabase.co';
 const SUPABASE_ANON_KEY = 'public-anon-key';
+const SESSION_KEY = 'revsync_session';
 
 export class SupabaseAuthService implements AuthService {
     private supabase;
@@ -15,90 +17,70 @@ export class SupabaseAuthService implements AuthService {
 
     async signIn(email: string, password: string): Promise<AuthResult> {
         // START: Mock logic for prototype (Supabase requires real creds)
-        if (email === 'demo@revsync.com' && password === 'garage') {
-            return {
-                success: true,
-                user: {
-                    id: 'mock-user-123',
-                    email: email,
-                    firstName: 'RevSync',
-                    lastName: 'Rider',
-                    createdAt: Date.now(),
-                }
+        if ((email === 'demo@revsync.com' && password === 'garage') || (email === 'Amzatk1' && password === 'Hamzaayo1312')) {
+            const user: User = {
+                id: email === 'Amzatk1' ? 'test-user-001' : 'mock-user-123',
+                email: email,
+                firstName: email === 'Amzatk1' ? 'Hamza' : 'RevSync',
+                lastName: email === 'Amzatk1' ? 'User' : 'Rider',
+                createdAt: Date.now(),
             };
-        }
 
-        // Test User Hardcode
-        if (email === 'Amzatk1' && password === 'Hamzaayo1312') {
+            // Persist session securely
+            await this.saveSession(user);
+
             return {
                 success: true,
-                user: {
-                    id: 'test-user-001',
-                    email: email,
-                    firstName: 'Hamza',
-                    lastName: 'User',
-                    createdAt: Date.now(),
-                }
+                user
             };
         }
         // END: Mock logic
 
-        /* Real Implementation:
-        const { data, error } = await this.supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-    
-        if (error) return { success: false, error: error.message };
-        
-        return {
-          success: true,
-          user: this.mapUser(data.user)
-        };
-        */
-
-        return { success: false, error: 'Invalid credentials (try demo@revsync.com / garage)' };
+        return { success: false, error: 'Invalid credentials. Try demo@revsync.com / garage' };
     }
 
     async signUp(email: string, password: string): Promise<AuthResult> {
         // START: Mock logic
+        const user: User = {
+            id: 'new-user-' + Date.now(),
+            email,
+            createdAt: Date.now()
+        };
+
+        await this.saveSession(user);
+
         return {
             success: true,
-            user: {
-                id: 'new-user-' + Date.now(),
-                email,
-                createdAt: Date.now()
-            }
+            user
         };
-        // END: Mock logic
-
-        /* Real Implementation:
-        const { data, error } = await this.supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (error) return { success: false, error: error.message };
-        return { success: true, user: this.mapUser(data.user) };
-        */
     }
 
     async signOut(): Promise<void> {
-        // await this.supabase.auth.signOut();
+        await SecureStore.deleteItemAsync(SESSION_KEY);
     }
 
     async getCurrentUser(): Promise<User | null> {
-        // For now, return null to force login flow on reload
+        try {
+            const sessionStr = await SecureStore.getItemAsync(SESSION_KEY);
+            if (sessionStr) {
+                return JSON.parse(sessionStr);
+            }
+        } catch (e) {
+            console.error('Failed to restore session', e);
+        }
         return null;
-        /*
-        const { data: { user } } = await this.supabase.auth.getUser();
-        return user ? this.mapUser(user) : null;
-        */
     }
 
     async resetPassword(email: string): Promise<boolean> {
-        // const { error } = await this.supabase.auth.resetPasswordForEmail(email);
-        // return !error;
         return true;
+    }
+
+    private async saveSession(user: User) {
+        try {
+            await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(user));
+        } catch (e) {
+            console.error('Failed to save session', e);
+        }
     }
 
     private mapUser(supabaseUser: any): User {

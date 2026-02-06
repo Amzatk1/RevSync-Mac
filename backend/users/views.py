@@ -80,3 +80,34 @@ class FollowView(APIView):
             return Response({'status': 'unfollowed'})
             
         return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+from .models import UserLegalAcceptance, UserPreference
+from .serializers import UserLegalAcceptanceSerializer, UserPreferenceSerializer
+
+class LegalAcceptanceView(generics.CreateAPIView):
+    """
+    Record user acceptance of a legal document.
+    """
+    serializer_class = UserLegalAcceptanceSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+class LegalHistoryView(generics.ListAPIView):
+    """
+    Get history of accepted documents for the current user.
+    """
+    serializer_class = UserLegalAcceptanceSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return UserLegalAcceptance.objects.filter(user=self.request.user)
+
+class UserPreferenceView(generics.ListCreateAPIView):
+    """
+    Get or set user preferences (consents, settings).
+    POST with "key" and "value" to update/create.
+    """
+    serializer_class = UserPreferenceSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return UserPreference.objects.filter(user=self.request.user)

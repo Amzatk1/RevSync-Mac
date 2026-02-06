@@ -7,7 +7,7 @@ export const garageService = {
      */
     async getVehicles(): Promise<Vehicle[]> {
         try {
-            const response = await api.get<Vehicle[]>('/garage/vehicles/');
+            const response = await api.get<Vehicle[]>('/garage/');
             return response.data;
         } catch (error) {
             console.error('Error fetching vehicles:', error);
@@ -20,7 +20,7 @@ export const garageService = {
      */
     async getVehicle(id: number): Promise<Vehicle> {
         try {
-            const response = await api.get<Vehicle>(`/garage/vehicles/${id}/`);
+            const response = await api.get<Vehicle>(`/garage/${id}/`);
             return response.data;
         } catch (error) {
             console.error(`Error fetching vehicle ${id}:`, error);
@@ -33,7 +33,7 @@ export const garageService = {
      */
     async addVehicle(vehicleData: Partial<Vehicle>): Promise<Vehicle> {
         try {
-            const response = await api.post<Vehicle>('/garage/vehicles/', vehicleData);
+            const response = await api.post<Vehicle>('/garage/', vehicleData);
             return response.data;
         } catch (error) {
             console.error('Error adding vehicle:', error);
@@ -46,7 +46,7 @@ export const garageService = {
      */
     async updateVehicle(id: number, updates: Partial<Vehicle>): Promise<Vehicle> {
         try {
-            const response = await api.patch<Vehicle>(`/garage/vehicles/${id}/`, updates);
+            const response = await api.patch<Vehicle>(`/garage/${id}/`, updates);
             return response.data;
         } catch (error) {
             console.error(`Error updating vehicle ${id}:`, error);
@@ -59,7 +59,7 @@ export const garageService = {
      */
     async deleteVehicle(id: number): Promise<void> {
         try {
-            await api.delete(`/garage/vehicles/${id}/`);
+            await api.delete(`/garage/${id}/`);
         } catch (error) {
             console.error(`Error deleting vehicle ${id}:`, error);
             throw error;

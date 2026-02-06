@@ -14,7 +14,7 @@ export const TuneCard = ({ tune, onPress }: TuneCardProps) => {
         <TouchableOpacity style={styles.card} onPress={onPress}>
             <View style={styles.header}>
                 <View style={styles.titleRow}>
-                    <Text style={styles.name}>{tune.name}</Text>
+                    <Text style={styles.name}>{tune.title}</Text>
                     <View style={styles.badge}>
                         <Text style={styles.badgeText}>Stage {tune.stage}</Text>
                     </View>

@@ -11,7 +11,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { TuneMarketplaceScreen } from '../screens/TuneMarketplaceScreen';
 import { TuneDetailsScreen } from '../screens/tunes/TuneDetailsScreen';
 import { TuneValidationScreen } from '../screens/tunes/TuneValidationScreen';
-import { CheckoutScreen, DownloadManagerScreen } from '../screens/tunes/TunesStubs';
+import { CheckoutScreen } from '../screens/tunes/TunesStubs';
+import { DownloadManagerScreen } from '../screens/tunes/DownloadManagerScreen';
 
 // Garage Screens
 import { GarageScreen } from '../screens/GarageScreen';

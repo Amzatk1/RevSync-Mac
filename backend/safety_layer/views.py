@@ -22,7 +22,8 @@ class SafetyAnalysisView(APIView):
         # In reality, this would call an AI service or rule engine
         
         vehicle_id = request.data.get('vehicle_id')
-        tune_id = request.data.get('tune_id')
+        listing_id = request.data.get('listing_id')
+        version_id = request.data.get('version_id')
         
         # Mock result
         risk_score = 15
@@ -32,7 +33,8 @@ class SafetyAnalysisView(APIView):
         report = SafetyReport.objects.create(
             user=request.user,
             vehicle_id=vehicle_id,
-            tune_id=tune_id,
+            listing_id=listing_id,
+            version_id=version_id,
             risk_score=risk_score,
             status=status_label,
             input_data=request.data,
