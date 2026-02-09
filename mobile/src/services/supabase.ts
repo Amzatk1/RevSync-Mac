@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -6,15 +7,27 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         storage: {
-            getItem: (key) => {
-                // TODO: Implement SecureStore
-                return null;
+            getItem: async (key: string) => {
+                try {
+                    return await SecureStore.getItemAsync(key);
+                } catch (e) {
+                    console.error('SecureStore getItem failed', e);
+                    return null;
+                }
             },
-            setItem: (key, value) => {
-                // TODO: Implement SecureStore
+            setItem: async (key: string, value: string) => {
+                try {
+                    await SecureStore.setItemAsync(key, value);
+                } catch (e) {
+                    console.error('SecureStore setItem failed', e);
+                }
             },
-            removeItem: (key) => {
-                // TODO: Implement SecureStore
+            removeItem: async (key: string) => {
+                try {
+                    await SecureStore.deleteItemAsync(key);
+                } catch (e) {
+                    console.error('SecureStore removeItem failed', e);
+                }
             },
         },
         autoRefreshToken: true,

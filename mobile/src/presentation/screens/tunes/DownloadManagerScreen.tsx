@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react
 import { Theme } from '../../theme';
 import { Screen, Card } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
-import { StorageAdapter } from '../../data/services/StorageAdapter';
-import { Tune } from '../../domain/services/DomainTypes';
+import { StorageAdapter } from '../../../data/services/StorageAdapter';
+import { Tune } from '../../../domain/services/DomainTypes';
 
 const CACHE_KEYS = {
     TUNES_LIST: 'tunes_list_cache',
@@ -17,8 +17,8 @@ export const DownloadManagerScreen = ({ navigation }: any) => {
         loadDownloads();
     }, []);
 
-    const loadDownloads = () => {
-        const cached = StorageAdapter.get<Tune[]>(CACHE_KEYS.TUNES_LIST);
+    const loadDownloads = async () => {
+        const cached = await StorageAdapter.get<Tune[]>(CACHE_KEYS.TUNES_LIST);
         if (cached) {
             // For now, we assume everything in cache is "downloaded" or available offline
             // In a real app, we might have a separate 'downloaded_files' key
@@ -35,10 +35,10 @@ export const DownloadManagerScreen = ({ navigation }: any) => {
                 {
                     text: "Delete",
                     style: "destructive",
-                    onPress: () => {
+                    onPress: async () => {
                         const newDownloads = downloads.filter(t => t.id !== id);
                         setDownloads(newDownloads);
-                        StorageAdapter.set(CACHE_KEYS.TUNES_LIST, newDownloads);
+                        await StorageAdapter.set(CACHE_KEYS.TUNES_LIST, newDownloads);
                     }
                 }
             ]

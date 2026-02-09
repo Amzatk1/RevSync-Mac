@@ -118,7 +118,7 @@ export const VerificationScreen = ({ navigation, route }: any) => {
     return (
         <Screen center>
             <View style={styles.successContainer}>
-                <Ionicons name="shield-checkmark" size={100} color={Theme.Colors.secondary} />
+                <Ionicons name="shield-checkmark" size={100} color="#22C55E" />
                 <Text style={styles.successTitle}>All Systems Go</Text>
                 <Text style={styles.successText}>
                     Tune verified and diagnostic codes cleared. Your bike is ready to ride.
@@ -182,15 +182,16 @@ const styles = StyleSheet.create({
     },
     successTitle: {
         fontSize: 28,
-        fontWeight: 'bold',
-        color: Theme.Colors.text,
+        fontWeight: '800',
+        color: '#FAFAFA',
         marginTop: 24,
         marginBottom: 16,
+        letterSpacing: -0.3,
     },
     successText: {
         textAlign: 'center',
-        fontSize: 16,
-        color: Theme.Colors.textSecondary,
+        fontSize: 15,
+        color: '#A1A1AA',
         lineHeight: 24,
     },
     footer: {

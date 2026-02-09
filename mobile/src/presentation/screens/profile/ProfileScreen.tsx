@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../theme';
 import { Screen, Card, SecondaryButton } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +9,7 @@ import { ServiceLocator } from '../../../di/ServiceLocator';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const ProfileScreen = ({ navigation }: any) => {
-    const { currentUser, signOut } = useAppStore();
+    const { currentUser, signOut, activeBike } = useAppStore();
     const [stats, setStats] = useState({ tunesFlashed: 0, bikesOwned: 0 });
 
     useEffect(() => {
@@ -31,23 +32,46 @@ export const ProfileScreen = ({ navigation }: any) => {
 
     return (
         <Screen scroll>
-            <View style={styles.header}>
-                <View style={styles.avatarContainer}>
-                    <Text style={styles.avatarText}>
-                        {currentUser?.email?.substring(0, 2).toUpperCase() || 'US'}
-                    </Text>
-                    <TouchableOpacity style={styles.editBadge} onPress={() => navigation.navigate('ProfileEdit')}>
-                        <Ionicons name="pencil" size={12} color="#FFF" />
-                    </TouchableOpacity>
+            {/* Gradient Header */}
+            <LinearGradient
+                colors={['rgba(225, 29, 72, 0.15)', 'rgba(225, 29, 72, 0.03)', Theme.Colors.background]}
+                style={styles.gradientHeader}
+            >
+                <View style={styles.header}>
+                    <View style={styles.avatarContainer}>
+                        <Text style={styles.avatarText}>
+                            {currentUser?.email?.substring(0, 2).toUpperCase() || 'US'}
+                        </Text>
+                        <TouchableOpacity style={styles.editBadge} onPress={() => navigation.navigate('ProfileEdit')}>
+                            <Ionicons name="pencil" size={12} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={styles.email}>{currentUser?.email}</Text>
+                    <Text style={styles.joined}>Member since 2024</Text>
                 </View>
-                <Text style={styles.email}>{currentUser?.email}</Text>
-                <Text style={styles.joined}>Member since 2024</Text>
-            </View>
+            </LinearGradient>
 
             <View style={styles.statsRow}>
                 <StatsCard label="Bikes" value={stats.bikesOwned.toString()} icon="bicycle" />
                 <StatsCard label="Flashes" value={stats.tunesFlashed.toString()} icon="flash" />
+                <StatsCard label="Purchased" value="2" icon="cart" />
             </View>
+
+            {/* Active Bike Summary */}
+            {activeBike && (
+                <Card style={styles.bikeCard}>
+                    <View style={styles.bikeRow}>
+                        <View style={styles.bikeIconBox}>
+                            <Ionicons name="bicycle" size={24} color={Theme.Colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.bikeTitle}>Active Bike</Text>
+                            <Text style={styles.bikeName}>{activeBike.year} {activeBike.make} {activeBike.model}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Theme.Colors.textSecondary} />
+                    </View>
+                </Card>
+            )}
 
             <View style={styles.menuContainer}>
                 <MenuItem
@@ -103,6 +127,9 @@ const MenuItem = ({ icon, label, onPress }: any) => (
 );
 
 const styles = StyleSheet.create({
+    gradientHeader: {
+        paddingTop: 16,
+    },
     header: {
         alignItems: 'center',
         paddingVertical: 32,
@@ -225,5 +252,33 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: Theme.Colors.textSecondary,
         fontSize: 12,
+    },
+    bikeCard: {
+        marginHorizontal: Theme.Spacing.md,
+        marginBottom: 16,
+    },
+    bikeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+    },
+    bikeIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: 'rgba(225, 29, 72, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    bikeTitle: {
+        fontSize: 12,
+        color: Theme.Colors.textSecondary,
+        fontWeight: '500',
+    },
+    bikeName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: Theme.Colors.text,
+        marginTop: 2,
     },
 });

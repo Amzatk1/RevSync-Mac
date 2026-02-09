@@ -11,18 +11,18 @@ export class ApiBikeService implements BikeService {
     async getBikes(): Promise<Bike[]> {
         try {
             const bikes = await ApiClient.getInstance().get<Bike[]>('/garage/vehicles/');
-            StorageAdapter.set(CACHE_KEYS.BIKES_LIST, bikes);
+            await StorageAdapter.set(CACHE_KEYS.BIKES_LIST, bikes);
             return bikes;
         } catch (error) {
             console.warn('ApiBikeService: Network failed, using cache', error);
-            const cached = StorageAdapter.get<Bike[]>(CACHE_KEYS.BIKES_LIST);
+            const cached = await StorageAdapter.get<Bike[]>(CACHE_KEYS.BIKES_LIST);
             if (cached) return cached;
             throw error;
         }
     }
 
     async getActiveBike(): Promise<Bike | null> {
-        const id = StorageAdapter.getString(ACTIVE_BIKE_KEY);
+        const id = await StorageAdapter.getString(ACTIVE_BIKE_KEY);
         if (!id) return null;
 
         const bikes = await this.getBikes();
@@ -30,7 +30,7 @@ export class ApiBikeService implements BikeService {
     }
 
     async setActiveBike(bikeId: string): Promise<void> {
-        StorageAdapter.setString(ACTIVE_BIKE_KEY, bikeId);
+        await StorageAdapter.setString(ACTIVE_BIKE_KEY, bikeId);
     }
 
     async addBike(bike: Omit<Bike, 'id'>): Promise<Bike> {

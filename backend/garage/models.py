@@ -53,25 +53,77 @@ class EcuBackup(SoftDeleteModel):
 class FlashJob(TimeStampedModel):
     """
     Track the status of an ECU flash operation.
+    
+    State machine:
+      CREATED → PRE_CHECK → BACKING_UP → FLASHING → VERIFYING → COMPLETED
+                    ↓             ↓           ↓           ↓
+                  ABORTED       FAILED      FAILED      FAILED
+                                                          ↓
+                                                      RECOVERING → COMPLETED / FAILED
     """
     class Status(models.TextChoices):
-        PENDING = 'PENDING', 'Pending'
+        CREATED = 'CREATED', 'Created'
+        PRE_CHECK = 'PRE_CHECK', 'Pre-flight Check'
+        BACKING_UP = 'BACKING_UP', 'Backing Up ECU'
         FLASHING = 'FLASHING', 'Flashing'
+        VERIFYING = 'VERIFYING', 'Verifying Flash'
         COMPLETED = 'COMPLETED', 'Completed'
         FAILED = 'FAILED', 'Failed'
+        RECOVERING = 'RECOVERING', 'Recovering from Backup'
+        ABORTED = 'ABORTED', 'Aborted by User'
+
+    class ConnectionType(models.TextChoices):
+        BLE = 'BLE', 'Bluetooth LE'
+        USB = 'USB', 'USB Serial'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='flash_jobs')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='flash_jobs')
     tune = models.ForeignKey('marketplace.TuneListing', on_delete=models.SET_NULL, null=True, blank=True, related_name='flash_jobs')
     version = models.ForeignKey('marketplace.TuneVersion', on_delete=models.SET_NULL, null=True, blank=True, related_name='flash_jobs')
+    backup = models.ForeignKey(EcuBackup, on_delete=models.SET_NULL, null=True, blank=True, related_name='flash_jobs')
     
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CREATED)
     progress = models.PositiveSmallIntegerField(default=0, help_text="0-100")
     logs = models.JSONField(default=list, blank=True)
     error_message = models.TextField(blank=True)
+    error_code = models.CharField(max_length=50, blank=True, help_text="Machine-readable error code")
+
+    # Connection details
+    connection_type = models.CharField(
+        max_length=5, choices=ConnectionType.choices,
+        default=ConnectionType.BLE
+    )
+    device_id = models.CharField(max_length=100, blank=True, help_text="BLE device ID or USB port")
+
+    # ECU data captured during flash
+    ecu_read_data = models.JSONField(
+        default=dict, blank=True,
+        help_text="Data read from ECU during identify/backup (HW ID, FW version, etc.)"
+    )
+
+    # Timing
+    flash_started_at = models.DateTimeField(null=True, blank=True)
+    flash_completed_at = models.DateTimeField(null=True, blank=True)
+
+    # Chunk tracking (for resumption)
+    total_chunks = models.PositiveIntegerField(default=0)
+    chunks_sent = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Flash {self.status} - {self.vehicle}"
+
+    def add_log(self, message: str):
+        """Append a timestamped entry to the log."""
+        from django.utils import timezone
+        entry = {
+            'timestamp': timezone.now().isoformat(),
+            'message': message,
+        }
+        self.logs.append(entry)
+        self.save(update_fields=['logs', 'updated_at'])
 
 class VehicleDefinition(TimeStampedModel):
     """

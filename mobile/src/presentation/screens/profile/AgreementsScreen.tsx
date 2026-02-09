@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-nativ
 import { Theme } from '../../theme';
 import { Screen, Card } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
-import { legalService } from '../../services/legalService';
+import { legalService } from '../../../services/legalService';
 
 interface Agreement {
     id: number;

@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
-import { Theme } from '../theme';
-import { Screen, PrimaryButton, LoadingOverlay, Card, EmptyState } from '../components/SharedComponents';
+import { Theme } from '../../theme';
+import { Screen, PrimaryButton, LoadingOverlay, Card, EmptyState } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
-import { ServiceLocator } from '../../di/ServiceLocator';
-import { Bike } from '../../domain/services/DomainTypes';
-import { useAppStore } from '../store/useAppStore';
+import { ServiceLocator } from '../../../di/ServiceLocator';
+import { Bike } from '../../../domain/services/DomainTypes';
+import { useAppStore } from '../../store/useAppStore';
 import { useFocusEffect } from '@react-navigation/native';
 
 export const GarageScreen = ({ navigation }: any) => {
@@ -144,18 +144,26 @@ const styles = StyleSheet.create({
     },
     addBtn: {
         backgroundColor: Theme.Colors.primary,
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#E11D48',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
     },
     list: {
         padding: Theme.Spacing.md,
     },
     activeCard: {
-        borderColor: Theme.Colors.primary,
-        borderWidth: 2,
+        borderColor: 'rgba(225,29,72,0.4)',
+        borderWidth: 1.5,
+        shadowColor: '#E11D48',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -173,15 +181,16 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     activeBadge: {
-        backgroundColor: Theme.Colors.primary,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
+        backgroundColor: 'rgba(225,29,72,0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
     },
     activeBadgeText: {
         fontSize: 10,
-        fontWeight: 'bold',
-        color: '#000',
+        fontWeight: '700',
+        color: '#FB7185',
+        letterSpacing: 0.5,
     },
     cardFooter: {
         flexDirection: 'row',
@@ -202,14 +211,16 @@ const styles = StyleSheet.create({
         color: Theme.Colors.textSecondary,
     },
     activateBtn: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        backgroundColor: 'rgba(225,29,72,0.1)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(225,29,72,0.2)',
     },
     activateText: {
         fontSize: 12,
-        fontWeight: '600',
-        color: Theme.Colors.text,
+        fontWeight: '700',
+        color: '#FB7185',
     },
 });

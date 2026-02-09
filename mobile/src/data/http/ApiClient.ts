@@ -1,9 +1,10 @@
 import { AppError } from '../../domain/types/common';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.revsync.com/v1';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 interface ApiRequestConfig extends RequestInit {
     timeout?: number;
+    params?: Record<string, string | number | boolean | undefined>;
 }
 
 export class ApiClient {
@@ -24,7 +25,19 @@ export class ApiClient {
     }
 
     async get<T>(path: string, config?: ApiRequestConfig): Promise<T> {
-        return this.request<T>(path, { ...config, method: 'GET' });
+        // Build query string from params
+        let url = path;
+        if (config?.params) {
+            const searchParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(config.params)) {
+                if (value !== undefined && value !== null) {
+                    searchParams.append(key, String(value));
+                }
+            }
+            const qs = searchParams.toString();
+            if (qs) url = `${path}?${qs}`;
+        }
+        return this.request<T>(url, { ...config, method: 'GET' });
     }
 
     async post<T>(path: string, body?: any, config?: ApiRequestConfig): Promise<T> {
@@ -43,11 +56,21 @@ export class ApiClient {
         });
     }
 
-    // ... put, delete, etc.
+    async patch<T>(path: string, body?: any, config?: ApiRequestConfig): Promise<T> {
+        return this.request<T>(path, {
+            ...config,
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async delete<T>(path: string, config?: ApiRequestConfig): Promise<T> {
+        return this.request<T>(path, { ...config, method: 'DELETE' });
+    }
 
     private async request<T>(path: string, config: ApiRequestConfig): Promise<T> {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), config.timeout || 100000); // Default 10s timeout
+        const timeoutId = setTimeout(() => controller.abort(), config.timeout || 10000); // Default 10s timeout
 
         try {
             const headers: HeadersInit = {

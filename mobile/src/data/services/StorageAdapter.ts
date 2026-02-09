@@ -1,21 +1,18 @@
-import { MMKV } from 'react-native-mmkv';
-
-// @ts-ignore
-export const storage = new MMKV();
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const StorageAdapter = {
-    set: (key: string, value: any) => {
+    set: async (key: string, value: any) => {
         try {
             const jsonValue = JSON.stringify(value);
-            storage.set(key, jsonValue);
+            await AsyncStorage.setItem(key, jsonValue);
         } catch (e) {
             console.error('StorageAdapter Set Error', e);
         }
     },
 
-    get: <T>(key: string): T | null => {
+    get: async <T>(key: string): Promise<T | null> => {
         try {
-            const jsonValue = storage.getString(key);
+            const jsonValue = await AsyncStorage.getItem(key);
             return jsonValue != null ? JSON.parse(jsonValue) : null;
         } catch (e) {
             console.error('StorageAdapter Get Error', e);
@@ -23,19 +20,20 @@ export const StorageAdapter = {
         }
     },
 
-    getString: (key: string): string | undefined => {
-        return storage.getString(key);
+    getString: async (key: string): Promise<string | undefined> => {
+        const val = await AsyncStorage.getItem(key);
+        return val === null ? undefined : val;
     },
 
-    setString: (key: string, value: string) => {
-        storage.set(key, value);
+    setString: async (key: string, value: string) => {
+        await AsyncStorage.setItem(key, value);
     },
 
-    delete: (key: string) => {
-        storage.delete(key);
+    delete: async (key: string) => {
+        await AsyncStorage.removeItem(key);
     },
 
-    clearAll: () => {
-        storage.clearAll();
+    clearAll: async () => {
+        await AsyncStorage.clear();
     }
 };

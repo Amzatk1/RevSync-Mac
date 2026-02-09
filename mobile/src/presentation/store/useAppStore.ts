@@ -3,6 +3,9 @@ import { ServiceLocator } from '../../di/ServiceLocator';
 import { Bike, Tune } from '../../domain/services/DomainTypes';
 import { FlashSession } from '../../domain/entities/FlashSession';
 import { User } from '../../domain/entities/User';
+import { StorageAdapter } from '../../data/services/StorageAdapter';
+
+const ONBOARDED_KEY = 'revsync_onboarded';
 
 interface AppState {
     // Auth
@@ -41,9 +44,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     checkAuth: async () => {
         set({ isLoading: true });
         const user = await ServiceLocator.getAuthService().getCurrentUser();
+        const onboarded = await StorageAdapter.get<boolean>(ONBOARDED_KEY);
         set({
             currentUser: user,
             isAuthenticated: !!user,
+            isOnboarded: !!onboarded,
             isLoading: false
         });
     },
@@ -122,7 +127,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     isOnboarded: false,
     completeOnboarding: async () => {
-        // Persist this setting locally
+        await StorageAdapter.set(ONBOARDED_KEY, true);
         set({ isOnboarded: true });
     },
 }));

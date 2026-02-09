@@ -1,4 +1,4 @@
-import api from './api';
+import { ApiClient } from '../data/http/ApiClient';
 
 export interface Topic {
     id: number;
@@ -11,15 +11,13 @@ export interface Topic {
 export const communityService = {
     /**
      * Get trending topics.
-     * Note: This assumes a backend endpoint exists. If not, we'll return mock data 
-     * but structured in a way that's easy to swap.
+     * Currently returns placeholder data until community backend endpoint is ready.
      */
     async getTrendingTopics(): Promise<Topic[]> {
         try {
-            // const response = await api.get<Topic[]>('/community/topics/trending/');
-            // return response.data;
+            // Ready for backend — uncomment when endpoint exists:
+            // return await ApiClient.getInstance().get<Topic[]>('/community/topics/trending/');
 
-            // Simulating API delay for now until backend endpoint is confirmed
             return new Promise(resolve => {
                 setTimeout(() => {
                     resolve([

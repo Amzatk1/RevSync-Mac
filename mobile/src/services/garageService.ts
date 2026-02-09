@@ -1,5 +1,21 @@
-import api from './api';
-import { Vehicle, VehicleDefinition } from '../types/models';
+import { ApiClient } from '../data/http/ApiClient';
+
+interface Vehicle {
+    id: number;
+    make: string;
+    model: string;
+    year: number;
+    vin?: string;
+    nickname?: string;
+}
+
+interface VehicleDefinition {
+    id: number;
+    make: string;
+    model: string;
+    year_start: number;
+    year_end: number;
+}
 
 export const garageService = {
     /**
@@ -7,8 +23,7 @@ export const garageService = {
      */
     async getVehicles(): Promise<Vehicle[]> {
         try {
-            const response = await api.get<Vehicle[]>('/garage/');
-            return response.data;
+            return await ApiClient.getInstance().get<Vehicle[]>('/garage/vehicles/');
         } catch (error) {
             console.error('Error fetching vehicles:', error);
             throw error;
@@ -20,8 +35,7 @@ export const garageService = {
      */
     async getVehicle(id: number): Promise<Vehicle> {
         try {
-            const response = await api.get<Vehicle>(`/garage/${id}/`);
-            return response.data;
+            return await ApiClient.getInstance().get<Vehicle>(`/garage/vehicles/${id}/`);
         } catch (error) {
             console.error(`Error fetching vehicle ${id}:`, error);
             throw error;
@@ -33,8 +47,7 @@ export const garageService = {
      */
     async addVehicle(vehicleData: Partial<Vehicle>): Promise<Vehicle> {
         try {
-            const response = await api.post<Vehicle>('/garage/', vehicleData);
-            return response.data;
+            return await ApiClient.getInstance().post<Vehicle>('/garage/vehicles/', vehicleData);
         } catch (error) {
             console.error('Error adding vehicle:', error);
             throw error;
@@ -46,8 +59,7 @@ export const garageService = {
      */
     async updateVehicle(id: number, updates: Partial<Vehicle>): Promise<Vehicle> {
         try {
-            const response = await api.patch<Vehicle>(`/garage/${id}/`, updates);
-            return response.data;
+            return await ApiClient.getInstance().put<Vehicle>(`/garage/vehicles/${id}/`, updates);
         } catch (error) {
             console.error(`Error updating vehicle ${id}:`, error);
             throw error;
@@ -59,7 +71,7 @@ export const garageService = {
      */
     async deleteVehicle(id: number): Promise<void> {
         try {
-            await api.delete(`/garage/${id}/`);
+            await ApiClient.getInstance().delete(`/garage/vehicles/${id}/`);
         } catch (error) {
             console.error(`Error deleting vehicle ${id}:`, error);
             throw error;
@@ -71,10 +83,9 @@ export const garageService = {
      */
     async searchVehicleDefinitions(query: string): Promise<VehicleDefinition[]> {
         try {
-            const response = await api.get<VehicleDefinition[]>('/garage/definitions/', {
+            return await ApiClient.getInstance().get<VehicleDefinition[]>('/garage/definitions/', {
                 params: { search: query }
             });
-            return response.data;
         } catch (error) {
             console.error('Error searching definitions:', error);
             return [];

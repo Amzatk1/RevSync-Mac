@@ -1,4 +1,4 @@
-import api from './api';
+import { ApiClient } from '../data/http/ApiClient';
 
 export interface Agreement {
     id: number;
@@ -13,9 +13,7 @@ export const legalService = {
      */
     async getHistory(): Promise<Agreement[]> {
         // Ready for backend integration:
-        // const response = await api.get<Agreement[]>('/users/legal/history/');
-        // return response.data;
-
+        // return await ApiClient.getInstance().get<Agreement[]>('/users/legal/history/');
         return [];
     },
 
@@ -24,7 +22,7 @@ export const legalService = {
      */
     async acceptDocument(type: 'TERMS' | 'PRIVACY' | 'SAFETY' | 'ANALYTICS', version: string): Promise<any> {
         // Ready for backend integration:
-        // return api.post('/users/legal/accept/', { document_type: type, version });
+        // return await ApiClient.getInstance().post('/users/legal/accept/', { document_type: type, version });
         return { success: true };
     }
 };

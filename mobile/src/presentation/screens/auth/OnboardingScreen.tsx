@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,13 +9,16 @@ import {
     Image,
     Platform,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    Animated,
+    Easing,
 } from 'react-native';
 import * as Haptics from "expo-haptics";
 import { Theme } from '../../theme';
 import { Screen, PrimaryButton } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 const { width } = Dimensions.get('window');
 
@@ -27,8 +30,11 @@ interface OnboardingData {
     goals: string[];
 }
 
+const STEP_LABELS = ['Welcome', 'Legal', 'Bike Type', 'Skill', 'Style', 'Goals', 'Review'];
+
 export const OnboardingScreen = () => {
     const { completeOnboarding } = useAppStore();
+    const { toggleUnits } = useSettingsStore();
 
     const [onboardingData, setOnboardingData] = useState<OnboardingData>({
         currentStep: 0,
@@ -39,6 +45,21 @@ export const OnboardingScreen = () => {
     });
 
     const [isCompleting, setIsCompleting] = useState(false);
+
+    // Animated slide transition
+    const slideAnim = useRef(new Animated.Value(0)).current;
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const prevStep = useRef(0);
+
+    const animateStepTransition = (direction: 'forward' | 'back') => {
+        const offset = direction === 'forward' ? width : -width;
+        fadeAnim.setValue(0);
+        slideAnim.setValue(offset * 0.3);
+        Animated.parallel([
+            Animated.timing(slideAnim, { toValue: 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        ]).start();
+    };
 
     // Data Definitions
     const motorcycleTypes = [
@@ -86,15 +107,17 @@ export const OnboardingScreen = () => {
     };
 
     const nextStep = () => {
-        if (onboardingData.currentStep < 5) {
+        if (onboardingData.currentStep < steps.length - 1) {
             setOnboardingData((prev) => ({ ...prev, currentStep: prev.currentStep + 1 }));
+            animateStepTransition('forward');
             if (Platform.OS === 'ios') Haptics.selectionAsync();
         }
     };
 
-    const prevStep = () => {
+    const goBack = () => {
         if (onboardingData.currentStep > 0) {
             setOnboardingData((prev) => ({ ...prev, currentStep: prev.currentStep - 1 }));
+            animateStepTransition('back');
             if (Platform.OS === 'ios') Haptics.selectionAsync();
         }
     };
@@ -280,7 +303,10 @@ export const OnboardingScreen = () => {
         safetyAccepted: false,
         analyticsConsent: true,
         crashReportConsent: true,
+        marketingConsent: false,
     });
+
+    const [preferredUnits, setPreferredUnits] = useState<'metric' | 'imperial'>('metric');
 
     const updateLegal = (field: keyof typeof legalState, value: any) => {
         setLegalState(prev => ({ ...prev, [field]: value }));
@@ -314,17 +340,17 @@ export const OnboardingScreen = () => {
                 <Checkbox
                     label="I accept the Terms & Conditions"
                     checked={legalState.termsAccepted}
-                    onPress={(v) => updateLegal('termsAccepted', v)}
+                    onPress={(v: boolean) => updateLegal('termsAccepted', v)}
                 />
                 <Checkbox
                     label="I accept the Privacy Policy"
                     checked={legalState.privacyAccepted}
-                    onPress={(v) => updateLegal('privacyAccepted', v)}
+                    onPress={(v: boolean) => updateLegal('privacyAccepted', v)}
                 />
                 <Checkbox
                     label="I accept the ECU Flashing Safety Disclaimer"
                     checked={legalState.safetyAccepted}
-                    onPress={(v) => updateLegal('safetyAccepted', v)}
+                    onPress={(v: boolean) => updateLegal('safetyAccepted', v)}
                 />
             </View>
 
@@ -334,14 +360,37 @@ export const OnboardingScreen = () => {
                     label="Share Analytics"
                     sub="Help us improve RevSync"
                     value={legalState.analyticsConsent}
-                    onValueChange={(v) => updateLegal('analyticsConsent', v)}
+                    onValueChange={(v: boolean) => updateLegal('analyticsConsent', v)}
                 />
                 <ToggleRow
                     label="Crash Reporting"
                     sub="Send anonymous crash logs"
                     value={legalState.crashReportConsent}
-                    onValueChange={(v) => updateLegal('crashReportConsent', v)}
+                    onValueChange={(v: boolean) => updateLegal('crashReportConsent', v)}
                 />
+                <ToggleRow
+                    label="Marketing Emails"
+                    sub="Receive tune deals, updates & news"
+                    value={legalState.marketingConsent}
+                    onValueChange={(v: boolean) => updateLegal('marketingConsent', v)}
+                />
+            </View>
+
+            <View style={styles.section}>
+                <Text style={[styles.label, { marginTop: 16 }]}>Units Preference</Text>
+                <View style={[styles.grid, { gap: 12 }]}>
+                    {(['metric', 'imperial'] as const).map(u => (
+                        <TouchableOpacity
+                            key={u}
+                            style={[styles.chip, preferredUnits === u && styles.chipSelected]}
+                            onPress={() => setPreferredUnits(u)}
+                        >
+                            <Text style={[styles.chipText, preferredUnits === u && styles.textSelected]}>
+                                {u === 'metric' ? '🏎️ Metric (km/h, °C)' : '🇺🇸 Imperial (mph, °F)'}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
         </View>
     );
@@ -392,16 +441,34 @@ export const OnboardingScreen = () => {
                 <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: `${((onboardingData.currentStep + 1) / steps.length) * 100}%` }]} />
                 </View>
+                {/* Step Labels */}
+                <View style={styles.stepLabelsRow}>
+                    {STEP_LABELS.map((label, i) => (
+                        <Text
+                            key={label}
+                            style={[
+                                styles.stepLabel,
+                                i === onboardingData.currentStep && styles.stepLabelActive,
+                                i < onboardingData.currentStep && styles.stepLabelDone,
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {label}
+                        </Text>
+                    ))}
+                </View>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
-                <CurrentStepComponent />
+                <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
+                    <CurrentStepComponent />
+                </Animated.View>
             </ScrollView>
 
             {!isLastStep && (
                 <View style={styles.footer}>
                     {!isFirstStep && (
-                        <TouchableOpacity onPress={prevStep} style={styles.backBtn}>
+                        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
                             <Text style={styles.backText}>Back</Text>
                         </TouchableOpacity>
                     )}
@@ -431,6 +498,23 @@ const styles = StyleSheet.create({
         height: '100%',
         backgroundColor: Theme.Colors.primary,
         borderRadius: 2,
+    },
+    stepLabelsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
+    stepLabel: {
+        fontSize: 10,
+        color: Theme.Colors.textTertiary,
+        fontWeight: '500',
+    },
+    stepLabelActive: {
+        color: Theme.Colors.primary,
+        fontWeight: '700',
+    },
+    stepLabelDone: {
+        color: Theme.Colors.textSecondary,
     },
     content: {
         padding: Theme.Spacing.md,

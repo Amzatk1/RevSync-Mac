@@ -1,5 +1,4 @@
-import { Observable } from 'rxjs'; // Or similar, or just promises/callbacks. sticking to Promises + callbacks for simplicity unless rxjs is requested.
-// Actually, BLE scanning is stream based. I'll use simple listener pattern or return a custom observable-like object if needed, but standard callback is fine.
+// BLE scanning uses listener/callback pattern for simplicity
 
 export interface DiscoveredDevice {
     id: string;

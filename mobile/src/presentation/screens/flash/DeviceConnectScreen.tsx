@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Theme } from '../../theme';
 import { Screen, PrimaryButton, SecondaryButton, LoadingOverlay, Card, ErrorBanner, EmptyState } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +36,7 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
             // BleDeviceService.scan() implementation should handle the actual scan logic.
             // We need to subscribe to the observable.
 
-            service.startScan((device) => {
+            service.startScan((device: { id: string; name: string | null; rssi: number | null }) => {
                 if (device.name) {
                     setDevices(prev => {
                         const exists = prev.find(d => d.id === device.id);
@@ -159,7 +159,6 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
     );
 };
 
-import { ActivityIndicator } from 'react-native';
 
 const styles = StyleSheet.create({
     header: {
@@ -199,15 +198,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: Theme.Colors.surface,
-        marginBottom: 8,
-        borderRadius: 8,
+        backgroundColor: 'rgba(255,255,255,0.035)',
+        marginBottom: 10,
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: Theme.Colors.border,
+        borderColor: 'rgba(255,255,255,0.06)',
     },
     deviceIcon: {
-        marginRight: 16,
-        opacity: 0.8,
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: 'rgba(225,29,72,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
     },
     deviceInfo: {
         flex: 1,

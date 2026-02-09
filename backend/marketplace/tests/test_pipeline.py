@@ -22,11 +22,18 @@ class ValidationPipelineTest(TestCase):
             quarantine_path="mock/path/pkg.zip"
         )
 
+    @patch('marketplace.tasks.sign_data', return_value='mock_signature_base64')
+    @patch('builtins.open', create=True)
     @patch('marketplace.tasks.storage_client')
-    def test_validation_success(self, mock_storage):
+    def test_validation_success(self, mock_storage, mock_open, mock_sign):
         # Mock Storage
         mock_storage.download_to_temp.return_value = "/tmp/mock_pkg"
         mock_storage.move_object.return_value = True
+        
+        # Mock file read for hashing
+        import io
+        mock_open.return_value.__enter__ = lambda s: io.BytesIO(b"fake_tune_data")
+        mock_open.return_value.__exit__ = lambda s, *args: None
         
         # Run Task Synchronously
         validate_tune_version(self.version.id)

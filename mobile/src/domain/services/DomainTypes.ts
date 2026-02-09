@@ -47,7 +47,6 @@ export interface TuneService {
     getTunesForBike(bikeId: string): Promise<Tune[]>;
     purchaseTune(tuneId: string): Promise<void>;
     downloadTune(tuneId: string): Promise<string>;
-    downloadTune(tuneId: string): Promise<string>;
     verifyTuneIntegrity(tune: Tune): Promise<boolean>;
     importTune(tune: Tune): Promise<void>;
 }

@@ -124,7 +124,7 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                 const file = result.assets[0];
                 const newTune: Tune = {
                     id: `import-${Date.now()}`,
-                    name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+                    title: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
                     bikeId: activeBike?.id || 'unknown',
                     stage: 0,
                     price: 0,
@@ -195,8 +195,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Theme.Spacing.md,
         paddingBottom: Theme.Spacing.sm,
         backgroundColor: Theme.Colors.background,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.Colors.border,
     },
     title: {
         ...Theme.Typography.h2,
@@ -205,12 +203,12 @@ const styles = StyleSheet.create({
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.Colors.surface,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         borderWidth: 1,
-        borderColor: Theme.Colors.border,
+        borderColor: 'rgba(255,255,255,0.06)',
         marginBottom: Theme.Spacing.md,
     },
     searchInput: {
@@ -273,9 +271,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Theme.Colors.primary,
         borderStyle: 'dashed',
-        borderRadius: 8,
+        borderRadius: 12,
         marginBottom: Theme.Spacing.md,
-        backgroundColor: 'rgba(57, 255, 20, 0.05)',
+        backgroundColor: 'rgba(225, 29, 72, 0.04)',
     },
     importText: {
         color: Theme.Colors.primary,

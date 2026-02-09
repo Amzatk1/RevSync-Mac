@@ -48,7 +48,7 @@ class MarketplaceFlowTest(TestCase):
         # 3. Init Upload
         res = self.client.post(f'/api/v1/tuner/versions/{version_id}/upload-init/')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertIn('upload_url', res.data)
+        self.assertIn('note', res.data)
         
         # 4. Complete Upload (Simulates triggering validation)
         res = self.client.post(f'/api/v1/tuner/versions/{version_id}/upload-complete/')

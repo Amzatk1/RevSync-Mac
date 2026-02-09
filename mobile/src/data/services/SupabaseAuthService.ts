@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
 // NOTE: Replace these with actual environment variables in production
-const SUPABASE_URL = 'https://xyzcompany.supabase.co';
-const SUPABASE_ANON_KEY = 'public-anon-key';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 const SESSION_KEY = 'revsync_session';
 
 export class SupabaseAuthService implements AuthService {

@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Linking } from 'react-native';
 import { Theme } from '../../theme';
 import { Screen, Card } from '../../components/SharedComponents';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { Ionicons } from '@expo/vector-icons';
 
 export const SettingsScreen = ({ navigation }: any) => {
+    const { units, toggleUnits, notificationsEnabled, toggleNotifications } = useSettingsStore();
 
     return (
         <Screen scroll>
@@ -68,6 +69,44 @@ export const SettingsScreen = ({ navigation }: any) => {
                 />
             </MenuSection>
 
+            <MenuSection title="Preferences">
+                <View style={styles.row}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="speedometer-outline" size={22} color={Theme.Colors.text} />
+                        <Text style={styles.label}>Units</Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.unitsPill}
+                        onPress={toggleUnits}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.unitsText}>
+                            {units === 'metric' ? 'Metric (km/h, °C)' : 'Imperial (mph, °F)'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.row}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="notifications-outline" size={22} color={Theme.Colors.text} />
+                        <Text style={styles.label}>Notifications</Text>
+                    </View>
+                    <Switch
+                        value={notificationsEnabled}
+                        onValueChange={toggleNotifications}
+                        trackColor={{ false: Theme.Colors.surfaceHighlight, true: Theme.Colors.primary }}
+                        thumbColor="#FFF"
+                    />
+                </View>
+            </MenuSection>
+
+            <MenuSection title="Support">
+                <MenuRow
+                    label="Contact Support"
+                    icon="help-buoy-outline"
+                    onPress={() => Linking.openURL('mailto:support@revsync.app?subject=Support Request')}
+                />
+            </MenuSection>
+
         </Screen>
     );
 };
@@ -105,4 +144,16 @@ const styles = StyleSheet.create({
         borderBottomColor: Theme.Colors.surfaceHighlight
     },
     label: { fontSize: 16, color: Theme.Colors.text },
+    unitsPill: {
+        backgroundColor: Theme.Colors.surfaceHighlight,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    unitsText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Theme.Colors.primary,
+    },
 });
+

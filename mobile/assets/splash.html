@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RevSync</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #09090B;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Radial glow behind logo */
+        .glow {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(225,29,72,0.18) 0%, rgba(225,29,72,0.04) 50%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.15); opacity: 1; }
+        }
+
+        /* Logo ring */
+        .logo-ring {
+            width: 110px;
+            height: 110px;
+            border-radius: 55px;
+            border: 2px solid rgba(225,29,72,0.4);
+            background: rgba(225,29,72,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+            animation: logoIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            opacity: 0;
+            transform: scale(0);
+            box-shadow: 0 0 40px rgba(225,29,72,0.2), inset 0 0 20px rgba(225,29,72,0.05);
+        }
+
+        @keyframes logoIn {
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Speedometer SVG */
+        .speedometer {
+            width: 64px;
+            height: 64px;
+        }
+
+        /* Title */
+        .title {
+            font-size: 48px;
+            font-weight: 800;
+            color: #FAFAFA;
+            letter-spacing: -1px;
+            margin-top: 20px;
+            z-index: 2;
+            animation: fadeSlideUp 0.5s ease 0.4s both;
+            text-shadow: 0 4px 16px rgba(225,29,72,0.35);
+        }
+
+        /* Subtitle */
+        .subtitle {
+            font-size: 16px;
+            color: #A1A1AA;
+            margin-top: 8px;
+            z-index: 2;
+            animation: fadeSlideUp 0.5s ease 0.6s both;
+            letter-spacing: 0.3px;
+        }
+
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading bar */
+        .loader-container {
+            margin-top: 48px;
+            width: 200px;
+            height: 3px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+            z-index: 2;
+            animation: fadeSlideUp 0.5s ease 0.8s both;
+        }
+
+        .loader-bar {
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, #E11D48, #00E5FF);
+            border-radius: 2px;
+            animation: loading 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        /* Version */
+        .version {
+            position: absolute;
+            bottom: 32px;
+            color: #52525B;
+            font-size: 12px;
+            z-index: 2;
+            animation: fadeSlideUp 0.5s ease 1s both;
+        }
+
+        /* Circuit decoration lines */
+        .circuit-line {
+            position: absolute;
+            background: rgba(225,29,72,0.06);
+            z-index: 1;
+        }
+        .circuit-line.h1 { width: 120px; height: 1px; top: 25%; left: 0; animation: fadeSlideUp 0.5s ease 1.2s both; }
+        .circuit-line.h2 { width: 80px; height: 1px; bottom: 30%; right: 0; animation: fadeSlideUp 0.5s ease 1.4s both; }
+        .circuit-line.v1 { width: 1px; height: 100px; top: 10%; left: 15%; animation: fadeSlideUp 0.5s ease 1.3s both; }
+        .circuit-line.v2 { width: 1px; height: 60px; bottom: 20%; right: 20%; animation: fadeSlideUp 0.5s ease 1.5s both; }
+    </style>
+</head>
+<body>
+    <!-- Decorative circuit lines -->
+    <div class="circuit-line h1"></div>
+    <div class="circuit-line h2"></div>
+    <div class="circuit-line v1"></div>
+    <div class="circuit-line v2"></div>
+
+    <!-- Glow -->
+    <div class="glow"></div>
+
+    <!-- Logo -->
+    <div class="logo-ring">
+        <svg class="speedometer" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer arc -->
+            <path d="M12 48 A24 24 0 1 1 52 48" stroke="#E11D48" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.8"/>
+            <!-- Tick marks -->
+            <line x1="32" y1="10" x2="32" y2="14" stroke="#E11D48" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="14" y1="32" x2="18" y2="32" stroke="#E11D48" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="50" y1="32" x2="46" y2="32" stroke="#E11D48" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="17" y1="17" x2="20" y2="20" stroke="#E11D48" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+            <line x1="47" y1="17" x2="44" y2="20" stroke="#E11D48" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+            <!-- Needle -->
+            <line x1="32" y1="34" x2="44" y2="20" stroke="#E11D48" stroke-width="2.5" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" from="-30 32 34" to="30 32 34" dur="2s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.4 0 0.2 1"/>
+            </line>
+            <!-- Center dot -->
+            <circle cx="32" cy="34" r="4" fill="#E11D48"/>
+            <circle cx="32" cy="34" r="2" fill="#09090B"/>
+        </svg>
+    </div>
+
+    <!-- Text -->
+    <h1 class="title">RevSync</h1>
+    <p class="subtitle">Unlock your ride's true potential</p>
+
+    <!-- Loading bar -->
+    <div class="loader-container">
+        <div class="loader-bar"></div>
+    </div>
+
+    <!-- Version -->
+    <span class="version">v1.0.0</span>
+</body>
+</html>

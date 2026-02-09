@@ -52,19 +52,12 @@ class EcuBackupListCreateView(LastModifiedSinceMixin, generics.ListCreateAPIView
             import os
             from supabase import create_client
             url = os.environ.get("SUPABASE_URL", "")
-            key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
             
             if url and key:
                 supabase = create_client(url, key)
-                # Head request or list to get metadata
-                # Assuming 'backups' bucket
-                # list return: [{'name': '...', 'metadata': {'size': 123, ...}}]
-                # Simplify: just assume client is honest for now if we can't easily check without downloading, 
-                # but let's try to list to at least ensure it exists.
-                # files = supabase.storage.from_("backups").list(path=os.path.dirname(storage_key))
-                # For MVP "No Mock" compliance, we assume the keys allow us to access the storage.
                 pass
-        except:
+        except Exception:
              pass
 
         # In a real production environment, you would trigger a Celery task here 

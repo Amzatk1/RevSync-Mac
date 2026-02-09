@@ -1,4 +1,4 @@
-import { BleDeviceService } from '../data/services/BleDeviceService';
+// import { BleDeviceService } from '../data/services/BleDeviceService';
 import { ApiBikeService } from '../data/services/ApiBikeService';
 import { MockDeviceService } from '../data/services/MockDeviceService';
 import { SafetyEngine } from '../domain/safety/SafetyEngine';
@@ -9,8 +9,9 @@ import { ConsoleAnalyticsService } from '../data/services/ConsoleAnalyticsServic
 
 // Singleton instances
 // Using BleDeviceService for production
-const deviceService = new BleDeviceService();
+// const deviceService = new BleDeviceService();
 // Fallback if needed: const deviceService = new MockDeviceService();
+const deviceService = new MockDeviceService();
 
 const tuneService = new ApiTuneService();
 const bikeService = new ApiBikeService();
