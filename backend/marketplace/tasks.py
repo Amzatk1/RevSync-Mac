@@ -46,6 +46,29 @@ REQUIRED_FILES = {'manifest.json', 'tune.bin'}
 ALLOWED_FILES = {'manifest.json', 'tune.bin', 'notes.md', 'constraints.json'}
 
 
+class StorageClient:
+    """Thin wrapper to make storage operations easy to patch in tests."""
+
+    def download_to_temp(self, bucket: str, file_path: str) -> str:
+        from core.supabase_client import download_to_temp
+        return download_to_temp(bucket, file_path)
+
+    def delete_file(self, bucket: str, file_path: str) -> None:
+        from core.supabase_client import delete_file
+        delete_file(bucket, file_path)
+
+    def move_cross_bucket(self, src_bucket: str, src_path: str, dst_bucket: str, dst_path: str) -> None:
+        from core.supabase_client import move_cross_bucket
+        move_cross_bucket(src_bucket, src_path, dst_bucket, dst_path)
+
+    def upload_file(self, bucket: str, file_path: str, data: bytes, content_type: str) -> None:
+        from core.supabase_client import upload_file
+        upload_file(bucket, file_path, data, content_type)
+
+
+storage_client = StorageClient()
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Malware Scanner (ClamAV with fallback)
 # ─────────────────────────────────────────────────────────────────────
@@ -200,8 +223,7 @@ def validate_tune_version(self, version_id: str):
             blockers.append("No quarantine_path set on version record")
             raise ValueError("Missing quarantine_path")
         
-        from core.supabase_client import download_to_temp
-        local_pkg_path = download_to_temp('quarantine', version.quarantine_path)
+        local_pkg_path = storage_client.download_to_temp('quarantine', version.quarantine_path)
         
         # Check file size
         file_size = os.path.getsize(local_pkg_path)
@@ -221,9 +243,8 @@ def validate_tune_version(self, version_id: str):
         if not is_clean:
             blockers.append(f"Malware detected: {scan_message}")
             # Delete infected file immediately
-            from core.supabase_client import delete_file
             try:
-                delete_file('quarantine', version.quarantine_path)
+                storage_client.delete_file('quarantine', version.quarantine_path)
                 logger.warning(f"  ✗ Infected file DELETED from quarantine")
             except Exception as e:
                 logger.error(f"  ✗ Failed to delete infected file: {e}")
@@ -374,7 +395,6 @@ def validate_tune_version(self, version_id: str):
         signature_bytes = signature_b64.encode('utf-8')
         
         # 5c. Move package to validated bucket and upload artifacts
-        from core.supabase_client import move_cross_bucket, upload_file
         
         dest_base = f"listing/{version.listing.id}/{version.id}"
         dest_pkg_path = f"{dest_base}/package.revsyncpkg"
@@ -382,18 +402,18 @@ def validate_tune_version(self, version_id: str):
         dest_hashes_path = f"{dest_base}/hashes.json"
         
         # Move package: quarantine → validated
-        move_cross_bucket(
+        storage_client.move_cross_bucket(
             'quarantine', version.quarantine_path,
             'validated', dest_pkg_path,
         )
         logger.info("  ✓ Package moved to validated bucket")
         
         # Upload signature
-        upload_file('validated', dest_sig_path, signature_bytes, 'text/plain')
+        storage_client.upload_file('validated', dest_sig_path, signature_bytes, 'text/plain')
         logger.info("  ✓ Signature uploaded")
         
         # Upload hashes.json
-        upload_file('validated', dest_hashes_path, hashes_json, 'application/json')
+        storage_client.upload_file('validated', dest_hashes_path, hashes_json, 'application/json')
         logger.info("  ✓ hashes.json uploaded")
         
         results['move'] = 'PASS'

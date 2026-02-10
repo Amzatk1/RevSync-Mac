@@ -1,14 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import {
-    View, Text, StyleSheet, Animated, Dimensions, Easing,
-    Image, StatusBar, Platform,
+    View, Text, StyleSheet, Animated, Easing,
+    Image, StatusBar, Platform, ScrollView, useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../theme';
 import { PrimaryButton, SecondaryButton } from '../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width, height } = Dimensions.get('window');
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const heroImage = require('../../../assets/welcome-hero.png');
@@ -20,6 +19,11 @@ const VALUE_PROPS = [
 ];
 
 export const WelcomeScreen = ({ navigation }: any) => {
+    const { height } = useWindowDimensions();
+    const isCompactHeight = height < 760;
+    const heroHeight = isCompactHeight ? height * 0.33 : height * 0.38;
+    const contentTopPadding = isCompactHeight ? heroHeight * 0.8 : heroHeight * 0.84;
+
     // Animations
     const heroOpacity = useRef(new Animated.Value(0)).current;
     const heroScale = useRef(new Animated.Value(1.1)).current;
@@ -78,7 +82,7 @@ export const WelcomeScreen = ({ navigation }: any) => {
     }, []);
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={[ 'top' ]}>
             <StatusBar barStyle="light-content" />
             <LinearGradient
                 colors={['#09090B', '#0F0F11', '#1A0A10', '#09090B']}
@@ -88,7 +92,7 @@ export const WelcomeScreen = ({ navigation }: any) => {
             />
 
             {/* Hero Image with gradient overlay */}
-            <Animated.View style={[styles.heroContainer, { opacity: heroOpacity, transform: [{ scale: heroScale }] }]}>
+            <Animated.View style={[styles.heroContainer, { height: heroHeight, opacity: heroOpacity, transform: [{ scale: heroScale }] }]}> 
                 <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
                 <LinearGradient
                     colors={['transparent', 'rgba(9,9,11,0.6)', '#09090B']}
@@ -97,24 +101,28 @@ export const WelcomeScreen = ({ navigation }: any) => {
             </Animated.View>
 
             {/* Background glow */}
-            <Animated.View style={[styles.glowCircle, { opacity: logoGlow }]} />
+            <Animated.View style={[styles.glowCircle, { top: heroHeight * 0.73, opacity: logoGlow }]} />
 
             {/* Content */}
-            <View style={styles.content}>
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingTop: contentTopPadding }]}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
                 {/* Logo */}
-                <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
+                <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}> 
                     <View style={styles.logoRing}>
                         <Ionicons name="speedometer" size={48} color={Theme.Colors.primary} />
                     </View>
                 </Animated.View>
 
                 {/* Title */}
-                <Animated.Text style={[styles.title, { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }]}>
+                <Animated.Text style={[styles.title, isCompactHeight && styles.titleCompact, { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }]}> 
                     RevSync
                 </Animated.Text>
 
                 {/* Subtitle */}
-                <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
+                <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}> 
                     Unlock your ride's true potential
                 </Animated.Text>
 
@@ -143,7 +151,7 @@ export const WelcomeScreen = ({ navigation }: any) => {
                 </View>
 
                 {/* Buttons */}
-                <Animated.View style={[styles.buttonContainer, { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslateY }] }]}>
+                <Animated.View style={[styles.buttonContainer, { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslateY }] }]}> 
                     <PrimaryButton
                         title="Get Started"
                         onPress={() => navigation.navigate('SignIn')}
@@ -157,11 +165,11 @@ export const WelcomeScreen = ({ navigation }: any) => {
                         style={styles.secondaryBtn}
                     />
                 </Animated.View>
-            </View>
+            </ScrollView>
 
             {/* Version tag */}
             <Text style={styles.version}>v1.0.0</Text>
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -175,7 +183,6 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
-        height: height * 0.38,
     },
     heroImage: {
         width: '100%',
@@ -186,7 +193,6 @@ const styles = StyleSheet.create({
     },
     glowCircle: {
         position: 'absolute',
-        top: height * 0.28,
         alignSelf: 'center',
         width: 220,
         height: 220,
@@ -195,8 +201,7 @@ const styles = StyleSheet.create({
         opacity: 0.06,
     },
     content: {
-        flex: 1,
-        paddingTop: height * 0.32,
+        paddingBottom: Platform.OS === 'ios' ? 120 : 96,
         paddingHorizontal: 24,
         alignItems: 'center',
     },
@@ -224,6 +229,9 @@ const styles = StyleSheet.create({
         textShadowColor: 'rgba(225, 29, 72, 0.4)',
         textShadowOffset: { width: 0, height: 4 },
         textShadowRadius: 20,
+    },
+    titleCompact: {
+        fontSize: 38,
     },
     subtitle: {
         fontSize: 16,

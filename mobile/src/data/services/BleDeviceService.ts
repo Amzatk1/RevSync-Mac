@@ -33,7 +33,8 @@ export class BleDeviceService implements DeviceService {
     }
 
     private async requestAndroidPermissions() {
-        if (Platform.Version >= 31) {
+        const androidVersion = typeof Platform.Version === 'string' ? parseInt(Platform.Version, 10) : Platform.Version;
+        if (androidVersion >= 31) {
             await PermissionsAndroid.requestMultiple([
                 PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
                 PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,

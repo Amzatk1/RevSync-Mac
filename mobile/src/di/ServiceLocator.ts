@@ -6,12 +6,13 @@ import { StandardECUService } from '../data/services/StandardECUService';
 import { SupabaseAuthService } from '../data/services/SupabaseAuthService';
 import { ApiTuneService } from '../data/services/ApiTuneService';
 import { ConsoleAnalyticsService } from '../data/services/ConsoleAnalyticsService';
+import { DeviceService } from '../domain/services/DeviceService';
 
 // Singleton instances
 // Using BleDeviceService for production
 // const deviceService = new BleDeviceService();
-// Fallback if needed: const deviceService = new MockDeviceService();
-const deviceService = new MockDeviceService();
+// Fallback if needed: const deviceService: DeviceService = new MockDeviceService();
+const deviceService: DeviceService = new MockDeviceService();
 
 const tuneService = new ApiTuneService();
 const bikeService = new ApiBikeService();

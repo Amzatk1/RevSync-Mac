@@ -1,11 +1,43 @@
-import { DeviceService, Device, DeviceState } from '../../domain/services/DeviceService';
+import { DeviceService, DiscoveredDevice } from '../../domain/services/DeviceService';
+
+const MOCK_DEVICES: DiscoveredDevice[] = [
+    {
+        id: 'mock-1',
+        name: 'RevSync Mock ECU 1',
+        rssi: -50,
+        serviceUUIDs: ['0000180A-0000-1000-8000-00805F9B34FB'],
+        localName: 'MockECU-1',
+    },
+    {
+        id: 'mock-2',
+        name: 'RevSync Mock ECU 2',
+        rssi: -68,
+        serviceUUIDs: ['0000180A-0000-1000-8000-00805F9B34FB'],
+        localName: 'MockECU-2',
+    },
+];
 
 export class MockDeviceService implements DeviceService {
-    async scan(): Promise<Device[]> {
-        return [
-            { id: 'mock-1', name: 'Mock ECU 1', rssi: -50, services: [] },
-            { id: 'mock-2', name: 'Mock ECU 2', rssi: -70, services: [] },
-        ];
+    state: 'PoweredOff' | 'PoweredOn' | 'Unauthorized' | 'Unknown' = 'PoweredOn';
+
+    private scanTimers: ReturnType<typeof setTimeout>[] = [];
+
+    async initialize(): Promise<void> {
+        this.state = 'PoweredOn';
+    }
+
+    startScan(onDeviceFound: (device: DiscoveredDevice) => void): void {
+        this.stopScan();
+
+        MOCK_DEVICES.forEach((device, index) => {
+            const timer = setTimeout(() => onDeviceFound(device), 350 * (index + 1));
+            this.scanTimers.push(timer);
+        });
+    }
+
+    stopScan(): void {
+        this.scanTimers.forEach(clearTimeout);
+        this.scanTimers = [];
     }
 
     async connect(deviceId: string): Promise<void> {
@@ -16,16 +48,23 @@ export class MockDeviceService implements DeviceService {
         console.log(`[MockDeviceService] Disconnected from ${deviceId}`);
     }
 
-    async getState(): Promise<DeviceState> {
-        return 'disconnected'; // Simplified
+    async sendData(deviceId: string, serviceUUID: string, characteristicUUID: string, dataBase64: string): Promise<void> {
+        console.log('[MockDeviceService] sendData', { deviceId, serviceUUID, characteristicUUID, size: dataBase64.length });
     }
 
-    // Add other methods enforced by the interface if strictly required
-    // Assuming DeviceService interface might have more, let's allow it to be minimal for now
-    // based on previous errors.
+    async readData(_deviceId: string, _serviceUUID: string, _characteristicUUID: string): Promise<string> {
+        return '';
+    }
 
-    observeState(callback: (state: DeviceState) => void): () => void {
-        callback('disconnected');
-        return () => { };
+    monitorCharacteristic(
+        _deviceId: string,
+        _serviceUUID: string,
+        _characteristicUUID: string,
+        onValueChange: (error: Error | null, value: string | null) => void
+    ): { remove: () => void } {
+        const timer = setTimeout(() => onValueChange(null, ''), 500);
+        return {
+            remove: () => clearTimeout(timer),
+        };
     }
 }

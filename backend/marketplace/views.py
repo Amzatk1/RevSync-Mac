@@ -176,12 +176,19 @@ class TunerVersionViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        # Trigger validation pipeline
-        from .tasks import validate_tune_version
-        validate_tune_version.delay(str(version.id))
-
         version.status = TuneVersion.State.VALIDATING
         version.save(update_fields=['status', 'updated_at'])
+
+        # Trigger validation pipeline
+        from .tasks import validate_tune_version
+        try:
+            validate_tune_version.delay(str(version.id))
+        except Exception as exc:  # pragma: no cover - fallback for local/test envs without broker
+            logger.warning(
+                "Failed to enqueue validation task for version %s (%s). Keep status as VALIDATING for retry.",
+                version.id,
+                exc,
+            )
 
         logger.info(f"Validation started for version {version.id}")
 
