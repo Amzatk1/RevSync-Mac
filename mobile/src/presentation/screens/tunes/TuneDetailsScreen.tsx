@@ -1,34 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    Image,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Theme } from '../../theme';
-import { Screen, PrimaryButton, LoadingOverlay, Card, ErrorBanner } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
+
+import { Theme } from '../../theme';
+import { Screen, LoadingOverlay, ErrorBanner } from '../../components/SharedComponents';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { Tune } from '../../../domain/services/DomainTypes';
 import { useAppStore } from '../../store/useAppStore';
 
-const getSafetyInfo = (rating: number) => {
-    if (rating > 90) return { label: 'Safe', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' };
-    if (rating > 80) return { label: 'Moderate', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' };
-    return { label: 'Risky', color: '#EF4444', bg: 'rgba(239,68,68,0.1)' };
-};
-
-const getStageColor = (stage: number) => {
-    if (stage === 1) return { bg: 'rgba(59,130,246,0.15)', text: '#60A5FA' };
-    if (stage === 2) return { bg: 'rgba(225,29,72,0.15)', text: '#FB7185' };
-    return { bg: 'rgba(168,85,247,0.15)', text: '#C084FC' };
+const getStageBadge = (stage: number) => {
+    if (stage === 2) return { text: 'STAGE 2', bg: 'rgba(225,29,72,0.14)', border: 'rgba(225,29,72,0.35)', color: '#FB7185' };
+    if (stage === 3) return { text: 'STAGE 3', bg: 'rgba(168,85,247,0.16)', border: 'rgba(168,85,247,0.3)', color: '#C084FC' };
+    if (stage <= 0) return { text: 'ECO', bg: 'rgba(115,115,115,0.18)', border: 'rgba(115,115,115,0.35)', color: '#D4D4D8' };
+    return { text: `STAGE ${stage}`, bg: 'rgba(113,113,122,0.22)', border: 'rgba(113,113,122,0.38)', color: '#E4E4E7' };
 };
 
 export const TuneDetailsScreen = ({ route, navigation }: any) => {
     const { tuneId } = route.params;
     const { activeBike } = useAppStore();
+
     const [tune, setTune] = useState<Tune | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const fadeAnim = React.useRef(new Animated.Value(0)).current;
-    const slideAnim = React.useRef(new Animated.Value(30)).current;
+    const [expanded, setExpanded] = useState(false);
+    const [saved, setSaved] = useState(false);
 
     useEffect(() => {
         loadTune();
@@ -41,17 +44,6 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
             const tuneService = ServiceLocator.getTuneService();
             const data = await tuneService.getTuneDetails(tuneId);
             setTune(data);
-
-            if (data) {
-                ServiceLocator.getAnalyticsService().logEvent('tune_details_viewed', {
-                    tuneId: data.id, title: data.title, price: data.price,
-                });
-                // Animate in
-                Animated.parallel([
-                    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-                    Animated.timing(slideAnim, { toValue: 0, duration: 400, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
-                ]).start();
-            }
         } catch (e: any) {
             setError(e.message || 'Failed to load tune details');
         } finally {
@@ -59,307 +51,239 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
         }
     };
 
-    const isCompatible = tune && activeBike && tune.bikeId === activeBike.id;
+    const description = useMemo(() => {
+        if (!tune?.description) {
+            return 'Optimized for track use. Increases mid-range torque and peak horsepower. Improved throttle response and smoother power delivery across the entire rev range.';
+        }
+        return tune.description;
+    }, [tune]);
 
-    if (loading) return <LoadingOverlay visible={true} message="Loading tune..." />;
+    if (loading) return <LoadingOverlay visible message="Loading tune..." />;
     if (error) return <Screen center><ErrorBanner message={error} onRetry={loadTune} /></Screen>;
     if (!tune) return null;
 
-    const safety = getSafetyInfo(tune.safetyRating);
-    const stageStyle = getStageColor(tune.stage);
+    const stage = getStageBadge(tune.stage);
+    const priceText = tune.price <= 0 ? 'Free' : `$${tune.price.toFixed(0)}`;
+    const priceFull = tune.price <= 0 ? 'Free' : `$${tune.price.toFixed(2)}`;
+    const requiresWarning = tune.safetyRating < 90 || tune.stage >= 2;
 
     return (
-        <Screen scroll>
-            {/* Gradient Header */}
-            <LinearGradient
-                colors={['rgba(225,29,72,0.12)', 'rgba(225,29,72,0.03)', 'transparent']}
-                style={styles.headerGradient}
-            />
+        <Screen>
+            <View style={styles.container}>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    <View style={styles.topBar}>
+                        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
+                            <Ionicons name="arrow-back" size={24} color={Theme.Colors.textSecondary} />
+                        </TouchableOpacity>
+                        <View style={styles.topRightActions}>
+                            <TouchableOpacity style={styles.iconBtn}>
+                                <Ionicons name="share-social-outline" size={22} color={Theme.Colors.textSecondary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => setSaved(v => !v)}>
+                                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? Theme.Colors.primary : Theme.Colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
-            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-                {/* Title Section */}
-                <View style={styles.header}>
-                    <Text style={styles.name}>{tune.title}</Text>
-                    <View style={styles.metaRow}>
-                        <View style={[styles.stageBadge, { backgroundColor: stageStyle.bg }]}>
-                            <Ionicons name="flash" size={12} color={stageStyle.text} />
-                            <Text style={[styles.stageBadgeText, { color: stageStyle.text }]}>
-                                Stage {tune.stage}
+                    <View style={styles.titleRow}>
+                        <View style={{ flex: 1 }}>
+                            <View style={[styles.stageBadge, { backgroundColor: stage.bg, borderColor: stage.border }]}>
+                                <Text style={[styles.stageBadgeText, { color: stage.color }]}>{stage.text}</Text>
+                            </View>
+                            <Text style={styles.title}>{tune.title}</Text>
+                        </View>
+                        <View style={styles.priceCol}>
+                            <Text style={styles.priceBig}>{priceText}</Text>
+                            <Text style={styles.priceCurrency}>USD</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.tunerCard}>
+                        <View style={styles.avatar}><Text style={styles.avatarText}>RL</Text></View>
+                        <View style={{ flex: 1 }}>
+                            <View style={styles.tunerNameRow}>
+                                <Text style={styles.tunerName}>Race Logic</Text>
+                                <Ionicons name="checkmark-circle" size={14} color="#60A5FA" />
+                            </View>
+                            <View style={styles.ratingRow}>
+                                <Ionicons name="star" size={12} color="#FACC15" />
+                                <Text style={styles.tunerMeta}>4.9 (1.2k)</Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity><Text style={styles.profileLink}>View Profile</Text></TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.sectionTitle}>Description</Text>
+                    <Text style={styles.descriptionText} numberOfLines={expanded ? undefined : 4}>{description}</Text>
+                    <TouchableOpacity onPress={() => setExpanded(v => !v)}>
+                        <Text style={styles.readMore}>{expanded ? 'Show less' : 'Read more'}</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.chartCard}>
+                        <LinearGradient
+                            colors={['#2F3035', '#3A3B41']}
+                            style={StyleSheet.absoluteFillObject}
+                        />
+                        <View style={styles.chartWave1} />
+                        <View style={styles.chartWave2} />
+                        <TouchableOpacity style={styles.chartBtn}>
+                            <Ionicons name="scan-outline" size={18} color="#FFF" />
+                            <Text style={styles.chartBtnText}>VIEW DYNO CHART</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.reqRow}>
+                        <View style={styles.reqCard}>
+                            <View style={styles.reqHeader}>
+                                <Ionicons name="flask-outline" size={14} color={Theme.Colors.textSecondary} />
+                                <Text style={styles.reqLabel}>FUEL</Text>
+                            </View>
+                            <Text style={styles.reqValue}>{tune.octaneRequired ? `${tune.octaneRequired} Octane` : '93 Octane'}</Text>
+                            <Text style={styles.reqSub}>Premium Required</Text>
+                        </View>
+
+                        <View style={styles.reqCard}>
+                            <View style={styles.reqHeader}>
+                                <Ionicons name="construct-outline" size={14} color={Theme.Colors.textSecondary} />
+                                <Text style={styles.reqLabel}>MODS</Text>
+                            </View>
+                            <Text style={styles.reqValue}>{tune.modificationsRequired?.[0] || 'Full Exhaust'}</Text>
+                            <Text style={styles.reqSub}>{tune.modificationsRequired?.[1] || 'High Flow Filter'}</Text>
+                        </View>
+                    </View>
+
+                    <Text style={styles.sectionTitle}>Fitment</Text>
+                    <View style={styles.fitmentCard}>
+                        <Image
+                            source={require('../../../../assets/welcome-hero.png')}
+                            style={styles.fitmentThumb}
+                        />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.fitmentTitle}>
+                                {activeBike ? `${activeBike.make} ${activeBike.model}` : tune.bikeId}
+                            </Text>
+                            <Text style={styles.fitmentSub}>{activeBike ? `${activeBike.year} Model` : '2021 - 2023 Models'}</Text>
+                        </View>
+                    </View>
+
+                    {requiresWarning && (
+                        <View style={styles.warningCard}>
+                            <View style={styles.warningRow}>
+                                <Ionicons name="warning" size={20} color="#FACC15" />
+                                <Text style={styles.warningTitle}>Safety Warning</Text>
+                            </View>
+                            <Text style={styles.warningText}>
+                                This tune may disable factory safeguards and is intended for advanced/off-road use. Verify fuel and cooling system readiness before flashing.
                             </Text>
                         </View>
-                        <Text style={styles.price}>${tune.price.toFixed(2)}</Text>
-                    </View>
-                </View>
+                    )}
 
-                {/* Compatibility Card */}
-                <View style={styles.section}>
-                    <View style={[styles.compatCard, { borderColor: isCompatible ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }]}>
-                        <View style={styles.compatRow}>
-                            <View style={[styles.compatIcon, { backgroundColor: isCompatible ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)' }]}>
-                                <Ionicons
-                                    name={isCompatible ? "checkmark-circle" : "alert-circle"}
-                                    size={22}
-                                    color={isCompatible ? '#22C55E' : '#EF4444'}
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.compatTitle}>
-                                    {isCompatible ? 'Compatible with your bike' : 'Compatibility Issue'}
-                                </Text>
-                                {!isCompatible && activeBike && (
-                                    <Text style={styles.compatReason}>
-                                        This tune is for {tune.bikeId}, but your active bike is {activeBike.name}.
-                                    </Text>
-                                )}
-                                {!activeBike && (
-                                    <Text style={styles.compatReason}>
-                                        Select a bike in your Garage to check compatibility.
-                                    </Text>
-                                )}
-                            </View>
+                    <View style={{ height: 130 }} />
+                </ScrollView>
+
+                <View style={styles.bottomBar}>
+                    <View style={styles.bottomTopRow}>
+                        <View>
+                            <Text style={styles.totalLabel}>TOTAL</Text>
+                            <Text style={styles.totalValue}>{priceFull}</Text>
+                        </View>
+                        <View style={styles.deliveryRow}>
+                            <Ionicons name="flash" size={14} color="#22C55E" />
+                            <Text style={styles.deliveryText}>Instant Delivery</Text>
                         </View>
                     </View>
-                </View>
 
-                {/* Description */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>Description</Text>
-                    <Text style={styles.body}>{tune.description}</Text>
+                    <TouchableOpacity
+                        style={styles.purchaseBtn}
+                        onPress={() => navigation.navigate('Checkout', { tuneId: tune.id })}
+                        activeOpacity={0.9}
+                    >
+                        <Text style={styles.purchaseText}>Purchase Tune</Text>
+                        <Ionicons name="arrow-forward" size={22} color="#FFF" />
+                    </TouchableOpacity>
                 </View>
-
-                {/* Safety Rating */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>Safety Analysis</Text>
-                    <View style={styles.safetyRow}>
-                        <View style={[styles.safetyBadge, { backgroundColor: safety.bg }]}>
-                            <Ionicons name="shield-checkmark" size={18} color={safety.color} />
-                            <Text style={[styles.safetyScore, { color: safety.color }]}>
-                                {tune.safetyRating}/100 — {safety.label}
-                            </Text>
-                        </View>
-                        <View style={styles.safetyBar}>
-                            <View style={[styles.safetyBarFill, { width: `${tune.safetyRating}%`, backgroundColor: safety.color }]} />
-                        </View>
-                    </View>
-                </View>
-
-                {/* Requirements */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Ionicons name="construct-outline" size={18} color={Theme.Colors.primary} />
-                        <Text style={styles.sectionLabel}>Requirements</Text>
-                    </View>
-                    <View style={styles.reqList}>
-                        <View style={styles.reqItem}>
-                            <Ionicons name="flame-outline" size={16} color="#F59E0B" />
-                            <Text style={styles.reqText}>Octane: {tune.octaneRequired}+ required</Text>
-                        </View>
-                        {tune.modificationsRequired?.map((mod, i) => (
-                            <View key={i} style={styles.reqItem}>
-                                <Ionicons name="build-outline" size={16} color="#71717A" />
-                                <Text style={styles.reqText}>{mod}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Metadata */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>Details</Text>
-                    <View style={styles.metadataGrid}>
-                        <MetaItem icon="git-branch-outline" label="Version" value={`v${tune.version}`} />
-                        <MetaItem icon="finger-print-outline" label="Checksum" value={tune.checksum?.slice(0, 12) || '—'} />
-                    </View>
-                </View>
-
-                {/* Action */}
-                <View style={styles.footer}>
-                    <PrimaryButton
-                        title={isCompatible ? "Validate & Flash" : "Not Compatible"}
-                        onPress={() => {
-                            ServiceLocator.getAnalyticsService().logEvent('tune_validate_initiated', { tuneId: tune.id });
-                            navigation.navigate('TuneValidation', { tuneId: tune.id });
-                        }}
-                        disabled={!isCompatible}
-                        icon={isCompatible ? "flash-outline" : "close-circle-outline"}
-                    />
-                </View>
-            </Animated.View>
+            </View>
         </Screen>
     );
 };
 
-const MetaItem = ({ icon, label, value }: { icon: any; label: string; value: string }) => (
-    <View style={styles.metaItem}>
-        <Ionicons name={icon} size={16} color="#52525B" />
-        <Text style={styles.metaLabel}>{label}</Text>
-        <Text style={styles.metaValue}>{value}</Text>
-    </View>
-);
-
 const styles = StyleSheet.create({
-    headerGradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 200,
+    container: { flex: 1, backgroundColor: '#151619' },
+    scrollContent: { padding: 20, paddingTop: 56, paddingBottom: 0 },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+    topRightActions: { flexDirection: 'row', gap: 10 },
+    iconBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
+    stageBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 12 },
+    stageBadgeText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.4 },
+    title: { color: Theme.Colors.text, fontSize: 48, fontWeight: '800', lineHeight: 52, letterSpacing: -1 },
+    priceCol: { alignItems: 'flex-end', paddingTop: 6 },
+    priceBig: { color: Theme.Colors.primary, fontSize: 52, fontWeight: '800', letterSpacing: -0.8 },
+    priceCurrency: { color: Theme.Colors.textSecondary, fontSize: 12, marginTop: -4 },
+    tunerCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: '#2A2B30', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+        padding: 14, marginBottom: 18,
     },
-    header: {
-        padding: 20,
-        paddingTop: 16,
+    avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4B4C51' },
+    avatarText: { color: '#E5E7EB', fontWeight: '800' },
+    tunerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    tunerName: { color: Theme.Colors.text, fontSize: 16, fontWeight: '700' },
+    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+    tunerMeta: { color: Theme.Colors.textSecondary, fontSize: 13 },
+    profileLink: { color: Theme.Colors.textSecondary, fontSize: 14, fontWeight: '600' },
+    sectionTitle: { color: Theme.Colors.text, fontSize: 38, fontWeight: '800', marginBottom: 8, letterSpacing: -0.6 },
+    descriptionText: { color: Theme.Colors.textSecondary, fontSize: 16, lineHeight: 24 },
+    readMore: { color: Theme.Colors.primary, fontSize: 16, fontWeight: '700', marginTop: 8, marginBottom: 18 },
+    chartCard: {
+        height: 220, borderRadius: 18, overflow: 'hidden',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 16,
+        justifyContent: 'center', alignItems: 'center',
     },
-    name: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#FAFAFA',
-        letterSpacing: -0.5,
-        marginBottom: 12,
+    chartWave1: { position: 'absolute', bottom: 0, left: -20, right: -20, height: 92, backgroundColor: 'rgba(225,29,72,0.22)', transform: [{ skewY: '-8deg' }] as any },
+    chartWave2: { position: 'absolute', bottom: 0, left: -20, right: -20, height: 66, backgroundColor: 'rgba(225,29,72,0.34)', transform: [{ skewY: '-8deg' }] as any },
+    chartBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        backgroundColor: 'rgba(10,10,12,0.9)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999,
     },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+    chartBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+    reqRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+    reqCard: {
+        flex: 1, backgroundColor: '#2A2B30', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 16, padding: 14,
     },
-    stageBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 12,
+    reqHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+    reqLabel: { color: Theme.Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+    reqValue: { color: Theme.Colors.text, fontSize: 20, fontWeight: '700' },
+    reqSub: { color: Theme.Colors.textSecondary, fontSize: 14, marginTop: 2 },
+    fitmentCard: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        backgroundColor: '#2A2B30', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12,
+        marginBottom: 14,
     },
-    stageBadgeText: {
-        fontSize: 13,
-        fontWeight: '700',
+    fitmentThumb: { width: 56, height: 56, borderRadius: 12 },
+    fitmentTitle: { color: Theme.Colors.text, fontSize: 20, fontWeight: '700' },
+    fitmentSub: { color: Theme.Colors.textSecondary, fontSize: 14, marginTop: 2 },
+    warningCard: {
+        backgroundColor: 'rgba(250, 204, 21, 0.12)', borderColor: 'rgba(250, 204, 21, 0.3)', borderWidth: 1,
+        borderRadius: 16, padding: 14,
     },
-    price: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#22C55E',
-        letterSpacing: -0.5,
+    warningRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    warningTitle: { color: '#FACC15', fontSize: 20, fontWeight: '800' },
+    warningText: { color: '#E8D17D', fontSize: 14, lineHeight: 20 },
+    bottomBar: {
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(19,20,23,0.98)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 20, paddingTop: 12, paddingBottom: 18,
     },
-    section: {
-        paddingHorizontal: 20,
-        paddingVertical: 12,
+    bottomTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    totalLabel: { color: Theme.Colors.textSecondary, fontSize: 12, letterSpacing: 0.8, fontWeight: '700' },
+    totalValue: { color: Theme.Colors.text, fontSize: 40, fontWeight: '800', letterSpacing: -0.7 },
+    deliveryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    deliveryText: { color: '#22C55E', fontSize: 14, fontWeight: '600' },
+    purchaseBtn: {
+        height: 68, borderRadius: 999, backgroundColor: Theme.Colors.primary,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
-    },
-    sectionLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#71717A',
-        textTransform: 'uppercase',
-        letterSpacing: 0.8,
-        marginBottom: 10,
-    },
-    body: {
-        fontSize: 15,
-        color: '#A1A1AA',
-        lineHeight: 22,
-    },
-    compatCard: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 14,
-        padding: 16,
-        borderWidth: 1,
-    },
-    compatRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 12,
-    },
-    compatIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    compatTitle: {
-        fontWeight: '700',
-        color: '#FAFAFA',
-        fontSize: 15,
-        marginBottom: 4,
-    },
-    compatReason: {
-        color: '#71717A',
-        fontSize: 13,
-        lineHeight: 18,
-    },
-    safetyRow: {
-        gap: 10,
-    },
-    safetyBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 10,
-        alignSelf: 'flex-start',
-    },
-    safetyScore: {
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    safetyBar: {
-        width: '100%',
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    safetyBarFill: {
-        height: '100%',
-        borderRadius: 2,
-    },
-    reqList: {
-        gap: 8,
-    },
-    reqItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        backgroundColor: 'rgba(255,255,255,0.02)',
-        borderRadius: 10,
-    },
-    reqText: {
-        fontSize: 14,
-        color: '#A1A1AA',
-    },
-    metadataGrid: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    metaItem: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: 'rgba(255,255,255,0.02)',
-        borderRadius: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-    },
-    metaLabel: {
-        fontSize: 12,
-        color: '#52525B',
-    },
-    metaValue: {
-        fontSize: 12,
-        color: '#A1A1AA',
-        fontWeight: '600',
-    },
-    footer: {
-        padding: 20,
-        paddingTop: 8,
-        paddingBottom: 32,
-    },
+    purchaseText: { color: '#FFF', fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
 });
