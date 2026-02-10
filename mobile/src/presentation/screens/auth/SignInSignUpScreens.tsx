@@ -1,11 +1,22 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Animated } from 'react-native';
-import { Theme } from '../../theme';
-import { Screen, PrimaryButton } from '../../components/SharedComponents';
-import { useAppStore } from '../../store/useAppStore';
+import React, { useMemo, useRef, useState } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
+    StyleSheet,
+    TouchableOpacity,
+    Alert,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Password strength utility
+import { Theme } from '../../theme';
+import { Screen } from '../../components/SharedComponents';
+import { useAppStore } from '../../store/useAppStore';
+import { LegalContent } from '../../constants/LegalContent';
+
 const getPasswordStrength = (pwd: string): { level: 'weak' | 'fair' | 'strong'; score: number; color: string } => {
     let score = 0;
     if (pwd.length >= 8) score++;
@@ -18,6 +29,37 @@ const getPasswordStrength = (pwd: string): { level: 'weak' | 'fair' | 'strong'; 
     return { level: 'strong', score: 1, color: Theme.Colors.success };
 };
 
+const openLegalDoc = (navigation: any, title: string, content: string) => {
+    navigation.navigate('LegalDocument', { title, content });
+};
+
+const AuthField = ({
+    icon,
+    placeholder,
+    value,
+    onChangeText,
+    secureTextEntry,
+    keyboardType,
+    autoCapitalize = 'none',
+    trailing,
+}: any) => (
+    <View style={styles.fieldWrap}>
+        <Ionicons name={icon} size={20} color={Theme.Colors.textSecondary} />
+        <TextInput
+            style={styles.input}
+            placeholder={placeholder}
+            placeholderTextColor={Theme.Colors.textSecondary}
+            value={value}
+            onChangeText={onChangeText}
+            autoCapitalize={autoCapitalize}
+            autoCorrect={false}
+            keyboardType={keyboardType}
+            secureTextEntry={secureTextEntry}
+        />
+        {trailing}
+    </View>
+);
+
 export const SignInScreen = ({ navigation }: any) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -25,80 +67,91 @@ export const SignInScreen = ({ navigation }: any) => {
     const { signIn, isLoading } = useAppStore();
 
     const handleSignIn = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password.');
+        if (!email.trim() || !password) {
+            Alert.alert('Missing details', 'Please enter your email and password.');
             return;
         }
 
-        const success = await signIn(email, password);
-        if (success) {
-            // Navigation to Main is handled by AppNavigator observing isAuthenticated
-        } else {
+        const success = await signIn(email.trim(), password);
+        if (!success) {
             Alert.alert('Login Failed', 'Invalid credentials. Try demo@revsync.com / garage');
         }
     };
 
     return (
         <Screen>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={Theme.Colors.text} />
-                </TouchableOpacity>
-                <Text style={styles.title}>Sign In</Text>
-            </View>
+            <KeyboardAvoidingView
+                style={styles.page}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <View style={styles.contentTop}>
+                    <Text style={styles.authTitle}>Sign In</Text>
+                    <Text style={styles.authSubtitle}>Welcome back to RevSync.</Text>
 
-            <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="rider@example.com"
-                        placeholderTextColor={Theme.Colors.textSecondary}
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
-                </View>
+                    <View style={styles.fieldsStack}>
+                        <AuthField
+                            icon="mail"
+                            placeholder="Enter your email"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                        />
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Password</Text>
-                    <View style={styles.passwordContainer}>
-                        <TextInput
-                            style={[styles.input, { flex: 1, borderWidth: 0, marginTop: 0 }]}
-                            placeholder="Password"
-                            placeholderTextColor={Theme.Colors.textSecondary}
+                        <AuthField
+                            icon="lock-closed"
+                            placeholder="Enter your password"
                             value={password}
                             onChangeText={setPassword}
                             secureTextEntry={!showPassword}
+                            trailing={(
+                                <TouchableOpacity onPress={() => setShowPassword(prev => !prev)} style={styles.eyeBtn}>
+                                    <Ionicons
+                                        name={showPassword ? 'eye-off' : 'eye'}
+                                        size={20}
+                                        color={Theme.Colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            )}
                         />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 8 }}>
-                            <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={Theme.Colors.textSecondary} />
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.forgotPass}
+                        onPress={() => Alert.alert('Forgot password', 'Password recovery will be available soon.')}
+                    >
+                        <Text style={styles.subtleLink}>Forgot password?</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.primaryBtn, isLoading && styles.btnDisabled]}
+                        onPress={handleSignIn}
+                        disabled={isLoading}
+                        activeOpacity={0.9}
+                    >
+                        <Text style={styles.primaryBtnText}>{isLoading ? 'Signing In...' : 'Sign In'}</Text>
+                        <Ionicons name="arrow-forward" size={22} color="#FFF" />
+                    </TouchableOpacity>
+
+                    <View style={styles.switchRow}>
+                        <Text style={styles.switchText}>Don’t have an account?</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                            <Text style={styles.switchLink}> Create account</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                <TouchableOpacity
-                    style={styles.forgotPass}
-                    onPress={() => Alert.alert('Forgot Password', 'Please check your email to reset your password.')}
-                >
-                    <Text style={styles.linkText}>Forgot Password?</Text>
-                </TouchableOpacity>
-
-                <PrimaryButton
-                    title={isLoading ? 'Signing In...' : 'Sign In'}
-                    onPress={handleSignIn}
-                    loading={isLoading}
-                    style={{ marginTop: Theme.Spacing.lg }}
-                />
-
-                <View style={styles.footerContainer}>
-                    <Text style={styles.footerText}>Don't have an account?</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                        <Text style={styles.linkText}> Create Account</Text>
+                <View style={styles.legalFooter}>
+                    <Text style={styles.legalText}>By signing in, you agree to our </Text>
+                    <TouchableOpacity onPress={() => openLegalDoc(navigation, 'Terms & Conditions', LegalContent.TERMS)}>
+                        <Text style={styles.legalLink}>Terms of Service</Text>
                     </TouchableOpacity>
+                    <Text style={styles.legalText}> and </Text>
+                    <TouchableOpacity onPress={() => openLegalDoc(navigation, 'Privacy Policy', LegalContent.PRIVACY)}>
+                        <Text style={styles.legalLink}>Privacy Policy</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.legalText}>.</Text>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Screen>
     );
 };
@@ -107,10 +160,12 @@ export const SignUpScreen = ({ navigation }: any) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [termsAccepted, setTermsAccepted] = useState(false);
+
     const { signUp, isLoading } = useAppStore();
     const shakeAnim = useRef(new Animated.Value(0)).current;
-
     const strength = useMemo(() => getPasswordStrength(password), [password]);
 
     const shake = () => {
@@ -124,230 +179,307 @@ export const SignUpScreen = ({ navigation }: any) => {
     };
 
     const handleSignUp = async () => {
-        if (!email || !password || !confirmPassword) {
+        if (!email.trim() || !password || !confirmPassword) {
             shake();
-            Alert.alert('Error', 'Please fill all fields.');
+            Alert.alert('Missing details', 'Please complete all fields.');
             return;
         }
         if (password !== confirmPassword) {
             shake();
-            Alert.alert('Error', 'Passwords do not match.');
+            Alert.alert('Password mismatch', 'Passwords do not match.');
+            return;
+        }
+        if (password.length < 8) {
+            shake();
+            Alert.alert('Weak password', 'Password must be at least 8 characters.');
             return;
         }
         if (!termsAccepted) {
             shake();
-            Alert.alert('Error', 'Please accept the Terms & Conditions to continue.');
+            Alert.alert('Terms required', 'Please accept Terms & Conditions and Privacy Policy.');
             return;
         }
 
-        const success = await signUp(email, password);
-        if (success) {
-            // Navigation handled by AppNavigator
-        } else {
-            Alert.alert('Error', 'Failed to create account.');
+        const success = await signUp(email.trim(), password);
+        if (!success) {
+            Alert.alert('Sign Up Failed', 'Could not create account. Try again.');
         }
     };
 
     return (
-        <Screen>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={Theme.Colors.text} />
-                </TouchableOpacity>
-                <Text style={styles.title}>Create Account</Text>
-            </View>
+        <Screen scroll>
+            <KeyboardAvoidingView
+                style={styles.page}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <View style={styles.contentTop}>
+                    <Text style={styles.authTitle}>Create Account</Text>
+                    <Text style={styles.authSubtitle}>Start your RevSync journey.</Text>
 
-            <Animated.View style={[styles.form, { transform: [{ translateX: shakeAnim }] }]}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="rider@example.com"
-                        placeholderTextColor={Theme.Colors.textSecondary}
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
-                </View>
+                    <Animated.View style={[styles.fieldsStack, { transform: [{ translateX: shakeAnim }] }]}>
+                        <AuthField
+                            icon="mail"
+                            placeholder="Enter your email"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                        />
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Password</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Min 8 characters"
-                        placeholderTextColor={Theme.Colors.textSecondary}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
-                    {/* Password Strength Meter */}
-                    {password.length > 0 && (
-                        <View style={styles.strengthContainer}>
-                            <View style={styles.strengthTrack}>
-                                <View style={[styles.strengthFill, { width: `${strength.score * 100}%`, backgroundColor: strength.color }]} />
+                        <AuthField
+                            icon="lock-closed"
+                            placeholder="Create your password"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            trailing={(
+                                <TouchableOpacity onPress={() => setShowPassword(prev => !prev)} style={styles.eyeBtn}>
+                                    <Ionicons
+                                        name={showPassword ? 'eye-off' : 'eye'}
+                                        size={20}
+                                        color={Theme.Colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        />
+
+                        {password.length > 0 && (
+                            <View style={styles.strengthContainer}>
+                                <View style={styles.strengthTrack}>
+                                    <View
+                                        style={[
+                                            styles.strengthFill,
+                                            { width: `${strength.score * 100}%`, backgroundColor: strength.color },
+                                        ]}
+                                    />
+                                </View>
+                                <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                                    {strength.level.charAt(0).toUpperCase() + strength.level.slice(1)}
+                                </Text>
                             </View>
-                            <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                                {strength.level.charAt(0).toUpperCase() + strength.level.slice(1)}
-                            </Text>
+                        )}
+
+                        <AuthField
+                            icon="shield-checkmark"
+                            placeholder="Confirm your password"
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            secureTextEntry={!showConfirmPassword}
+                            trailing={(
+                                <TouchableOpacity onPress={() => setShowConfirmPassword(prev => !prev)} style={styles.eyeBtn}>
+                                    <Ionicons
+                                        name={showConfirmPassword ? 'eye-off' : 'eye'}
+                                        size={20}
+                                        color={Theme.Colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </Animated.View>
+
+                    <TouchableOpacity
+                        style={styles.termsRow}
+                        onPress={() => setTermsAccepted(prev => !prev)}
+                        activeOpacity={0.75}
+                    >
+                        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                            {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
                         </View>
-                    )}
-                </View>
+                        <Text style={styles.termsText}>I agree to the </Text>
+                        <TouchableOpacity onPress={() => openLegalDoc(navigation, 'Terms & Conditions', LegalContent.TERMS)}>
+                            <Text style={styles.termsLink}>Terms</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.termsText}> and </Text>
+                        <TouchableOpacity onPress={() => openLegalDoc(navigation, 'Privacy Policy', LegalContent.PRIVACY)}>
+                            <Text style={styles.termsLink}>Privacy Policy</Text>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Confirm Password</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Re-enter password"
-                        placeholderTextColor={Theme.Colors.textSecondary}
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry
-                    />
-                </View>
+                    <TouchableOpacity
+                        style={[styles.primaryBtn, isLoading && styles.btnDisabled]}
+                        onPress={handleSignUp}
+                        disabled={isLoading}
+                        activeOpacity={0.9}
+                    >
+                        <Text style={styles.primaryBtnText}>{isLoading ? 'Creating...' : 'Create Account'}</Text>
+                        <Ionicons name="arrow-forward" size={22} color="#FFF" />
+                    </TouchableOpacity>
 
-                {/* Terms Checkbox */}
-                <TouchableOpacity
-                    style={styles.termsRow}
-                    onPress={() => setTermsAccepted(!termsAccepted)}
-                    activeOpacity={0.7}
-                >
-                    <View style={[styles.termsCheckbox, termsAccepted && styles.termsCheckboxChecked]}>
-                        {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                    <View style={styles.switchRow}>
+                        <Text style={styles.switchText}>Already have an account?</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
+                            <Text style={styles.switchLink}> Sign in</Text>
+                        </TouchableOpacity>
                     </View>
-                    <Text style={styles.termsText}>
-                        I agree to the{' '}
-                        <Text style={styles.termsLink}>Terms & Conditions</Text>
-                        {' '}and{' '}
-                        <Text style={styles.termsLink}>Privacy Policy</Text>
-                    </Text>
-                </TouchableOpacity>
-
-                <PrimaryButton
-                    title={isLoading ? 'Creating Account...' : 'Sign Up'}
-                    onPress={handleSignUp}
-                    loading={isLoading}
-                    disabled={!termsAccepted}
-                    style={{ marginTop: Theme.Spacing.md }}
-                />
-            </Animated.View>
+                </View>
+            </KeyboardAvoidingView>
         </Screen>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
+    page: {
         flex: 1,
-        backgroundColor: Theme.Colors.background,
+        paddingHorizontal: 24,
+        paddingTop: 70,
+        paddingBottom: 28,
+        justifyContent: 'space-between',
     },
-    header: {
+    contentTop: {
+        gap: 18,
+    },
+    authTitle: {
+        color: Theme.Colors.text,
+        fontSize: 56,
+        fontWeight: '800',
+        letterSpacing: -1,
+    },
+    authSubtitle: {
+        color: Theme.Colors.textSecondary,
+        fontSize: 18,
+        marginTop: -8,
+        marginBottom: 18,
+    },
+    fieldsStack: {
+        gap: 14,
+    },
+    fieldWrap: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: Theme.Spacing.md,
-    },
-    backButton: {
-        marginRight: Theme.Spacing.md,
-        padding: 8,
-    },
-    title: {
-        ...Theme.Typography.h1,
-        fontSize: 28,
-    },
-    form: {
-        padding: Theme.Spacing.lg,
-        gap: Theme.Spacing.md,
-    },
-    inputGroup: {
-        gap: 8,
-    },
-    label: {
-        ...Theme.Typography.body,
-        fontWeight: '600',
-        marginLeft: 4,
-        color: Theme.Colors.textSecondary,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: '#2A2A2F',
+        borderRadius: 18,
+        paddingHorizontal: 14,
+        height: 78,
     },
     input: {
-        backgroundColor: Theme.Colors.surface,
-        borderColor: Theme.Colors.border,
-        borderWidth: 1,
-        borderRadius: Theme.Layout.borderRadius,
-        padding: 16,
+        flex: 1,
         color: Theme.Colors.text,
-        fontSize: 16,
+        fontSize: 17,
+        marginLeft: 10,
     },
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.Colors.surface,
-        borderColor: Theme.Colors.border,
-        borderWidth: 1,
-        borderRadius: Theme.Layout.borderRadius,
+    eyeBtn: {
+        padding: 8,
     },
     forgotPass: {
         alignSelf: 'flex-end',
-        marginTop: 8,
+        marginTop: 2,
+        marginBottom: 6,
     },
-    linkText: {
-        color: Theme.Colors.primary,
-        fontWeight: 'bold',
+    subtleLink: {
+        color: Theme.Colors.textSecondary,
+        fontSize: 15,
+        fontWeight: '500',
     },
-    footerContainer: {
+    primaryBtn: {
+        height: 78,
+        borderRadius: 18,
+        backgroundColor: Theme.Colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        shadowColor: Theme.Colors.primary,
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 7,
+        marginTop: 2,
+    },
+    primaryBtnText: {
+        color: '#FFF',
+        fontSize: 20,
+        fontWeight: '800',
+        letterSpacing: 0.2,
+    },
+    btnDisabled: {
+        opacity: 0.6,
+    },
+    switchRow: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: Theme.Spacing.xl,
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 4,
     },
-    footerText: {
+    switchText: {
         color: Theme.Colors.textSecondary,
+        fontSize: 16,
+    },
+    switchLink: {
+        color: Theme.Colors.primary,
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    legalFooter: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 20,
+        paddingHorizontal: 8,
+    },
+    legalText: {
+        color: '#494952',
+        fontSize: 12,
+        textAlign: 'center',
+    },
+    legalLink: {
+        color: '#757584',
+        fontSize: 12,
+        textDecorationLine: 'underline',
     },
     strengthContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 8,
-        gap: 8,
+        gap: 10,
+        marginTop: -4,
+        marginBottom: 2,
     },
     strengthTrack: {
         flex: 1,
-        height: 4,
-        backgroundColor: Theme.Colors.surfaceHighlight,
-        borderRadius: 2,
+        height: 5,
+        backgroundColor: Theme.Colors.surface,
+        borderRadius: 3,
         overflow: 'hidden',
     },
     strengthFill: {
         height: '100%',
-        borderRadius: 2,
+        borderRadius: 3,
     },
     strengthLabel: {
+        width: 52,
         fontSize: 12,
-        fontWeight: '600',
-        width: 50,
+        fontWeight: '700',
+        textTransform: 'capitalize',
     },
     termsRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         alignItems: 'center',
-        gap: 12,
-        paddingVertical: 4,
+        marginTop: 2,
     },
-    termsCheckbox: {
+    checkbox: {
         width: 22,
         height: 22,
-        borderRadius: 4,
+        borderRadius: 5,
         borderWidth: 2,
         borderColor: Theme.Colors.textSecondary,
         alignItems: 'center',
         justifyContent: 'center',
+        marginRight: 10,
     },
-    termsCheckboxChecked: {
+    checkboxChecked: {
         backgroundColor: Theme.Colors.primary,
         borderColor: Theme.Colors.primary,
     },
     termsText: {
-        flex: 1,
-        fontSize: 13,
         color: Theme.Colors.textSecondary,
-        lineHeight: 18,
+        fontSize: 14,
     },
     termsLink: {
         color: Theme.Colors.primary,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '700',
     },
 });
