@@ -6,6 +6,8 @@ import { StandardECUService } from '../data/services/StandardECUService';
 import { SupabaseAuthService } from '../data/services/SupabaseAuthService';
 import { ApiTuneService } from '../data/services/ApiTuneService';
 import { ConsoleAnalyticsService } from '../data/services/ConsoleAnalyticsService';
+import { CryptoService } from '../data/services/CryptoService';
+import { DownloadService } from '../data/services/DownloadService';
 
 // Singleton instances
 // Using BleDeviceService for production
@@ -20,6 +22,10 @@ const ecuService = new StandardECUService(deviceService, validationService);
 const authService = new SupabaseAuthService();
 const analyticsService = new ConsoleAnalyticsService();
 
+// New Phase 2 services
+const cryptoService = new CryptoService();
+const downloadService = new DownloadService(cryptoService);
+
 export const ServiceLocator = {
     getDeviceService: () => deviceService,
     getTuneService: () => tuneService,
@@ -28,4 +34,8 @@ export const ServiceLocator = {
     getECUService: () => ecuService,
     getAuthService: () => authService,
     getAnalyticsService: () => analyticsService,
+
+    // Phase 2: Crypto & Download
+    getCryptoService: () => cryptoService,
+    getDownloadService: () => downloadService,
 };

@@ -33,7 +33,7 @@ export class BleDeviceService implements DeviceService {
     }
 
     private async requestAndroidPermissions() {
-        if (Platform.Version >= 31) {
+        if (Number(Platform.Version) >= 31) {
             await PermissionsAndroid.requestMultiple([
                 PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
                 PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,

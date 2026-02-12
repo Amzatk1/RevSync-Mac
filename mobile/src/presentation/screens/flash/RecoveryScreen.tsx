@@ -1,29 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, BackHandler, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, BackHandler, Alert, ScrollView } from 'react-native';
 import { Theme } from '../../theme';
-import { Screen, PrimaryButton, SecondaryButton, Card, LoadingOverlay, ErrorBanner } from '../../components/SharedComponents';
+import { Screen, PrimaryButton, SecondaryButton, Card, ErrorBanner } from '../../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
-import { useAppStore } from '../../store/useAppStore';
 
 export const RecoveryScreen = ({ navigation, route }: any) => {
-    const { backupPath } = route.params || {};
+    const { backupPath, deviceId } = route.params || {};
     const [status, setStatus] = useState<'idle' | 'restoring' | 'success' | 'failed'>('idle');
     const [progress, setProgress] = useState(0);
     const [log, setLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const scrollRef = useRef<ScrollView>(null);
 
-    // Lock back nav
+    // Lock back nav during recovery
     useEffect(() => {
         const onBackPress = () => {
             if (status === 'restoring') {
-                return true; // Block back button
+                Alert.alert(
+                    '⛔ CRITICAL',
+                    'Recovery is in progress. Interrupting will corrupt your ECU.',
+                    [{ text: 'I Understand', style: 'cancel' }]
+                );
+                return true;
             }
             return false;
         };
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
     }, [status]);
+
+    // Auto-scroll log
+    useEffect(() => {
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }, [log]);
+
+    const addLog = (msg: string) => setLog(prev => [...prev, msg]);
 
     const startRecovery = async () => {
         if (!backupPath) {
@@ -34,71 +46,74 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         setStatus('restoring');
         setProgress(0);
         setError(null);
-        setLog(['Initializing Recovery Mode...', 'Loading backup file...']);
+        setLog([]);
+        addLog('Initializing Recovery Mode...');
+        addLog(`Backup file: ${backupPath.split('/').pop()}`);
 
         try {
             const ecuService = ServiceLocator.getECUService();
 
-            // We need a restoreBackup method or similar. 
-            // In a real app, this might just be flashTune but with a raw binary/backup file type.
-            // For now, let's assume flashTune can handle it or we use a specific method.
-            // Since ECUService.flashTune takes a 'Tune' object, we might need a wrapper 
-            // or a specialized restore method.
-            // For this implementation, I'll simulate it or use a specialized mocked call.
+            // Set device ID if available
+            if (deviceId && 'setConnectedDevice' in ecuService) {
+                (ecuService as any).setConnectedDevice(deviceId);
+            }
 
-            // Simulating restore process
-            await new Promise<void>((resolve, reject) => {
-                let p = 0;
-                const interval = setInterval(() => {
-                    p += 5;
-                    setProgress(p);
-                    if (p % 20 === 0) setLog(prev => [...prev, `Restoring block ${p / 5}... OK`]);
+            addLog('Starting ECU restore...');
 
-                    if (p >= 100) {
-                        clearInterval(interval);
-                        resolve();
+            // Use the real restoreBackup method
+            await ecuService.restoreBackup(backupPath, (pct, msg) => {
+                setProgress(pct);
+                if (msg) {
+                    // Log every 10th chunk or non-chunk messages
+                    const chunkMatch = msg.match(/chunk (\d+)\/(\d+)/i);
+                    if (!chunkMatch || parseInt(chunkMatch[1]) % Math.max(1, Math.ceil(parseInt(chunkMatch[2]) / 10)) === 0) {
+                        addLog(msg);
                     }
-                }, 200); // 4 seconds total
+                }
             });
 
-            setLog(prev => [...prev, 'Restore Complete. Verifying... OK']);
+            addLog('Restore complete. Verifying integrity...');
+            addLog('Recovery successful ✓');
             setStatus('success');
 
         } catch (e: any) {
             setError(e.message || 'Recovery Failed');
             setStatus('failed');
-            setLog(prev => [...prev, `CRITICAL ERROR: ${e.message}`]);
+            addLog(`CRITICAL ERROR: ${e.message}`);
         }
     };
 
     const handleFinish = () => {
-        // Reset to Garage to be safe
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'Garage' }],
-        });
+        navigation.reset({ index: 0, routes: [{ name: 'Garage' }] });
     };
+
+    // ─── Restoring ─────────────────────────────────────────────
 
     if (status === 'restoring') {
         return (
             <Screen edges={['top']}>
                 <View style={styles.container}>
                     <View style={styles.header}>
-                        <Text style={[styles.title, { color: Theme.Colors.error }]}>EMERGENCY RECOVERY</Text>
+                        <Text style={[styles.title, { color: '#EF4444' }]}>EMERGENCY RECOVERY</Text>
                         <Text style={styles.subtitle}>Restoring original ECU state...</Text>
                     </View>
 
                     <View style={styles.progressContainer}>
-                        <Text style={styles.percentText}>{progress}%</Text>
+                        <Text style={styles.percentText}>{Math.round(progress)}%</Text>
                         <View style={styles.progressBarBg}>
                             <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
                         </View>
                     </View>
 
                     <Card style={styles.logCard}>
-                        <ScrollView>
+                        <ScrollView ref={scrollRef} style={{ maxHeight: 200 }}>
                             {log.map((line, i) => (
-                                <Text key={i} style={styles.logText}>{'>'} {line}</Text>
+                                <Text key={i} style={[styles.logText, {
+                                    color: line.includes('ERROR') ? '#EF4444' :
+                                        line.includes('✓') ? '#22C55E' : '#BBB',
+                                }]}>
+                                    {'>'} {line}
+                                </Text>
                             ))}
                         </ScrollView>
                     </Card>
@@ -112,13 +127,16 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         );
     }
 
+    // ─── Success ───────────────────────────────────────────────
+
     if (status === 'success') {
         return (
             <Screen center>
-                <Ionicons name="medical" size={80} color={Theme.Colors.success} />
+                <Ionicons name="medical" size={80} color="#22C55E" />
                 <Text style={styles.successTitle}>Recovery Successful</Text>
                 <Text style={styles.successText}>
-                    Your ECU has been restored to its previous working state.
+                    Your ECU has been restored to its previous working state.{'\n'}
+                    Cycle ignition (OFF → ON) to finalize.
                 </Text>
                 <PrimaryButton
                     title="Return to Garage"
@@ -129,17 +147,48 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         );
     }
 
+    // ─── Failed ────────────────────────────────────────────────
+
+    if (status === 'failed') {
+        return (
+            <Screen>
+                <View style={styles.container}>
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+                        <Ionicons name="warning" size={64} color="#EF4444" />
+                    </View>
+                    <Text style={[styles.title, { color: '#EF4444' }]}>Recovery Failed</Text>
+                    <ErrorBanner message={error || 'Recovery operation failed'} onRetry={startRecovery} />
+                    <Card style={styles.logCard}>
+                        <ScrollView style={{ maxHeight: 150 }}>
+                            {log.map((line, i) => (
+                                <Text key={i} style={[styles.logText, {
+                                    color: line.includes('ERROR') ? '#EF4444' : '#BBB',
+                                }]}>
+                                    {'>'} {line}
+                                </Text>
+                            ))}
+                        </ScrollView>
+                    </Card>
+                    <View style={styles.footer}>
+                        <SecondaryButton title="Contact Support" onPress={() => { }} />
+                    </View>
+                </View>
+            </Screen>
+        );
+    }
+
+    // ─── Idle ──────────────────────────────────────────────────
+
     return (
         <Screen>
             <View style={styles.container}>
                 <View style={[styles.iconContainer, { backgroundColor: 'rgba(255, 59, 48, 0.1)' }]}>
-                    <Ionicons name="fitness" size={64} color={Theme.Colors.error} />
+                    <Ionicons name="fitness" size={64} color="#EF4444" />
                 </View>
 
                 <Text style={styles.title}>ECU Recovery Mode</Text>
-
                 <Text style={styles.description}>
-                    This process will attempt to wipe the corrupted tune and restore the backup file:
+                    This process will wipe the corrupted tune and restore the backup:
                 </Text>
 
                 <Card style={styles.fileCard}>
@@ -149,13 +198,16 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
                     </Text>
                 </Card>
 
-                {error && <ErrorBanner message={error} />}
+                {!backupPath && (
+                    <ErrorBanner message="No backup file available. Contact support." />
+                )}
 
                 <View style={styles.footer}>
                     <PrimaryButton
                         title="Start Recovery"
                         onPress={startRecovery}
-                        style={{ backgroundColor: Theme.Colors.error }}
+                        disabled={!backupPath}
+                        style={{ backgroundColor: '#DC2626' }}
                     />
                     <SecondaryButton
                         title="Contact Support"
@@ -168,111 +220,40 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
     );
 };
 
-import { ScrollView } from 'react-native';
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: Theme.Spacing.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 32,
-    },
+    container: { flex: 1, padding: Theme.Spacing.md, alignItems: 'center', justifyContent: 'center' },
+    header: { alignItems: 'center', marginBottom: 32 },
     iconContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 24,
+        width: 100, height: 100, borderRadius: 50,
+        justifyContent: 'center', alignItems: 'center', marginBottom: 24,
     },
-    title: {
-        ...Theme.Typography.h2,
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    subtitle: {
-        color: Theme.Colors.textSecondary,
-        fontSize: 16,
-    },
-    description: {
-        textAlign: 'center',
-        color: Theme.Colors.text,
-        marginBottom: 24,
-        lineHeight: 22,
-    },
+    title: { ...Theme.Typography.h2, marginBottom: 8, textAlign: 'center' },
+    subtitle: { color: Theme.Colors.textSecondary, fontSize: 16 },
+    description: { textAlign: 'center', color: Theme.Colors.text, marginBottom: 24, lineHeight: 22 },
     fileCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        width: '100%',
-        marginBottom: 32,
-        paddingVertical: 16,
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        width: '100%', marginBottom: 32, paddingVertical: 16,
     },
-    fileName: {
-        flex: 1,
-        fontFamily: 'monospace',
-        color: Theme.Colors.text,
-    },
-    progressContainer: {
-        width: '100%',
-        marginVertical: 32,
-        alignItems: 'center',
-    },
-    percentText: {
-        fontSize: 40,
-        fontWeight: 'bold',
-        color: Theme.Colors.error,
-        marginBottom: 8,
-    },
+    fileName: { flex: 1, fontFamily: 'monospace', color: Theme.Colors.text },
+    progressContainer: { width: '100%', marginVertical: 32, alignItems: 'center' },
+    percentText: { fontSize: 40, fontWeight: 'bold', color: '#EF4444', marginBottom: 8 },
     progressBarBg: {
-        width: '100%',
-        height: 12,
+        width: '100%', height: 12,
         backgroundColor: Theme.Colors.surfaceHighlight,
-        borderRadius: 6,
-        overflow: 'hidden',
+        borderRadius: 6, overflow: 'hidden',
     },
-    progressBarFill: {
-        height: '100%',
-        backgroundColor: Theme.Colors.error,
-    },
+    progressBarFill: { height: '100%', backgroundColor: '#EF4444' },
     logCard: {
-        flex: 1,
-        width: '100%',
-        maxHeight: 200,
-        backgroundColor: '#111',
+        width: '100%', backgroundColor: '#111',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
     },
-    logText: {
-        color: '#BBB',
-        fontFamily: 'monospace',
-        fontSize: 12,
-        marginBottom: 4,
-    },
-    warningText: {
-        color: Theme.Colors.error,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        marginTop: 24,
-    },
-    successTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: Theme.Colors.success,
-        marginVertical: 16,
-    },
+    logText: { fontFamily: 'monospace', fontSize: 12, marginBottom: 4 },
+    warningText: { color: '#EF4444', fontWeight: 'bold', textAlign: 'center', marginTop: 24 },
+    successTitle: { fontSize: 24, fontWeight: 'bold', color: '#22C55E', marginVertical: 16 },
     successText: {
-        textAlign: 'center',
-        color: Theme.Colors.textSecondary,
-        marginBottom: 32,
+        textAlign: 'center', color: Theme.Colors.textSecondary,
+        marginBottom: 32, lineHeight: 22,
     },
-    button: {
-        width: '100%',
-    },
-    footer: {
-        width: '100%',
-        marginTop: 'auto',
-    },
+    button: { width: '100%' },
+    footer: { width: '100%', marginTop: 'auto' },
 });

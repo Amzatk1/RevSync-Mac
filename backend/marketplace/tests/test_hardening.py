@@ -57,7 +57,7 @@ def create_tuner(user, tier='NEW'):
         user=user,
         defaults={
             'business_name': f'{user.username} Tunes',
-            'bio': 'Test tuner',
+            'slug': f'{user.username}-tunes',
             'tier': tier,
         }
     )
@@ -447,7 +447,7 @@ class DownloadEntitlementTests(APITestCase):
         response = self.client.post(url)
         self.assertEqual(response.status_code, 403)
 
-    @patch('marketplace.views.create_signed_url')
+    @patch('core.supabase_client.create_signed_url')
     def test_download_with_valid_entitlement_succeeds(self, mock_signed_url):
         """User with active entitlement should get download URLs."""
         mock_signed_url.return_value = 'https://storage.example.com/signed?token=abc'
