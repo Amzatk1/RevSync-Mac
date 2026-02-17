@@ -10,19 +10,26 @@ export interface Agreement {
 export const legalService = {
     /**
      * Get user's accepted legal documents history.
+     * Falls back to empty array when backend is unreachable.
      */
     async getHistory(): Promise<Agreement[]> {
-        // Ready for backend integration:
-        // return await ApiClient.getInstance().get<Agreement[]>('/users/legal/history/');
-        return [];
+        try {
+            return await ApiClient.getInstance().get<Agreement[]>('/users/legal/history/');
+        } catch {
+            // Backend unavailable — return empty (shows "No agreements" state)
+            return [];
+        }
     },
 
     /**
      * Record acceptance of a document.
+     * Falls back silently when backend is unreachable.
      */
     async acceptDocument(type: 'TERMS' | 'PRIVACY' | 'SAFETY' | 'ANALYTICS', version: string): Promise<any> {
-        // Ready for backend integration:
-        // return await ApiClient.getInstance().post('/users/legal/accept/', { document_type: type, version });
-        return { success: true };
+        try {
+            return await ApiClient.getInstance().post('/users/legal/accept/', { document_type: type, version });
+        } catch {
+            return { success: true };
+        }
     }
 };

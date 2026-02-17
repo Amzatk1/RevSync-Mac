@@ -16,7 +16,8 @@ import { DownloadManagerScreen } from '../screens/tunes/DownloadManagerScreen';
 
 // Garage Screens
 import { GarageScreen } from '../screens/GarageScreen';
-import { AddBikeScreen, BikeDetailsScreen } from '../screens/garage/GarageStubs';
+import { AddBikeScreen } from '../screens/garage/AddBikeScreen';
+import { BikeDetailsScreen } from '../screens/garage/BikeDetailsScreen';
 
 // Flash Screens
 import { FlashWizardScreen } from '../screens/flash/FlashWizardScreen'; // Updated path
@@ -37,6 +38,7 @@ import { LogsExportScreen } from '../screens/profile/LogsExportScreen';
 import { LegalMenuScreen } from '../screens/profile/LegalMenuScreen';
 import { LegalDocumentScreen } from '../screens/profile/LegalDocumentScreen';
 import { FlashingSafetySettingsScreen } from '../screens/profile/FlashingSafetySettingsScreen';
+import { AgreementsScreen } from '../screens/profile/AgreementsScreen';
 
 // Auth Screens
 import { WelcomeScreen } from '../screens/WelcomeScreen';
@@ -124,6 +126,7 @@ const ProfileStack = () => (
         <Stack.Screen name="LegalMenu" component={LegalMenuScreen} />
         <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
         <Stack.Screen name="FlashingSafetySettings" component={FlashingSafetySettingsScreen} />
+        <Stack.Screen name="Agreements" component={AgreementsScreen} />
         <Stack.Screen name="DownloadManager" component={DownloadManagerScreen} />
     </Stack.Navigator>
 );

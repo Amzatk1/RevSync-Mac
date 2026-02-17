@@ -3,14 +3,24 @@ import {
     View, Text, StyleSheet, FlatList, TouchableOpacity,
     Alert, Animated, ActivityIndicator,
 } from 'react-native';
-import { Theme } from '../../theme';
-import { Screen, Card, PrimaryButton } from '../../components/SharedComponents';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import type { DownloadProgress, DownloadState, TunePackage } from '../../../domain/services/DomainTypes';
 import { StorageAdapter } from '../../../data/services/StorageAdapter';
 
-// ─── Persistent Storage Key ────────────────────────────────────
+// ─── Color Tokens ──────────────────────────────────────────────
+const C = {
+    bg: '#1a1a1a',
+    surface: '#252525',
+    border: 'rgba(255,255,255,0.05)',
+    text: '#FFFFFF',
+    muted: '#9ca3af',
+    primary: '#ea103c',
+    success: '#22C55E',
+    error: '#EF4444',
+};
+
 const VERIFIED_PACKAGES_KEY = 'verified_packages';
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -32,15 +42,15 @@ interface ActiveDownload {
 
 // ─── State Color/Icon Maps ─────────────────────────────────────
 const stateConfig: Record<DownloadState, { icon: string; color: string; label: string }> = {
-    IDLE: { icon: 'cloud-download-outline', color: Theme.Colors.textSecondary, label: 'Ready' },
+    IDLE: { icon: 'cloud-download-outline', color: C.muted, label: 'Ready' },
     DOWNLOADING: { icon: 'cloud-download', color: '#3B82F6', label: 'Downloading' },
     EXTRACTING: { icon: 'folder-open', color: '#8B5CF6', label: 'Extracting' },
     HASHING: { icon: 'finger-print', color: '#F59E0B', label: 'Hashing' },
     VERIFYING_SIGNATURE: { icon: 'shield-checkmark', color: '#F59E0B', label: 'Verifying' },
-    VERIFIED: { icon: 'checkmark-circle', color: '#22C55E', label: 'Verified ✓' },
-    REJECTED: { icon: 'close-circle', color: '#EF4444', label: 'REJECTED' },
-    READY: { icon: 'flash', color: '#22C55E', label: 'Ready to Flash' },
-    FAILED: { icon: 'alert-circle', color: '#EF4444', label: 'Failed' },
+    VERIFIED: { icon: 'checkmark-circle', color: C.success, label: 'Verified ✓' },
+    REJECTED: { icon: 'close-circle', color: C.error, label: 'REJECTED' },
+    READY: { icon: 'flash', color: C.success, label: 'Ready to Flash' },
+    FAILED: { icon: 'alert-circle', color: C.error, label: 'Failed' },
 };
 
 // ─── Component ─────────────────────────────────────────────────
@@ -50,7 +60,6 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
     const [activeDownload, setActiveDownload] = useState<ActiveDownload | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Optional: auto-start download if navigated with params
     const autoDownloadVersionId = route?.params?.versionId;
     const autoDownloadListingId = route?.params?.listingId;
     const autoDownloadTitle = route?.params?.title;
@@ -65,8 +74,6 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
         }
     }, [autoDownloadVersionId]);
 
-    // ─── Data Loading ──────────────────────────────────────────
-
     const loadPackages = async () => {
         setLoading(true);
         try {
@@ -78,8 +85,6 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
             setLoading(false);
         }
     };
-
-    // ─── Download Pipeline ─────────────────────────────────────
 
     const startDownload = useCallback(async (
         versionId: string,
@@ -109,7 +114,6 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
         );
 
         if (result.success && result.package) {
-            // Persist to storage
             const entry: PackageEntry = {
                 versionId: result.package.versionId,
                 listingId: result.package.listingId,
@@ -122,16 +126,11 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
             const updated = [...packages.filter(p => p.versionId !== versionId), entry];
             setPackages(updated);
             await StorageAdapter.set(VERIFIED_PACKAGES_KEY, updated);
-
-            // Clear active download after animation
             setTimeout(() => setActiveDownload(null), 2000);
         } else {
-            // Keep error visible briefly
             setTimeout(() => setActiveDownload(null), 4000);
         }
     }, [packages]);
-
-    // ─── Delete Package ────────────────────────────────────────
 
     const handleDelete = (entry: PackageEntry) => {
         Alert.alert(
@@ -153,8 +152,6 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
             ]
         );
     };
-
-    // ─── Re-Verify ─────────────────────────────────────────────
 
     const handleReverify = async (entry: PackageEntry) => {
         const downloadService = ServiceLocator.getDownloadService();
@@ -181,111 +178,109 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
         );
     };
 
-    // ─── Render ────────────────────────────────────────────────
-
+    // ─── Render Active Download ────────────────────────────────
     const renderActiveDownload = () => {
         if (!activeDownload) return null;
         const { progress } = activeDownload;
         const config = stateConfig[progress.state];
 
         return (
-            <Card style={styles.activeCard}>
-                <View style={styles.activeHeader}>
-                    <Ionicons name={config.icon as any} size={24} color={config.color} />
+            <View style={s.activeCard}>
+                <View style={s.activeHeader}>
+                    <View style={[s.stateIconCircle, { backgroundColor: `${config.color}15` }]}>
+                        <Ionicons name={config.icon as any} size={22} color={config.color} />
+                    </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.activeTitle}>{activeDownload.title}</Text>
-                        <Text style={[styles.activeState, { color: config.color }]}>{config.label}</Text>
+                        <Text style={s.activeTitle}>{activeDownload.title}</Text>
+                        <Text style={[s.activeState, { color: config.color }]}>{config.label}</Text>
                     </View>
                     {(progress.state === 'DOWNLOADING' || progress.state === 'HASHING' || progress.state === 'VERIFYING_SIGNATURE') && (
                         <ActivityIndicator size="small" color={config.color} />
                     )}
                 </View>
 
-                {/* Progress Bar */}
-                <View style={styles.progressBarBg}>
+                <View style={s.progressBarBg}>
                     <Animated.View
-                        style={[
-                            styles.progressBarFill,
-                            {
-                                width: `${progress.percent}%`,
-                                backgroundColor: config.color,
-                            },
-                        ]}
+                        style={[s.progressBarFill, {
+                            width: `${progress.percent}%`,
+                            backgroundColor: config.color,
+                        }]}
                     />
                 </View>
 
-                <Text style={styles.progressMessage}>{progress.message}</Text>
+                <Text style={s.progressMessage}>{progress.message}</Text>
 
                 {progress.state === 'REJECTED' && (
-                    <View style={styles.rejectedBanner}>
-                        <Ionicons name="warning" size={16} color="#EF4444" />
-                        <Text style={styles.rejectedText}>
+                    <View style={s.rejectedBanner}>
+                        <Ionicons name="warning" size={16} color={C.error} />
+                        <Text style={s.rejectedText}>
                             Package failed integrity verification. Files have been purged.
                         </Text>
                     </View>
                 )}
-            </Card>
+            </View>
         );
     };
 
+    // ─── Render Package Item ──────────────────────────────────
     const renderPackageItem = ({ item }: { item: PackageEntry }) => (
-        <Card style={styles.card}>
-            <View style={styles.cardRow}>
-                <View style={[styles.verifyBadge, {
+        <View style={s.pkgCard}>
+            <View style={s.pkgRow}>
+                <View style={[s.verifyBadge, {
                     backgroundColor: item.signatureVerified ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
                 }]}>
                     <Ionicons
                         name={item.signatureVerified ? 'shield-checkmark' : 'shield-outline'}
-                        size={20}
-                        color={item.signatureVerified ? '#22C55E' : '#EF4444'}
+                        size={22}
+                        color={item.signatureVerified ? C.success : C.error}
                     />
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                    <Text style={styles.cardMeta}>
+                    <Text style={s.pkgTitle}>{item.title}</Text>
+                    <Text style={s.pkgMeta}>
                         Downloaded {new Date(item.downloadedAt).toLocaleDateString()}
                     </Text>
-                    <View style={styles.verifyRow}>
+                    <View style={s.chipRow}>
                         <VerifyChip ok={item.signatureVerified} label="Signed" />
                         <VerifyChip ok={item.hashesMatch} label="Hash ✓" />
                     </View>
                 </View>
-                <View style={styles.actions}>
-                    <TouchableOpacity onPress={() => handleReverify(item)} style={styles.actionBtn}>
-                        <Ionicons name="refresh-outline" size={18} color={Theme.Colors.primary} />
+                <View style={s.actions}>
+                    <TouchableOpacity onPress={() => handleReverify(item)} style={s.actionBtn}>
+                        <Ionicons name="refresh-outline" size={18} color={C.primary} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionBtn}>
-                        <Ionicons name="trash-outline" size={18} color={Theme.Colors.error} />
+                    <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn}>
+                        <Ionicons name="trash-outline" size={18} color={C.error} />
                     </TouchableOpacity>
                 </View>
             </View>
-        </Card>
+        </View>
     );
 
     return (
-        <Screen>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color={Theme.Colors.text} />
+        <SafeAreaView style={s.root} edges={['top']}>
+            {/* ─── Header ─── */}
+            <View style={s.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="arrow-back" size={24} color={C.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Downloads & Storage</Text>
-                <View style={styles.headerBadge}>
-                    <Text style={styles.headerBadgeText}>{packages.length}</Text>
+                <Text style={s.headerTitle}>Downloads & Storage</Text>
+                <View style={s.countBadge}>
+                    <Text style={s.countText}>{packages.length}</Text>
                 </View>
             </View>
 
-            {/* Active Download */}
+            {/* ─── Active Download ─── */}
             {renderActiveDownload()}
 
-            {/* Package List */}
+            {/* ─── Package List or Empty ─── */}
             {packages.length === 0 && !activeDownload ? (
-                <View style={styles.emptyState}>
-                    <View style={styles.emptyIcon}>
-                        <Ionicons name="cloud-offline-outline" size={48} color={Theme.Colors.textSecondary} />
+                <View style={s.emptyState}>
+                    <View style={s.emptyCircle}>
+                        <Ionicons name="cloud-offline-outline" size={48} color={C.muted} />
                     </View>
-                    <Text style={styles.emptyText}>No Verified Packages</Text>
-                    <Text style={styles.emptySubText}>
+                    <Text style={s.emptyTitle}>No Verified Packages</Text>
+                    <Text style={s.emptySub}>
                         Purchase a tune and download it to see it here.{'\n'}
                         All packages are cryptographically verified before use.
                     </Text>
@@ -295,131 +290,107 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
                     data={packages}
                     keyExtractor={(item) => item.versionId}
                     renderItem={renderPackageItem}
-                    contentContainerStyle={styles.list}
+                    contentContainerStyle={s.list}
                     showsVerticalScrollIndicator={false}
                 />
             )}
-        </Screen>
+        </SafeAreaView>
     );
 };
 
 // ─── Small Components ──────────────────────────────────────────
-
 const VerifyChip = ({ ok, label }: { ok: boolean; label: string }) => (
-    <View style={[styles.chip, { backgroundColor: ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)' }]}>
+    <View style={[s.chip, { backgroundColor: ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)' }]}>
         <Ionicons
             name={ok ? 'checkmark-circle' : 'close-circle'}
             size={12}
-            color={ok ? '#22C55E' : '#EF4444'}
+            color={ok ? C.success : C.error}
         />
-        <Text style={[styles.chipText, { color: ok ? '#22C55E' : '#EF4444' }]}>{label}</Text>
+        <Text style={[s.chipText, { color: ok ? C.success : C.error }]}>{label}</Text>
     </View>
 );
 
 // ─── Styles ────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Theme.Spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.Colors.surfaceHighlight,
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, height: 56,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
     backBtn: { marginRight: 16 },
-    headerTitle: { ...Theme.Typography.h2, fontSize: 20, flex: 1 },
-    headerBadge: {
-        backgroundColor: Theme.Colors.primary,
-        borderRadius: 12,
-        paddingHorizontal: 10,
-        paddingVertical: 3,
-        minWidth: 28,
-        alignItems: 'center',
+    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text, flex: 1 },
+    countBadge: {
+        backgroundColor: C.primary, borderRadius: 12,
+        paddingHorizontal: 10, paddingVertical: 3,
+        minWidth: 28, alignItems: 'center',
     },
-    headerBadgeText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
-    list: { padding: Theme.Spacing.md, paddingBottom: 100 },
-    // Active Download
+    countText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+
+    list: { padding: 16, paddingBottom: 100, gap: 12 },
+
+    // Active Download Card
     activeCard: {
-        margin: Theme.Spacing.md,
-        borderWidth: 1,
-        borderColor: 'rgba(59,130,246,0.3)',
+        margin: 16,
+        backgroundColor: C.surface,
+        borderRadius: 20, padding: 16,
+        borderWidth: 1, borderColor: 'rgba(59,130,246,0.2)',
     },
     activeHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 12,
+        flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12,
     },
-    activeTitle: { ...Theme.Typography.body, fontWeight: '700' },
+    stateIconCircle: {
+        width: 40, height: 40, borderRadius: 12,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    activeTitle: { fontSize: 16, fontWeight: '700', color: C.text },
     activeState: { fontSize: 13, fontWeight: '600', marginTop: 2 },
     progressBarBg: {
-        height: 6,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: 3,
-        overflow: 'hidden',
+        height: 6, backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 3, overflow: 'hidden',
     },
-    progressBarFill: {
-        height: '100%',
-        borderRadius: 3,
-    },
-    progressMessage: {
-        fontSize: 12,
-        color: Theme.Colors.textSecondary,
-        marginTop: 8,
-    },
+    progressBarFill: { height: '100%', borderRadius: 3 },
+    progressMessage: { fontSize: 12, color: C.muted, marginTop: 8 },
     rejectedBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
+        flexDirection: 'row', alignItems: 'center', gap: 8,
         backgroundColor: 'rgba(239,68,68,0.1)',
-        padding: 10,
-        borderRadius: 8,
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(239,68,68,0.3)',
+        padding: 10, borderRadius: 12, marginTop: 10,
+        borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
     },
-    rejectedText: { color: '#EF4444', fontSize: 12, flex: 1 },
+    rejectedText: { color: C.error, fontSize: 12, flex: 1 },
+
     // Package Cards
-    card: { marginBottom: 12 },
-    cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    verifyBadge: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
+    pkgCard: {
+        backgroundColor: C.surface,
+        borderRadius: 16, padding: 16,
     },
-    cardTitle: { ...Theme.Typography.body, fontWeight: '700' },
-    cardMeta: { fontSize: 12, color: Theme.Colors.textSecondary, marginTop: 2 },
-    verifyRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+    pkgRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    verifyBadge: {
+        width: 44, height: 44, borderRadius: 12,
+        justifyContent: 'center', alignItems: 'center',
+    },
+    pkgTitle: { fontSize: 16, fontWeight: '700', color: C.text },
+    pkgMeta: { fontSize: 12, color: C.muted, marginTop: 2 },
+    chipRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
     chip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
     },
     chipText: { fontSize: 11, fontWeight: '600' },
     actions: { gap: 4 },
     actionBtn: { padding: 6 },
+
     // Empty State
     emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-    emptyIcon: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+    emptyCircle: {
+        width: 88, height: 88, borderRadius: 44,
         backgroundColor: 'rgba(255,255,255,0.04)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
+        justifyContent: 'center', alignItems: 'center',
+        marginBottom: 20,
     },
-    emptyText: { ...Theme.Typography.h3, textAlign: 'center' },
-    emptySubText: {
-        ...Theme.Typography.body,
-        color: Theme.Colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 8,
-        lineHeight: 20,
+    emptyTitle: { fontSize: 20, fontWeight: '800', color: C.text, textAlign: 'center' },
+    emptySub: {
+        fontSize: 14, color: C.muted, textAlign: 'center',
+        marginTop: 8, lineHeight: 20,
     },
 });

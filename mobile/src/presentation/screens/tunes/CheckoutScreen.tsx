@@ -1,15 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, Alert } from 'react-native';
-import { Theme } from '../../theme';
 import {
-    Screen, PrimaryButton, SecondaryButton, Card,
-} from '../../components/SharedComponents';
+    View, Text, StyleSheet, Animated, Easing, Alert,
+    ScrollView, TouchableOpacity, ActivityIndicator, Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { Tune } from '../../../domain/services/DomainTypes';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type CheckoutState = 'review' | 'processing' | 'success' | 'failed';
+
+const C = {
+    bg: '#1a1a1a',
+    surface: '#252525',
+    primary: '#ea103c',
+    white: '#ffffff',
+    textMuted: '#a3a3a3',
+    textDim: '#737373',
+    green: '#22c55e',
+    border: 'rgba(255,255,255,0.05)',
+};
 
 export const CheckoutScreen = ({ route, navigation }: any) => {
     const { tuneId } = route.params;
@@ -23,26 +35,18 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
     const checkScale = useRef(new Animated.Value(0)).current;
     const checkOpacity = useRef(new Animated.Value(0)).current;
 
-    useEffect(() => {
-        loadTune();
-    }, [tuneId]);
+    useEffect(() => { loadTune(); }, [tuneId]);
 
     const loadTune = async () => {
         try {
             const tuneService = ServiceLocator.getTuneService();
             const data = await tuneService.getTuneDetails(tuneId);
             setTune(data);
-
-            // Check if already purchased
             if (data?.listingId) {
                 try {
                     const { owned } = await tuneService.checkPurchase(data.listingId);
-                    if (owned) {
-                        setAlreadyOwned(true);
-                    }
-                } catch {
-                    // Offline — proceed without check
-                }
+                    if (owned) setAlreadyOwned(true);
+                } catch { }
             }
         } catch (e) {
             Alert.alert('Error', 'Could not load tune info.');
@@ -52,56 +56,23 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
         }
     };
 
-    // ─── Stripe Payment Flow ───────────────────────────────────
-
     const handlePay = async () => {
         if (!tune) return;
         setState('processing');
         setStatusMessage('Creating payment intent...');
-
         try {
             const tuneService = ServiceLocator.getTuneService();
             const listingId = tune.listingId || tune.id;
-
-            // Step 1: Create payment intent on backend
             setStatusMessage('Connecting to Stripe...');
             const { clientSecret, publishableKey } = await tuneService.createPaymentIntent(listingId);
-
-            // Step 2: In production, present Stripe PaymentSheet here
-            // For now, we simulate the Stripe confirmation after getting the real intent
-            // When @stripe/stripe-react-native is fully configured:
-            //
-            // import { useStripe } from '@stripe/stripe-react-native';
-            // const { initPaymentSheet, presentPaymentSheet } = useStripe();
-            // await initPaymentSheet({ paymentIntentClientSecret: clientSecret, merchantDisplayName: 'RevSync' });
-            // const { error } = await presentPaymentSheet();
-            // if (error) throw error;
-
             setStatusMessage('Processing payment...');
-
-            // Simulate Stripe confirmation delay (replace with real PaymentSheet)
             await new Promise(r => setTimeout(r, 2000));
-
-            // Step 3: Payment success — webhook handles entitlement on backend
-            ServiceLocator.getAnalyticsService().logEvent('purchase_completed', {
-                tuneId,
-                listingId,
-                price: tune.price,
-            });
-
+            ServiceLocator.getAnalyticsService().logEvent('purchase_completed', { tuneId, listingId, price: tune.price });
             setState('success');
-
-            Animated.sequence([
-                Animated.parallel([
-                    Animated.spring(checkScale, {
-                        toValue: 1, friction: 4, tension: 60, useNativeDriver: true,
-                    }),
-                    Animated.timing(checkOpacity, {
-                        toValue: 1, duration: 300, useNativeDriver: true,
-                    }),
-                ]),
+            Animated.parallel([
+                Animated.spring(checkScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true }),
+                Animated.timing(checkOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
             ]).start();
-
         } catch (e: any) {
             console.error('Payment error:', e);
             setStatusMessage(e.uiMessage || e.message || 'Payment failed');
@@ -109,234 +80,346 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
         }
     };
 
-    // ─── Render ────────────────────────────────────────────────
-
+    // Loading
     if (loading || !tune) {
         return (
-            <Screen center>
-                <Text style={{ color: Theme.Colors.textSecondary }}>Loading...</Text>
-            </Screen>
+            <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
+                <ActivityIndicator size="large" color={C.primary} />
+            </View>
         );
     }
 
-    // Already owned → skip to download
+    // Already Owned
     if (alreadyOwned) {
         return (
-            <Screen center>
-                <View style={styles.ownedCircle}>
+            <View style={[s.root, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+                <View style={s.ownedCircle}>
                     <Ionicons name="checkmark-done" size={48} color="#FFF" />
                 </View>
-                <Text style={styles.successTitle}>Already Purchased!</Text>
-                <Text style={styles.successDesc}>
-                    {tune.title} is already in your library.
-                </Text>
-                <PrimaryButton
-                    title="Download & Verify"
-                    icon="download-outline"
+                <Text style={s.successTitle}>Already Purchased!</Text>
+                <Text style={s.successDesc}>{tune.title} is already in your library.</Text>
+                <TouchableOpacity
+                    style={s.payBtn}
                     onPress={() => navigation.navigate('DownloadManager', {
-                        versionId: tune.versionId,
-                        listingId: tune.listingId || tune.id,
-                        title: tune.title,
+                        versionId: tune.versionId, listingId: tune.listingId || tune.id, title: tune.title,
                     })}
-                    style={{ marginTop: 32, minWidth: 200 }}
-                />
-                <SecondaryButton
-                    title="Back to Tunes"
-                    onPress={() => navigation.popToTop()}
-                    style={{ marginTop: 12, minWidth: 200 }}
-                />
-            </Screen>
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="download-outline" size={20} color="#FFF" />
+                    <Text style={s.payBtnText}>Download & Verify</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.popToTop()} activeOpacity={0.7}>
+                    <Text style={s.secondaryBtnText}>Back to Tunes</Text>
+                </TouchableOpacity>
+            </View>
         );
     }
 
-    // Success state
+    // Success State
     if (state === 'success') {
         return (
-            <Screen center>
+            <View style={[s.root, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
                 <Animated.View style={{ opacity: checkOpacity, transform: [{ scale: checkScale }] }}>
-                    <View style={styles.successCircle}>
+                    <View style={s.successCircle}>
                         <Ionicons name="checkmark" size={56} color="#FFF" />
                     </View>
                 </Animated.View>
-                <Text style={styles.successTitle}>Purchase Complete!</Text>
-                <Text style={styles.successDesc}>{tune.title} is now in your library.</Text>
-                <PrimaryButton
-                    title="Download & Verify"
-                    icon="download-outline"
+                <Text style={s.successTitle}>Purchase Complete!</Text>
+                <Text style={s.successDesc}>{tune.title} is now in your library.</Text>
+                <TouchableOpacity
+                    style={s.payBtn}
                     onPress={() => navigation.navigate('DownloadManager', {
-                        versionId: tune.versionId,
-                        listingId: tune.listingId || tune.id,
-                        title: tune.title,
+                        versionId: tune.versionId, listingId: tune.listingId || tune.id, title: tune.title,
                     })}
-                    style={{ marginTop: 32, minWidth: 200 }}
-                />
-                <SecondaryButton
-                    title="Back to Tunes"
-                    onPress={() => navigation.popToTop()}
-                    style={{ marginTop: 12, minWidth: 200 }}
-                />
-            </Screen>
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="download-outline" size={20} color="#FFF" />
+                    <Text style={s.payBtnText}>Download & Verify</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.popToTop()} activeOpacity={0.7}>
+                    <Text style={s.secondaryBtnText}>Back to Tunes</Text>
+                </TouchableOpacity>
+            </View>
         );
     }
 
+    // Review / Processing / Failed
     return (
-        <Screen scroll>
-            <View style={styles.header}>
-                <Text style={styles.title}>Checkout</Text>
-            </View>
+        <View style={s.root}>
+            {/* Header */}
+            <SafeAreaView edges={['top']}>
+                <View style={s.header}>
+                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                        <Ionicons name="arrow-back" size={20} color={C.white} />
+                    </TouchableOpacity>
+                    <Text style={s.headerTitle}>Checkout</Text>
+                    <View style={{ width: 40 }} />
+                </View>
+            </SafeAreaView>
 
-            {/* Tune Summary */}
-            <Card style={styles.tuneCard}>
-                <View style={styles.tuneRow}>
-                    <View style={styles.tuneIconBox}>
-                        <Ionicons name="flash" size={28} color={Theme.Colors.primary} />
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                {/* Tune Summary Card */}
+                <View style={s.tuneCard}>
+                    <LinearGradient
+                        colors={['rgba(234,16,60,0.12)', 'rgba(234,16,60,0.02)']}
+                        style={StyleSheet.absoluteFillObject}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    />
+                    <View style={s.tuneCardInner}>
+                        <View style={s.tuneIconBox}>
+                            <Ionicons name="flash" size={24} color={C.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={s.tuneName}>{tune.title}</Text>
+                            <Text style={s.tuneInfo}>Stage {tune.stage} • v{tune.version}</Text>
+                        </View>
+                        <Text style={s.tunePrice}>${tune.price.toFixed(2)}</Text>
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.tuneName}>{tune.title}</Text>
-                        <Text style={styles.tuneInfo}>Stage {tune.stage} • v{tune.version}</Text>
+                    {activeBike && (
+                        <View style={s.vehicleRow}>
+                            <Ionicons name="bicycle" size={14} color={C.textDim} />
+                            <Text style={s.vehicleText}>{activeBike.year} {activeBike.make} {activeBike.model}</Text>
+                        </View>
+                    )}
+                    {tune.description && (
+                        <Text style={s.tuneDescription}>{tune.description}</Text>
+                    )}
+                </View>
+
+                {/* Pricing Breakdown */}
+                <View style={s.priceCard}>
+                    <Text style={s.sectionTitle}>Pricing</Text>
+                    <View style={s.priceRow}>
+                        <Text style={s.priceLabel}>Tune License</Text>
+                        <Text style={s.priceValue}>${tune.price.toFixed(2)}</Text>
+                    </View>
+                    <View style={s.priceRow}>
+                        <Text style={s.priceLabel}>Priority Support</Text>
+                        <Text style={s.priceValueFree}>FREE</Text>
+                    </View>
+                    <View style={s.priceDivider} />
+                    <View style={s.priceRow}>
+                        <Text style={s.totalLabel}>Total</Text>
+                        <Text style={s.totalValue}>${tune.price.toFixed(2)}</Text>
                     </View>
                 </View>
-            </Card>
 
-            {/* Vehicle */}
-            {activeBike && (
-                <Card style={styles.vehicleCard}>
-                    <View style={styles.vehicleRow}>
-                        <Ionicons name="bicycle-outline" size={20} color={Theme.Colors.textSecondary} />
-                        <Text style={styles.vehicleText}>
-                            {activeBike.year} {activeBike.make} {activeBike.model}
+                {/* What's Included */}
+                <View style={s.includesCard}>
+                    <Text style={s.sectionTitle}>What's Included</Text>
+                    <BenefitItem icon="flash" label="Instant flash — ready in seconds" />
+                    <BenefitItem icon="shield-checkmark" label="Cryptographically signed package" />
+                    <BenefitItem icon="refresh" label="Free updates to this tune version" />
+                    <BenefitItem icon="cloud-download" label="Unlimited re-downloads" />
+                </View>
+
+                {/* Payment Method */}
+                <View style={s.paymentCard}>
+                    <Text style={s.sectionTitle}>Payment Method</Text>
+                    <TouchableOpacity style={s.payMethodRow} activeOpacity={0.7}>
+                        <Ionicons name="logo-apple" size={20} color={C.white} />
+                        <Text style={s.payMethodLabel}>Apple Pay</Text>
+                        <Ionicons name="checkmark-circle" size={20} color={C.primary} style={{ marginLeft: 'auto' }} />
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+
+            {/* Sticky Footer */}
+            <LinearGradient colors={['transparent', C.bg, C.bg]} style={s.footer}>
+                <SafeAreaView edges={['bottom']}>
+                    {/* Security badge */}
+                    <View style={s.securityRow}>
+                        <Ionicons name="lock-closed" size={14} color={C.green} />
+                        <Text style={s.securityText}>Secured by Stripe • 256-bit encryption</Text>
+                    </View>
+
+                    {state === 'failed' && (
+                        <View style={s.failedBanner}>
+                            <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                            <Text style={s.failedText}>{statusMessage || 'Payment failed.'}</Text>
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        style={[s.payBtn, state === 'processing' && { opacity: 0.7 }]}
+                        onPress={handlePay}
+                        disabled={state === 'processing'}
+                        activeOpacity={0.85}
+                    >
+                        {state === 'processing' ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                            <Ionicons name="card-outline" size={20} color="#FFF" />
+                        )}
+                        <Text style={s.payBtnText}>
+                            {state === 'processing' ? statusMessage || 'Processing...' : `Pay $${tune.price.toFixed(2)}`}
                         </Text>
-                    </View>
-                </Card>
-            )}
-
-            {/* Price Breakdown */}
-            <Card style={styles.priceCard}>
-                <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Tune Price</Text>
-                    <Text style={styles.priceValue}>${tune.price.toFixed(2)}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.priceRow}>
-                    <Text style={styles.priceLabelBold}>Total</Text>
-                    <Text style={styles.totalValue}>${tune.price.toFixed(2)}</Text>
-                </View>
-                <Text style={styles.taxNote}>Prices in USD. Tax included where applicable.</Text>
-            </Card>
-
-            {/* What you get */}
-            <Card style={styles.benefitsCard}>
-                <Text style={styles.benefitsTitle}>What's Included</Text>
-                <BenefitItem icon="shield-checkmark" label="Cryptographically signed tune package" />
-                <BenefitItem icon="refresh" label="Free updates to this tune version" />
-                <BenefitItem icon="cloud-download" label="Unlimited re-downloads" />
-                <BenefitItem icon="flash" label="Unlimited flashes to your ECU" />
-            </Card>
-
-            {/* Security Note */}
-            <View style={styles.securityRow}>
-                <Ionicons name="lock-closed" size={16} color={Theme.Colors.success} />
-                <Text style={styles.securityText}>Secured by Stripe • 256-bit encryption</Text>
-            </View>
-
-            {/* Pay Button */}
-            <View style={styles.footer}>
-                {state === 'failed' && (
-                    <View style={styles.failedBanner}>
-                        <Ionicons name="alert-circle" size={20} color={Theme.Colors.error} />
-                        <Text style={styles.failedText}>{statusMessage || 'Payment failed. Please try again.'}</Text>
-                    </View>
-                )}
-                <PrimaryButton
-                    title={state === 'processing' ? statusMessage || 'Processing...' : `Pay $${tune.price.toFixed(2)}`}
-                    onPress={handlePay}
-                    loading={state === 'processing'}
-                    disabled={state === 'processing'}
-                    icon="card-outline"
-                    style={styles.payButton}
-                />
-            </View>
-        </Screen>
+                    </TouchableOpacity>
+                </SafeAreaView>
+            </LinearGradient>
+        </View>
     );
 };
 
-// ─── Small Components ──────────────────────────────────────────
-
 const BenefitItem = ({ icon, label }: { icon: string; label: string }) => (
-    <View style={styles.benefitRow}>
-        <Ionicons name={icon as any} size={16} color="#22C55E" />
-        <Text style={styles.benefitText}>{label}</Text>
+    <View style={s.benefitRow}>
+        <View style={s.benefitDot}>
+            <Ionicons name={icon as any} size={14} color={C.green} />
+        </View>
+        <Text style={s.benefitText}>{label}</Text>
     </View>
 );
 
-// ─── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
 
-const styles = StyleSheet.create({
-    header: { padding: Theme.Spacing.md },
-    title: { ...Theme.Typography.h2 },
-    tuneCard: { marginHorizontal: Theme.Spacing.md },
-    tuneRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    tuneIconBox: {
-        width: 56, height: 56, borderRadius: 14,
-        backgroundColor: 'rgba(225, 29, 72, 0.1)',
-        justifyContent: 'center', alignItems: 'center',
+    // Header
+    header: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 24, paddingVertical: 12,
     },
-    tuneName: { fontSize: 18, fontWeight: '700', color: Theme.Colors.text },
-    tuneInfo: { fontSize: 14, color: Theme.Colors.textSecondary, marginTop: 2 },
-    vehicleCard: { marginHorizontal: Theme.Spacing.md },
-    vehicleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    vehicleText: { color: Theme.Colors.text, fontSize: 15, fontWeight: '500' },
-    priceCard: { marginHorizontal: Theme.Spacing.md },
+    backBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    },
+    headerTitle: {
+        fontSize: 18, fontWeight: '700', color: C.white,
+    },
+
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 200, gap: 20, paddingTop: 8 },
+
+    // Tune Card
+    tuneCard: {
+        backgroundColor: C.surface, borderRadius: 20, padding: 20,
+        borderWidth: 1, borderColor: 'rgba(234,16,60,0.15)', overflow: 'hidden',
+    },
+    tuneCardInner: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+    },
+    tuneIconBox: {
+        width: 48, height: 48, borderRadius: 14,
+        backgroundColor: 'rgba(234,16,60,0.12)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    tuneName: { fontSize: 18, fontWeight: '700', color: C.white },
+    tuneInfo: { fontSize: 12, color: C.textDim, marginTop: 2 },
+    tunePrice: { fontSize: 20, fontWeight: '800', color: C.primary },
+    vehicleRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        marginTop: 14, paddingTop: 14,
+        borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)',
+    },
+    vehicleText: { fontSize: 13, color: C.textMuted },
+    tuneDescription: {
+        fontSize: 13, color: C.textDim, marginTop: 10, lineHeight: 18,
+    },
+
+    // Price Card
+    priceCard: {
+        backgroundColor: C.surface, borderRadius: 16, padding: 20,
+        borderWidth: 1, borderColor: C.border,
+    },
+    sectionTitle: {
+        fontSize: 11, fontWeight: '700', color: C.textDim,
+        textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16,
+    },
     priceRow: {
         flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', paddingVertical: 8,
+        alignItems: 'center', paddingVertical: 6,
     },
-    priceLabel: { color: Theme.Colors.textSecondary, fontSize: 15 },
-    priceLabelBold: { color: Theme.Colors.text, fontSize: 16, fontWeight: '700' },
-    priceValue: { color: Theme.Colors.text, fontSize: 15 },
-    totalValue: { color: Theme.Colors.success, fontSize: 22, fontWeight: '800' },
-    divider: { height: 1, backgroundColor: Theme.Colors.border, marginVertical: 4 },
-    taxNote: { color: Theme.Colors.textTertiary, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
-    benefitsCard: { marginHorizontal: Theme.Spacing.md },
-    benefitsTitle: {
-        fontSize: 14, fontWeight: '700', color: Theme.Colors.textSecondary,
-        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+    priceLabel: { fontSize: 14, color: C.textMuted },
+    priceValue: { fontSize: 14, color: C.white, fontWeight: '500' },
+    priceValueFree: {
+        fontSize: 12, fontWeight: '700', color: C.green,
+        textTransform: 'uppercase',
+    },
+    priceDivider: {
+        height: 1, backgroundColor: 'rgba(255,255,255,0.05)',
+        marginVertical: 10,
+    },
+    totalLabel: { fontSize: 16, fontWeight: '700', color: C.white },
+    totalValue: { fontSize: 22, fontWeight: '800', color: C.primary },
+
+    // Includes
+    includesCard: {
+        backgroundColor: C.surface, borderRadius: 16, padding: 20,
+        borderWidth: 1, borderColor: C.border,
     },
     benefitRow: {
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-        paddingVertical: 6,
+        flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8,
     },
-    benefitText: { color: Theme.Colors.text, fontSize: 14 },
+    benefitDot: {
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: 'rgba(34,197,94,0.1)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    benefitText: { fontSize: 14, color: C.textMuted, flex: 1 },
+
+    // Payment
+    paymentCard: {
+        backgroundColor: C.surface, borderRadius: 16, padding: 20,
+        borderWidth: 1, borderColor: C.border,
+    },
+    payMethodRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        paddingVertical: 12, paddingHorizontal: 16,
+        borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    },
+    payMethodLabel: { fontSize: 16, fontWeight: '600', color: C.white },
+
+    // Footer
+    footer: {
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        paddingHorizontal: 24, paddingTop: 48,
+    },
     securityRow: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 8, paddingVertical: 16,
+        gap: 6, marginBottom: 12,
     },
-    securityText: { color: Theme.Colors.textSecondary, fontSize: 13 },
-    footer: { padding: Theme.Spacing.md, marginTop: 'auto' },
-    payButton: {
-        paddingVertical: 18,
-        ...Theme.Shadows.lg,
-        shadowColor: Theme.Colors.primary,
-    },
+    securityText: { fontSize: 12, color: C.textDim },
     failedBanner: {
         flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12,
-        borderRadius: 8, marginBottom: 16,
-        borderWidth: 1, borderColor: Theme.Colors.error,
+        backgroundColor: 'rgba(239,68,68,0.08)', padding: 12,
+        borderRadius: 12, marginBottom: 12,
+        borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)',
     },
-    failedText: { color: Theme.Colors.error, fontSize: 14, fontWeight: '500', flex: 1 },
+    failedText: { fontSize: 13, color: '#EF4444', fontWeight: '500', flex: 1 },
+    payBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 10, height: 56, borderRadius: 50,
+        backgroundColor: C.primary,
+        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
+        marginBottom: 8,
+    },
+    payBtnText: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+    secondaryBtn: {
+        paddingVertical: 14, paddingHorizontal: 24,
+        borderRadius: 50, borderWidth: 1, borderColor: '#525252',
+        alignItems: 'center', marginTop: 12,
+    },
+    secondaryBtnText: { fontSize: 14, fontWeight: '600', color: '#d4d4d4' },
+
+    // Success / Owned
     successCircle: {
         width: 100, height: 100, borderRadius: 50,
-        backgroundColor: Theme.Colors.success,
-        justifyContent: 'center', alignItems: 'center',
-        ...Theme.Shadows.lg, shadowColor: Theme.Colors.success,
+        backgroundColor: C.green, alignItems: 'center', justifyContent: 'center',
+        shadowColor: C.green, shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4, shadowRadius: 20,
     },
     ownedCircle: {
         width: 100, height: 100, borderRadius: 50,
-        backgroundColor: '#3B82F6',
-        justifyContent: 'center', alignItems: 'center',
-        ...Theme.Shadows.lg, shadowColor: '#3B82F6',
+        backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center',
+        shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4, shadowRadius: 20, marginBottom: 24,
     },
-    successTitle: { ...Theme.Typography.h2, marginTop: 24, textAlign: 'center' },
-    successDesc: { ...Theme.Typography.body, textAlign: 'center', marginTop: 8 },
+    successTitle: {
+        fontSize: 24, fontWeight: '800', color: C.white, marginTop: 24, textAlign: 'center',
+    },
+    successDesc: {
+        fontSize: 15, color: C.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22,
+    },
 });

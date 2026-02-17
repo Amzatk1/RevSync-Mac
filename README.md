@@ -1,177 +1,307 @@
 # RevSync Platform
 
-![RevSync Banner](https://via.placeholder.com/1200x300?text=RevSync+Platform)
-
 **RevSync** is the world's first AI-powered, community-driven motorcycle tuning ecosystem. It bridges the gap between professional tuners and everyday riders, providing a seamless platform for ECU flashing, real-time telemetry, and performance analytics.
 
-Built with a native **SwiftUI** iOS client and a robust **Django REST Framework** backend, RevSync leverages **Supabase** for real-time capabilities and secure storage.
+Built with a **React Native / Expo** mobile client and a robust **Django REST Framework** backend, RevSync leverages **Supabase** for real-time capabilities and secure auth.
 
 ---
 
 ## 🌟 Key Features
 
 ### 🏍️ For Riders
-- **Garage Management**: Digital twins for your motorcycles. Track mods, service history, and VIN-specific details.
-- **Tune Marketplace**: Browse, purchase, and flash tunes from verified professionals.
-- **Live Telemetry**: Real-time dashboard showing RPM, Speed, TPS, and Engine Temp via OBD-II.
-- **AI Safety Checks**: Automated analysis of tune files to detect dangerous parameters (lean conditions, excessive timing) before you flash.
-- **Social Graph**: Follow your favorite tuners, like builds, and share your dyno charts.
+- **Garage Management** — Digital twins for your motorcycles. Track mods, service history, and VIN-specific details.
+- **Tune Marketplace** — Browse, purchase, and flash tunes from verified professionals.
+- **Live Telemetry** — Real-time dashboard showing RPM, Speed, TPS, and Engine Temp via BLE/OBD-II.
+- **AI Safety Checks** — Automated analysis of tune files to detect dangerous parameters before flashing.
+- **Social Graph** — Follow your favorite tuners, like builds, and share your dyno charts.
 
 ### 🔧 For Tuners
-- **Creator Dashboard**: Upload binary files, manage pricing, and view sales analytics.
-- **Portfolio**: Showcase your best work with verified dyno charts and customer reviews.
-- **Direct Support**: Built-in messaging to support your customers.
+- **Creator Dashboard** — Upload binary files, manage pricing, and view sales analytics.
+- **Portfolio** — Showcase your best work with verified dyno charts and customer reviews.
+- **Direct Support** — Built-in messaging to support your customers.
 
 ### 🧠 AI & Safety
-- **Tune Analyzer**: "Credit Score" style safety ratings for every tune file.
-- **Risk Meter**: Visual gauge showing the aggressiveness of a tune.
-- **Pre-Flash Validation**: Hardware checks to ensure battery voltage and ECU compatibility.
+- **Tune Analyzer** — "Credit Score" style safety ratings for every tune file.
+- **Pre-Flash Validation** — Hardware + battery checks to ensure ECU compatibility.
+- **Multi-stage Validation Pipeline** — Malware scanning, archive bomb detection, schema validation, and integrity verification.
 
 ---
 
 ## 🏗️ System Architecture
 
-The platform consists of three main components:
+```
+┌────────────────────────────────────────────────┐
+│                  Mobile App                     │
+│        React Native · Expo · TypeScript         │
+│     Zustand • React Navigation • BLE • Crypto   │
+└─────────────────────┬──────────────────────────┘
+                      │ REST API (JSON)
+┌─────────────────────▼──────────────────────────┐
+│                Backend API                      │
+│          Django 5 · DRF · SimpleJWT             │
+│   Marketplace · Garage · Payments · Safety      │
+│         Celery · Redis (async tasks)            │
+└─────────────────────┬──────────────────────────┘
+                      │
+┌─────────────────────▼──────────────────────────┐
+│          Database & Storage                     │
+│    SQLite (dev) · PostgreSQL (prod)             │
+│    Supabase (auth · realtime · storage)         │
+└────────────────────────────────────────────────┘
+```
 
-1.  **iOS Client (Swift)**:
-    - **MVVM+C Architecture**: Clean separation of concerns with Combine for reactive updates.
-    - **Hardware Layer**: `Network.framework` integration for TCP/IP communication with ELM327 WiFi adapters.
-    - **Offline First**: Core Data caching for garage and tune library access without internet.
+---
 
-2.  **Backend API (Django)**:
-    - **REST API**: Comprehensive endpoints for users, vehicles, and marketplace transactions.
-    - **Supabase Integration**: Delegates Auth and Storage to Supabase while maintaining business logic in Django.
-    - **Celery Tasks**: Async processing for heavy tune analysis jobs.
+## 📁 Project Structure
 
-3.  **Database & Realtime (Supabase)**:
-    - **PostgreSQL**: Primary data store.
-    - **Realtime**: WebSocket channels for flash progress streaming and chat.
-    - **Storage**: Secure S3-compatible buckets for binary files and images.
+```
+RevSyncApp/
+├── backend/                # Django REST API
+│   ├── core/               # Django settings & root URLs
+│   ├── garage/             # Bike/vehicle management
+│   ├── marketplace/        # Tune listings, uploads, validation pipeline
+│   ├── payments/           # Stripe integration
+│   ├── safety_layer/       # Multi-stage validation (malware, schema, integrity)
+│   ├── users/              # User profiles, auth
+│   ├── chat/               # Direct messaging
+│   ├── manage.py
+│   └── requirements.txt
+│
+├── mobile/                 # React Native / Expo app
+│   ├── src/
+│   │   ├── data/           # Services, HTTP client, storage
+│   │   ├── di/             # Dependency injection (ServiceLocator)
+│   │   ├── domain/         # Types, interfaces, safety engine
+│   │   ├── presentation/   # Screens, components, navigation, stores
+│   │   └── services/       # Legal, analytics
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── docs/                   # Additional documentation
+└── legacy_ios_mac/         # Legacy SwiftUI client (archived)
+```
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **macOS** 14.0+ (Sonoma)
-- **Xcode** 15.0+
-- **Python** 3.10+
-- **PostgreSQL** 14+ (or Supabase project)
-- **ELM327 WiFi Adapter** (for hardware testing)
 
-### 1. Backend Setup
-
-The backend manages the API, database connections, and business logic.
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/your-org/revsync.git
-cd revsync/backend
-
-# 2. Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure Environment Variables
-# Create a .env file in backend/core/
-cp core/.env.example core/.env
-# Edit core/.env with your Supabase credentials:
-# DJANGO_SECRET_KEY=...
-# DATABASE_URL=postgres://user:pass@localhost:5432/revsync
-# SUPABASE_URL=...
-# SUPABASE_KEY=...
-
-# 5. Run Migrations
-python manage.py migrate
-
-# 6. Create Superuser (Admin)
-python manage.py createsuperuser
-
-# 7. Start the Development Server
-python manage.py runserver
-```
-
-The API will be available at `http://127.0.0.1:8000/api/`.
-Access the Admin panel at `http://127.0.0.1:8000/admin/`.
-
-### 2. Frontend Setup (iOS)
-
-The iOS app is the primary interface for users.
-
-1.  Open `RevSyncApp.xcodeproj` in Xcode.
-2.  **Configuration**:
-    - Open `Services/API/APIClient.swift`.
-    - Ensure `baseURL` points to your local backend (`http://127.0.0.1:8000/api/`).
-    - *Note: If testing on a physical device, use your computer's local IP address (e.g., `http://192.168.1.50:8000/api/`).*
-3.  **Signing**:
-    - Select the "RevSyncApp" target.
-    - Go to "Signing & Capabilities".
-    - Select your Development Team.
-4.  **Build & Run**:
-    - Select a Simulator (iPhone 15 Pro recommended) or your physical device.
-    - Press `Cmd+R`.
+| Tool | Version | Notes |
+|------|---------|-------|
+| **Node.js** | 18+ | LTS recommended |
+| **Python** | 3.10+ | For the Django backend |
+| **Expo Go** | Latest | Install on your phone from App Store / Play Store |
+| **Git** | Any | For cloning |
 
 ---
 
-## 🔌 Hardware Integration Guide
+### 1. Clone the Repository
 
-RevSync supports standard **ELM327 WiFi** OBD-II adapters.
+```bash
+git clone https://github.com/your-org/revsync.git
+cd RevSyncApp
+```
 
-**Supported Devices:**
-- Vgate iCar Pro WiFi
-- OBDLink MX+ (WiFi Mode)
-- Generic ELM327 WiFi Clones (v1.5 recommended)
+---
 
-**Connection Steps:**
-1.  Plug the adapter into the motorcycle's diagnostic port (may require a 4-pin/6-pin to OBD adapter cable).
-2.  Turn the ignition key to **ON** (Engine off or running).
-3.  On your iOS device, go to **Settings > Wi-Fi** and connect to the adapter's network (often named `V-LINK`, `OBDII`, or `WiFi_OBD`).
-4.  Open RevSync and navigate to **Garage > Live Monitor**.
-5.  The app will auto-negotiate the protocol (ISO 15765-4 CAN is standard for modern bikes).
+### 2. Start the Backend (Django)
 
-**Troubleshooting:**
-- **Connection Refused**: Ensure no other app is using the adapter.
-- **No Data**: Check if the kill switch is in the "Run" position.
-- **Timeout**: Some cheap adapters have high latency; try the "Slow Mode" in App Settings.
+```bash
+# Navigate to backend directory
+cd backend
+
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Run database migrations
+python manage.py migrate
+
+# (Optional) Create an admin superuser
+python manage.py createsuperuser
+
+# Start the development server
+python manage.py runserver 0.0.0.0:8000
+```
+
+> [!TIP]
+> Using `0.0.0.0:8000` makes the backend accessible from your phone on the same Wi-Fi network (use your computer's local IP).
+
+The API is now live:
+- **API root**: `http://localhost:8000/api/`
+- **Admin panel**: `http://localhost:8000/admin/`
+- **OpenAPI docs**: `http://localhost:8000/api/schema/`
+
+#### Environment Variables
+
+Create a `.env` file in `backend/` (one already exists for dev defaults):
+
+```env
+DJANGO_SECRET_KEY=your-secret-key
+DATABASE_URL=sqlite:///db.sqlite3
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+STRIPE_SECRET_KEY=sk_test_...
+```
+
+---
+
+### 3. Start the Mobile App (Expo)
+
+Open a **new terminal** tab:
+
+```bash
+# Navigate to mobile directory
+cd mobile
+
+# Install Node.js dependencies
+npm install
+
+# Start the Expo dev server
+npm start
+```
+
+This launches the **Expo CLI**. You'll see a QR code in your terminal.
+
+#### Running on Your Device
+
+| Method | Steps |
+|--------|-------|
+| **Expo Go (recommended)** | Scan the QR code with your phone's camera. Expo Go opens automatically. |
+| **iOS Simulator** | Press `i` in the terminal to launch the iOS Simulator. |
+| **Android Emulator** | Press `a` in the terminal to launch the Android Emulator. |
+
+> [!IMPORTANT]
+> **Auth is bypassed for testing.** Any email/password combination will sign you in successfully. No real Supabase credentials needed.
+
+#### Mobile Environment Variables
+
+If connecting to a backend on a different machine, update the API URL:
+
+```bash
+# In mobile/.env or as an export
+EXPO_PUBLIC_API_URL=http://192.168.1.50:8000/api
+```
+
+---
+
+### 4. Running Both Together (Quick Start)
+
+Open **two terminal tabs** and run:
+
+**Tab 1 — Backend:**
+```bash
+cd RevSyncApp/backend
+source venv/bin/activate
+python manage.py runserver 0.0.0.0:8000
+```
+
+**Tab 2 — Mobile:**
+```bash
+cd RevSyncApp/mobile
+npm start
+```
+
+Then scan the QR code with Expo Go on your phone. Sign in with any credentials.
+
+---
+
+## 📱 App Screens
+
+| Tab | Key Screens |
+|-----|-------------|
+| **Tunes** | Marketplace browse, tune details, download manager |
+| **Garage** | Bike list, add bike, bike details |
+| **Flash** | Device connect, ECU identify, backup, flash wizard, verification, recovery |
+| **Profile** | Settings, privacy, support, about, agreements, safety settings, logs export |
+
+---
+
+## 🔌 Hardware Integration
+
+RevSync supports BLE (Bluetooth Low Energy) communication with ECU flash devices.
+
+**Connection Flow:**
+1. Navigate to **Flash** → **Connect Device**
+2. The app scans for nearby BLE devices
+3. Select your RevSync ECU adapter
+4. Once connected, you can identify the ECU, create backups, and flash tunes
+
+> [!NOTE]
+> A **Mock Device Service** is enabled by default for development. To test with real hardware, update `ServiceLocator.ts` to use `BleDeviceService`.
 
 ---
 
 ## 🧪 Testing
 
-### Unit Tests
-Run the Swift test suite to verify view models and services.
+### TypeScript Type Check
 ```bash
-# In Xcode
-Cmd+U
+cd mobile
+npx tsc --noEmit
 ```
 
-### Hardware Simulation
-Don't have a bike nearby? Use the built-in **Mock Adapter**.
-1.  In `OBDClient.swift`, set `useMock` to `true`.
-2.  The app will simulate a connection and generate fake RPM/Speed data for UI testing.
+### Backend Tests
+```bash
+cd backend
+source venv/bin/activate
+python manage.py test
+```
+
+### Backend Validation Pipeline Tests
+```bash
+cd backend
+python manage.py test marketplace.tests.test_pipeline
+python manage.py test marketplace.tests.test_hardening
+```
+
+---
+
+## 🛠️ Tech Stack
+
+### Mobile
+| Technology | Purpose |
+|-----------|---------|
+| React Native 0.81 | Cross-platform UI |
+| Expo SDK 54 | Development toolchain |
+| TypeScript 5.9 | Type safety |
+| Zustand | State management |
+| React Navigation 7 | Navigation |
+| expo-secure-store | Encrypted session storage |
+| react-native-ble-plx | BLE communication |
+| tweetnacl | Cryptographic operations |
+
+### Backend
+| Technology | Purpose |
+|-----------|---------|
+| Django 5 | Web framework |
+| DRF (Django REST Framework) | REST API |
+| SimpleJWT | JWT authentication |
+| Celery + Redis | Async task processing |
+| Stripe | Payment processing |
+| python-magic + pyclamd | File validation & malware scanning |
+| drf-spectacular | OpenAPI schema generation |
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
-
-1.  **Fork** the repository.
-2.  Create a **Feature Branch** (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a **Pull Request**.
+1. **Fork** the repository
+2. Create a **feature branch** (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a **Pull Request**
 
 **Code Style:**
-- **Swift**: Follows standard Swift API Design Guidelines.
-- **Python**: Follows PEP 8. Use `black` for formatting.
+- **TypeScript**: Strict mode, no `any` unless necessary
+- **Python**: PEP 8, use `black` for formatting
 
 ---
 
-## � License
+## 📄 License
 
 Copyright © 2025 RevSync Inc. All rights reserved.
 Proprietary software. Unauthorized copying, modification, or distribution is strictly prohibited.

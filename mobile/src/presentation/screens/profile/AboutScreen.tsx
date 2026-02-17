@@ -1,248 +1,183 @@
-import React from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Theme } from '../../theme';
-import { Screen, Card } from '../../components/SharedComponents';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated, Easing, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-export const AboutScreen = () => {
-    const logoScale = React.useRef(new Animated.Value(0)).current;
-    const contentOpacity = React.useRef(new Animated.Value(0)).current;
+// ─── Color Tokens ──────────────────────────────────────────────
+const C = {
+    bg: '#1a1a1a',
+    surface: '#252525',
+    border: 'rgba(255,255,255,0.05)',
+    text: '#FFFFFF',
+    muted: '#9ca3af',
+    primary: '#ea103c',
+};
 
-    React.useEffect(() => {
-        Animated.sequence([
-            Animated.spring(logoScale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }),
-            Animated.timing(contentOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        ]).start();
+const FEATURES = [
+    { icon: 'flash-outline' as const, text: 'Live ECU Flash & Tuning' },
+    { icon: 'shield-checkmark-outline' as const, text: 'Backup & Recovery System' },
+    { icon: 'bluetooth-outline' as const, text: 'BLE OBD-II Communication' },
+    { icon: 'analytics-outline' as const, text: 'Performance Analytics' },
+    { icon: 'cloud-download-outline' as const, text: 'OTA Tune Downloads' },
+    { icon: 'lock-closed-outline' as const, text: 'End-to-End Encryption' },
+];
+
+export const AboutScreen = ({ navigation }: any) => {
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+            ])
+        ).start();
     }, []);
 
     return (
-        <Screen scroll>
-            <LinearGradient
-                colors={['rgba(225,29,72,0.08)', 'transparent']}
-                style={styles.headerGradient}
-            />
-
-            <View style={styles.content}>
-                {/* Logo */}
-                <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}>
-                    <View style={styles.logoRing}>
-                        <Ionicons name="speedometer" size={48} color={Theme.Colors.primary} />
-                    </View>
-                    <Text style={styles.appName}>RevSync</Text>
-                    <Text style={styles.tagline}>Unlock your ride's true potential</Text>
-                    <View style={styles.versionBadge}>
-                        <Text style={styles.versionText}>v1.0.0 • Build 102</Text>
-                    </View>
-                </Animated.View>
-
-                <Animated.View style={{ opacity: contentOpacity }}>
-                    {/* Mission */}
-                    <Card style={styles.card}>
-                        <View style={styles.cardHeader}>
-                            <Ionicons name="rocket-outline" size={18} color={Theme.Colors.primary} />
-                            <Text style={styles.sectionHeader}>Our Mission</Text>
-                        </View>
-                        <Text style={styles.text}>
-                            RevSync empowers riders to take control of their machine's performance.
-                            Safe, reliable, and powerful ECU tuning — from your pocket.
-                        </Text>
-                    </Card>
-
-                    {/* Stats */}
-                    <View style={styles.statsRow}>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>500+</Text>
-                            <Text style={styles.statLabel}>Tunes Available</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>99.9%</Text>
-                            <Text style={styles.statLabel}>Flash Success</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>100+</Text>
-                            <Text style={styles.statLabel}>Bikes Supported</Text>
-                        </View>
-                    </View>
-
-                    {/* Credits */}
-                    <Card style={styles.card}>
-                        <View style={styles.cardHeader}>
-                            <Ionicons name="people-outline" size={18} color={Theme.Colors.primary} />
-                            <Text style={styles.sectionHeader}>Credits</Text>
-                        </View>
-                        <View style={styles.creditRow}>
-                            <Text style={styles.creditLabel}>Development</Text>
-                            <Text style={styles.creditValue}>RevSync Engineering</Text>
-                        </View>
-                        <View style={[styles.creditRow, { borderBottomWidth: 0 }]}>
-                            <Text style={styles.creditLabel}>Design System</Text>
-                            <Text style={styles.creditValue}>Glow Up v2</Text>
-                        </View>
-                    </Card>
-
-                    {/* Features */}
-                    <Card style={styles.card}>
-                        <View style={styles.cardHeader}>
-                            <Ionicons name="shield-checkmark-outline" size={18} color={Theme.Colors.primary} />
-                            <Text style={styles.sectionHeader}>Key Features</Text>
-                        </View>
-                        <FeatureRow icon="flash-outline" text="OTA ECU flashing over Bluetooth" />
-                        <FeatureRow icon="shield-checkmark-outline" text="Multi-layer safety verification" />
-                        <FeatureRow icon="save-outline" text="Automatic ECU backup & restore" />
-                        <FeatureRow icon="speedometer-outline" text="500+ verified performance tunes" />
-                        <FeatureRow icon="lock-closed-outline" text="End-to-end encryption" />
-                    </Card>
-                </Animated.View>
-
-                <Text style={styles.copyright}>© 2026 RevSync. All rights reserved.</Text>
+        <SafeAreaView style={s.root} edges={['top']}>
+            {/* ─── Header ─── */}
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation?.goBack?.()}>
+                    <Ionicons name="arrow-back" size={24} color={C.text} />
+                </TouchableOpacity>
+                <Text style={s.headerTitle}>About</Text>
+                <View style={{ width: 40 }} />
             </View>
-        </Screen>
+
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                {/* ─── Logo Hero ─── */}
+                <View style={s.heroSection}>
+                    <Animated.View style={[s.logoGlow, { transform: [{ scale: pulseAnim }] }]} />
+                    <View style={s.logoCircle}>
+                        <Text style={s.logoText}>R</Text>
+                    </View>
+                    <Text style={s.appName}>RevSync</Text>
+                    <Text style={s.version}>Version 2.4.1 (Build 8902)</Text>
+                </View>
+
+                {/* ─── Description ─── */}
+                <View style={s.descCard}>
+                    <Text style={s.descText}>
+                        RevSync is a professional-grade ECU tuning platform designed for motorcycle
+                        enthusiasts and professional tuners. Flash, tune, and optimize your ride
+                        with confidence.
+                    </Text>
+                </View>
+
+                {/* ─── Features ─── */}
+                <Text style={s.sectionLabel}>Features</Text>
+                <View style={s.featuresCard}>
+                    {FEATURES.map((f, i) => (
+                        <View key={i}>
+                            <View style={s.featureRow}>
+                                <View style={s.featureIcon}>
+                                    <Ionicons name={f.icon} size={18} color={C.primary} />
+                                </View>
+                                <Text style={s.featureText}>{f.text}</Text>
+                                <Ionicons name="checkmark" size={18} color="#22C55E" />
+                            </View>
+                            {i < FEATURES.length - 1 && <View style={s.divider} />}
+                        </View>
+                    ))}
+                </View>
+
+                {/* ─── Tech Stack ─── */}
+                <Text style={s.sectionLabel}>System Info</Text>
+                <View style={s.infoCard}>
+                    <InfoRow label="Platform" value="React Native + Expo" />
+                    <View style={s.divider} />
+                    <InfoRow label="Protocol" value="BLE 5.0 / OBD-II" />
+                    <View style={s.divider} />
+                    <InfoRow label="Security" value="AES-256 + HMAC" />
+                    <View style={s.divider} />
+                    <InfoRow label="Backend" value="Django REST + Postgres" />
+                </View>
+
+                {/* ─── Footer ─── */}
+                <View style={s.footer}>
+                    <Text style={s.footerText}>Made with ❤️ for the riding community</Text>
+                    <Text style={s.footerCopy}>© 2024 RevSync Technologies Ltd.</Text>
+                </View>
+            </ScrollView>
+        </SafeAreaView>
     );
 };
 
-const FeatureRow = ({ icon, text }: { icon: any; text: string }) => (
-    <View style={styles.featureRow}>
-        <Ionicons name={icon} size={16} color="#52525B" />
-        <Text style={styles.featureText}>{text}</Text>
+const InfoRow = ({ label, value }: { label: string; value: string }) => (
+    <View style={s.infoRow}>
+        <Text style={s.infoLabel}>{label}</Text>
+        <Text style={s.infoValue}>{value}</Text>
     </View>
 );
 
-const styles = StyleSheet.create({
-    headerGradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 250,
+// ─── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    header: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 16, height: 56,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    content: {
-        padding: 20,
+    backBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        alignItems: 'center', justifyContent: 'center',
     },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 32,
-        paddingTop: 24,
+    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
+    scrollContent: { padding: 16, paddingBottom: 40 },
+
+    heroSection: { alignItems: 'center', paddingVertical: 32 },
+    logoGlow: {
+        position: 'absolute', top: 24,
+        width: 100, height: 100, borderRadius: 50,
+        backgroundColor: 'rgba(234,16,60,0.2)',
     },
-    logoRing: {
-        width: 88,
-        height: 88,
-        borderRadius: 44,
-        borderWidth: 2,
-        borderColor: 'rgba(225,29,72,0.45)',
-        backgroundColor: 'rgba(225,29,72,0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#E11D48',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
+    logoCircle: {
+        width: 80, height: 80, borderRadius: 24,
+        backgroundColor: C.primary,
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 16,
     },
-    appName: {
-        fontSize: 36,
-        fontWeight: '800',
-        color: '#FAFAFA',
-        marginTop: 16,
-        letterSpacing: -0.5,
-        textShadowColor: 'rgba(225,29,72,0.3)',
-        textShadowOffset: { width: 0, height: 4 },
-        textShadowRadius: 16,
+    logoText: { fontSize: 36, fontWeight: '900', color: '#FFF' },
+    appName: { fontSize: 28, fontWeight: '900', color: C.text, letterSpacing: -0.5 },
+    version: { fontSize: 13, color: C.muted, marginTop: 4 },
+
+    descCard: {
+        backgroundColor: C.surface,
+        borderRadius: 16, padding: 20,
+        marginBottom: 8,
     },
-    tagline: {
-        fontSize: 15,
-        color: '#71717A',
-        marginTop: 4,
+    descText: { fontSize: 15, color: C.muted, lineHeight: 24, textAlign: 'center' },
+
+    sectionLabel: {
+        fontSize: 11, fontWeight: '700', letterSpacing: 1.2,
+        textTransform: 'uppercase', color: C.muted,
+        marginLeft: 16, marginBottom: 8, marginTop: 24,
     },
-    versionBadge: {
-        marginTop: 12,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-    },
-    versionText: {
-        fontSize: 12,
-        color: '#52525B',
-        fontWeight: '600',
-    },
-    card: {
-        marginBottom: 12,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 10,
-    },
-    sectionHeader: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#FAFAFA',
-    },
-    text: {
-        color: '#A1A1AA',
-        lineHeight: 22,
-        fontSize: 14,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 12,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.035)',
-        borderRadius: 14,
-        padding: 14,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-    },
-    statNumber: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: Theme.Colors.primary,
-        marginBottom: 4,
-    },
-    statLabel: {
-        fontSize: 10,
-        color: '#52525B',
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    creditRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.04)',
-    },
-    creditLabel: {
-        color: '#71717A',
-        fontSize: 14,
-    },
-    creditValue: {
-        color: '#FAFAFA',
-        fontWeight: '600',
-        fontSize: 14,
-    },
+
+    featuresCard: { backgroundColor: C.surface, borderRadius: 20, overflow: 'hidden' },
     featureRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingVertical: 7,
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, minHeight: 52,
     },
-    featureText: {
-        color: '#A1A1AA',
-        fontSize: 14,
+    featureIcon: {
+        width: 28, height: 28, borderRadius: 8,
+        backgroundColor: 'rgba(234,16,60,0.1)',
+        alignItems: 'center', justifyContent: 'center',
+        marginRight: 14,
     },
-    copyright: {
-        textAlign: 'center',
-        color: '#3F3F46',
-        fontSize: 11,
-        marginTop: 24,
-        paddingBottom: 16,
+    featureText: { flex: 1, fontSize: 15, fontWeight: '500', color: C.text },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.04)', marginLeft: 16 },
+
+    infoCard: { backgroundColor: C.surface, borderRadius: 20, overflow: 'hidden' },
+    infoRow: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingHorizontal: 16, minHeight: 48,
     },
+    infoLabel: { fontSize: 14, color: C.muted },
+    infoValue: { fontSize: 14, fontWeight: '600', color: C.text },
+
+    footer: { alignItems: 'center', paddingVertical: 32 },
+    footerText: { fontSize: 14, color: C.muted },
+    footerCopy: { fontSize: 12, color: C.muted, marginTop: 4, opacity: 0.6 },
 });

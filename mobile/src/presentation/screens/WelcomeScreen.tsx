@@ -1,68 +1,76 @@
 import React, { useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, Animated, Easing,
-    Image, StatusBar, Platform, ScrollView, useWindowDimensions,
+    Image, StatusBar, Platform, Dimensions,
+    TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Theme } from '../theme';
-import { PrimaryButton, SecondaryButton } from '../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { width, height } = Dimensions.get('window');
+const HERO_HEIGHT = height * 0.38;
+
+// Brand colors matching the HTML design
+const C = {
+    primary: '#ea103c',
+    primaryGlow: 'rgba(234, 16, 60, 0.60)',
+    bg: '#0f0f0f',
+    surface: '#18181b',
+    card: '#232326',
+    neutral300: '#d4d4d8',
+    neutral400: '#a1a1aa',
+    neutral500: '#71717a',
+    white: '#ffffff',
+    border: 'rgba(255,255,255,0.05)',
+};
+
 const heroImage = require('../../../assets/welcome-hero.png');
 
-const VALUE_PROPS = [
-    { icon: 'speedometer-outline' as const, title: 'Browse Tunes', desc: 'Verified performance tunes for your bike' },
-    { icon: 'shield-checkmark-outline' as const, title: 'Flash Safely', desc: 'Industry-leading safety checks protect your ECU' },
-    { icon: 'flash-outline' as const, title: 'Zero Hassle', desc: 'OBD → Backup → Flash → Ride. That simple.' },
+const FEATURES = [
+    { icon: 'speedometer-outline' as const, label: 'Performance' },
+    { icon: 'shield-checkmark-outline' as const, label: 'Safety' },
+    { icon: 'analytics-outline' as const, label: 'Analytics' },
 ];
 
 export const WelcomeScreen = ({ navigation }: any) => {
-    const { height } = useWindowDimensions();
-    const isCompactHeight = height < 760;
-    const heroHeight = isCompactHeight ? height * 0.33 : height * 0.38;
-    const contentTopPadding = isCompactHeight ? heroHeight * 0.8 : heroHeight * 0.84;
-
-    // Animations
+    // --- Animations ---
     const heroOpacity = useRef(new Animated.Value(0)).current;
-    const heroScale = useRef(new Animated.Value(1.1)).current;
-    const logoScale = useRef(new Animated.Value(0)).current;
-    const logoGlow = useRef(new Animated.Value(0.3)).current;
+    const heroScale = useRef(new Animated.Value(1.08)).current;
+    const iconScale = useRef(new Animated.Value(0)).current;
+    const iconGlow = useRef(new Animated.Value(0.3)).current;
     const titleOpacity = useRef(new Animated.Value(0)).current;
-    const titleTranslateY = useRef(new Animated.Value(24)).current;
+    const titleTranslateY = useRef(new Animated.Value(20)).current;
     const subtitleOpacity = useRef(new Animated.Value(0)).current;
-    const cardAnims = VALUE_PROPS.map(() => ({
+    const cardAnims = FEATURES.map(() => ({
         opacity: useRef(new Animated.Value(0)).current,
-        translateX: useRef(new Animated.Value(-30)).current,
+        scale: useRef(new Animated.Value(0.85)).current,
     }));
     const buttonsOpacity = useRef(new Animated.Value(0)).current;
-    const buttonsTranslateY = useRef(new Animated.Value(30)).current;
-    const dividerWidth = useRef(new Animated.Value(0)).current;
+    const buttonsTranslateY = useRef(new Animated.Value(24)).current;
+    const termsOpacity = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         Animated.sequence([
-            // Hero image ken burns in
+            // Hero fade in with subtle zoom
             Animated.parallel([
-                Animated.timing(heroOpacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-                Animated.timing(heroScale, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+                Animated.timing(heroOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+                Animated.timing(heroScale, { toValue: 1, duration: 1100, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
             ]),
-            // Logo spring in
-            Animated.spring(logoScale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }),
-            // Title slide up
+            // Icon spring
+            Animated.spring(iconScale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }),
+            // Title
             Animated.parallel([
-                Animated.timing(titleOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
-                Animated.timing(titleTranslateY, { toValue: 0, duration: 350, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
+                Animated.timing(titleOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+                Animated.timing(titleTranslateY, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
             ]),
             // Subtitle
             Animated.timing(subtitleOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-            // Divider
-            Animated.timing(dividerWidth, { toValue: 1, duration: 300, useNativeDriver: false }),
-            // Cards stagger  
-            Animated.stagger(120, cardAnims.map(a =>
+            // Cards stagger
+            Animated.stagger(100, cardAnims.map(a =>
                 Animated.parallel([
                     Animated.timing(a.opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-                    Animated.timing(a.translateX, { toValue: 0, duration: 300, easing: Easing.out(Easing.back(1.3)), useNativeDriver: true }),
+                    Animated.spring(a.scale, { toValue: 1, friction: 6, tension: 60, useNativeDriver: true }),
                 ])
             )),
             // Buttons
@@ -70,257 +78,260 @@ export const WelcomeScreen = ({ navigation }: any) => {
                 Animated.timing(buttonsOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
                 Animated.timing(buttonsTranslateY, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
             ]),
+            // Terms
+            Animated.timing(termsOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
         ]).start();
 
-        // Continuous glow pulse
+        // Continuous glow pulse on icon
         Animated.loop(
             Animated.sequence([
-                Animated.timing(logoGlow, { toValue: 0.9, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-                Animated.timing(logoGlow, { toValue: 0.3, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                Animated.timing(iconGlow, { toValue: 0.7, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                Animated.timing(iconGlow, { toValue: 0.3, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
             ])
         ).start();
     }, []);
 
     return (
-        <SafeAreaView style={styles.container} edges={[ 'top' ]}>
+        <View style={styles.root}>
             <StatusBar barStyle="light-content" />
-            <LinearGradient
-                colors={['#09090B', '#0F0F11', '#1A0A10', '#09090B']}
-                style={StyleSheet.absoluteFillObject}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-            />
 
-            {/* Hero Image with gradient overlay */}
-            <Animated.View style={[styles.heroContainer, { height: heroHeight, opacity: heroOpacity, transform: [{ scale: heroScale }] }]}> 
+            {/* ─── Hero Image ─── */}
+            <Animated.View style={[styles.heroContainer, { opacity: heroOpacity, transform: [{ scale: heroScale }] }]}>
                 <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
                 <LinearGradient
-                    colors={['transparent', 'rgba(9,9,11,0.6)', '#09090B']}
-                    style={styles.heroOverlay}
+                    colors={['transparent', 'rgba(15,15,15,0.4)', 'rgba(15,15,15,1)', C.bg]}
+                    locations={[0, 0.5, 0.9, 1]}
+                    style={StyleSheet.absoluteFillObject}
                 />
             </Animated.View>
 
-            {/* Background glow */}
-            <Animated.View style={[styles.glowCircle, { top: heroHeight * 0.73, opacity: logoGlow }]} />
-
-            {/* Content */}
-            <ScrollView
-                contentContainerStyle={[styles.content, { paddingTop: contentTopPadding }]}
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-            >
-                {/* Logo */}
-                <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}> 
-                    <View style={styles.logoRing}>
-                        <Ionicons name="speedometer" size={48} color={Theme.Colors.primary} />
-                    </View>
+            {/* ─── Centered Icon with Glow ─── */}
+            <View style={styles.iconAnchor}>
+                <Animated.View style={[styles.glowOrb, { opacity: iconGlow }]} />
+                <Animated.View style={[styles.iconCircle, { transform: [{ scale: iconScale }] }]}>
+                    <Ionicons name="speedometer" size={40} color={C.primary} />
                 </Animated.View>
+            </View>
 
-                {/* Title */}
-                <Animated.Text style={[styles.title, isCompactHeight && styles.titleCompact, { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }]}> 
-                    RevSync
-                </Animated.Text>
-
-                {/* Subtitle */}
-                <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}> 
-                    Unlock your ride's true potential
-                </Animated.Text>
-
-                {/* Animated Divider */}
-                <View style={styles.dividerTrack}>
-                    <Animated.View style={[styles.dividerFill, { width: dividerWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
+            {/* ─── Content ─── */}
+            <View style={styles.content}>
+                {/* Title + Subtitle */}
+                <View style={styles.titleBlock}>
+                    <Animated.Text style={[styles.title, { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }]}>
+                        RevSync
+                    </Animated.Text>
+                    <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
+                        Unlock your ride's true potential
+                    </Animated.Text>
                 </View>
 
-                {/* Value Props */}
-                <View style={styles.propsContainer}>
-                    {VALUE_PROPS.map((prop, i) => (
+                {/* ─── Feature Cards Grid ─── */}
+                <View style={styles.grid}>
+                    {FEATURES.map((feat, i) => (
                         <Animated.View
-                            key={prop.title}
-                            style={[styles.propCard, { opacity: cardAnims[i].opacity, transform: [{ translateX: cardAnims[i].translateX }] }]}
+                            key={feat.label}
+                            style={[
+                                styles.featureCard,
+                                { opacity: cardAnims[i].opacity, transform: [{ scale: cardAnims[i].scale }] },
+                            ]}
                         >
-                            <View style={styles.propIconBox}>
-                                <Ionicons name={prop.icon} size={20} color={Theme.Colors.primary} />
+                            <View style={styles.featureIconCircle}>
+                                <Ionicons name={feat.icon} size={24} color={C.primary} />
                             </View>
-                            <View style={styles.propText}>
-                                <Text style={styles.propTitle}>{prop.title}</Text>
-                                <Text style={styles.propDesc}>{prop.desc}</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.15)" />
+                            <Text style={styles.featureLabel}>{feat.label}</Text>
                         </Animated.View>
                     ))}
                 </View>
 
-                {/* Buttons */}
-                <Animated.View style={[styles.buttonContainer, { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslateY }] }]}> 
-                    <PrimaryButton
-                        title="Get Started"
-                        onPress={() => navigation.navigate('SignIn')}
+                {/* ─── Buttons ─── */}
+                <Animated.View style={[styles.buttonGroup, { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslateY }] }]}>
+                    <TouchableOpacity
                         style={styles.primaryBtn}
-                        textStyle={styles.primaryBtnText}
-                        icon="arrow-forward"
-                    />
-                    <SecondaryButton
-                        title="Create Account"
-                        onPress={() => navigation.navigate('SignUp')}
-                        style={styles.secondaryBtn}
-                    />
-                </Animated.View>
-            </ScrollView>
+                        activeOpacity={0.85}
+                        onPress={() => navigation.navigate('SignIn')}
+                    >
+                        <Text style={styles.primaryBtnText}>Get Started</Text>
+                    </TouchableOpacity>
 
-            {/* Version tag */}
-            <Text style={styles.version}>v1.0.0</Text>
-        </SafeAreaView>
+                    <TouchableOpacity
+                        style={styles.secondaryBtn}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('SignUp')}
+                    >
+                        <Text style={styles.secondaryBtnText}>Create Account</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+
+                {/* Terms */}
+                <Animated.Text style={[styles.terms, { opacity: termsOpacity }]}>
+                    By continuing you agree to our Terms of Service
+                </Animated.Text>
+            </View>
+        </View>
     );
 };
 
+const CARD_SIZE = (width - 48 - 24) / 3; // 24px padding each side + 12px gaps
+
 const styles = StyleSheet.create({
-    container: {
+    root: {
         flex: 1,
-        backgroundColor: '#09090B',
+        backgroundColor: C.bg,
     },
+
+    // ── Hero ──
     heroContainer: {
         position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
+        height: HERO_HEIGHT,
     },
     heroImage: {
         width: '100%',
         height: '100%',
     },
-    heroOverlay: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    glowCircle: {
+
+    // ── Centered Icon ──
+    iconAnchor: {
         position: 'absolute',
-        alignSelf: 'center',
-        width: 220,
-        height: 220,
-        borderRadius: 110,
-        backgroundColor: Theme.Colors.primary,
-        opacity: 0.06,
-    },
-    content: {
-        paddingBottom: Platform.OS === 'ios' ? 120 : 96,
-        paddingHorizontal: 24,
+        top: HERO_HEIGHT - 40,
+        left: 0,
+        right: 0,
         alignItems: 'center',
+        zIndex: 20,
     },
-    logoContainer: {
-        marginBottom: 12,
-        ...Theme.Shadows.lg,
-        shadowColor: Theme.Colors.primary,
+    glowOrb: {
+        position: 'absolute',
+        width: 128,
+        height: 128,
+        borderRadius: 64,
+        backgroundColor: C.primary,
+        // blur is simulated via shadow on iOS
+        shadowColor: C.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 50,
     },
-    logoRing: {
-        width: 88,
-        height: 88,
-        borderRadius: 44,
+    iconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: C.surface,
         borderWidth: 2,
-        borderColor: 'rgba(225, 29, 72, 0.45)',
-        backgroundColor: 'rgba(225, 29, 72, 0.1)',
-        justifyContent: 'center',
+        borderColor: 'rgba(234,16,60,0.30)',
         alignItems: 'center',
+        justifyContent: 'center',
+        // glow shadow
+        shadowColor: C.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+        elevation: 12,
+    },
+
+    // ── Content ──
+    content: {
+        flex: 1,
+        paddingTop: HERO_HEIGHT + 24,
+        paddingHorizontal: 24,
+        paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+        justifyContent: 'flex-start',
+    },
+    titleBlock: {
+        alignItems: 'center',
+        marginBottom: 32,
     },
     title: {
-        fontSize: 44,
+        fontSize: 36,
         fontWeight: '800',
-        color: '#FAFAFA',
-        letterSpacing: -1,
-        marginBottom: 4,
-        textShadowColor: 'rgba(225, 29, 72, 0.4)',
-        textShadowOffset: { width: 0, height: 4 },
-        textShadowRadius: 20,
-    },
-    titleCompact: {
-        fontSize: 38,
+        color: C.white,
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 16,
-        color: '#A1A1AA',
-        textAlign: 'center',
-        marginBottom: 16,
-        letterSpacing: 0.5,
+        fontSize: 18,
+        fontWeight: '500',
+        color: C.neutral400,
+        marginTop: 6,
     },
-    dividerTrack: {
-        width: 48,
-        height: 3,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderRadius: 2,
-        marginBottom: 20,
-        overflow: 'hidden',
-    },
-    dividerFill: {
-        height: '100%',
-        backgroundColor: Theme.Colors.primary,
-        borderRadius: 2,
-    },
-    propsContainer: {
-        width: '100%',
-        gap: 10,
-        marginBottom: 28,
-    },
-    propCard: {
+
+    // ── Feature Grid ──
+    grid: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.035)',
-        borderRadius: 14,
-        paddingVertical: 12,
-        paddingHorizontal: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 'auto' as any,
     },
-    propIconBox: {
+    featureCard: {
+        width: CARD_SIZE,
+        aspectRatio: 1,
+        backgroundColor: C.card,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: C.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+    },
+    featureIconCircle: {
         width: 40,
         height: 40,
-        borderRadius: 10,
-        backgroundColor: 'rgba(225, 29, 72, 0.12)',
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
     },
-    propText: {
-        flex: 1,
-    },
-    propTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#FAFAFA',
-        marginBottom: 1,
-    },
-    propDesc: {
+    featureLabel: {
         fontSize: 12,
-        color: '#71717A',
-        lineHeight: 16,
+        fontWeight: '600',
+        color: C.neutral300,
     },
-    buttonContainer: {
-        width: '100%',
-        gap: 10,
-        alignItems: 'center',
+
+    // ── Buttons ──
+    buttonGroup: {
+        gap: 12,
+        marginTop: 32,
     },
     primaryBtn: {
         width: '100%',
         paddingVertical: 16,
-        borderRadius: 28,
-        ...Theme.Shadows.lg,
-        shadowColor: Theme.Colors.primary,
+        borderRadius: 14,
+        backgroundColor: C.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        // subtle glow
+        shadowColor: C.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 6,
     },
     primaryBtnText: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '700',
-        letterSpacing: 0.6,
-        textTransform: 'uppercase',
+        color: C.white,
     },
     secondaryBtn: {
         width: '100%',
         paddingVertical: 16,
-        borderRadius: 28,
-        borderColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 14,
+        backgroundColor: C.card,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    version: {
-        position: 'absolute',
-        bottom: Platform.OS === 'ios' ? 40 : 20,
-        alignSelf: 'center',
-        color: '#3F3F46',
+    secondaryBtnText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: C.white,
+    },
+
+    // ── Terms ──
+    terms: {
+        textAlign: 'center',
         fontSize: 11,
-        letterSpacing: 0.3,
+        color: C.neutral500,
+        marginTop: 20,
     },
 });

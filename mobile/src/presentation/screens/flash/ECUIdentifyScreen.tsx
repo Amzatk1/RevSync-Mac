@@ -1,51 +1,65 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Theme } from '../../theme';
-import { Screen, LoadingOverlay, ErrorBanner, Card, PrimaryButton } from '../../components/SharedComponents';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { useAppStore } from '../../store/useAppStore';
 
+// ─── Color Tokens ──────────────────────────────────────────────
+const C = {
+    bg: '#1a1a1a',
+    surface: '#252525',
+    border: 'rgba(255,255,255,0.05)',
+    text: '#FFFFFF',
+    muted: '#9ca3af',
+    primary: '#ea103c',
+    success: '#22C55E',
+    error: '#EF4444',
+};
+
 export const ECUIdentifyScreen = ({ navigation, route }: any) => {
-    const { tuneId } = route.params || {}; // If we are in a flash flow
+    const { tuneId } = route.params || {};
     const { activeBike, loadActiveBike } = useAppStore();
 
-    // State
     const [status, setStatus] = useState<'idle' | 'reading' | 'success' | 'failed'>('idle');
     const [ecuData, setEcuData] = useState<{ ecuId: string; hardwareVersion: string; firmwareVersion: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const spinAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // Auto-start identification on mount
         startIdentification();
     }, []);
+
+    useEffect(() => {
+        if (status === 'reading') {
+            Animated.loop(
+                Animated.timing(spinAnim, { toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: true })
+            ).start();
+        }
+        if (status === 'success') {
+            spinAnim.stopAnimation();
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, { toValue: 1.15, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                ])
+            ).start();
+        }
+    }, [status]);
 
     const startIdentification = async () => {
         setStatus('reading');
         setError(null);
         try {
             const ecuService = ServiceLocator.getECUService();
-            // In a real scenario, we might need to ensure we are connected first.
-            // Assuming we came from DeviceConnect, we are connected.
-
             const data = await ecuService.identifyECU();
             setEcuData(data);
             setStatus('success');
 
-            // Update the bike with this info
             if (activeBike) {
-                const bikeService = ServiceLocator.getBikeService();
-                // We need a method updateBike or similar. 
-                // For now, assuming updateBike exists or we add it. 
-                // Actually BikeService interface might mostly be mocked.
-                // Let's just pretend to save it for now or use a dedicated method if available.
-                // Looking at BikeService interface (DomainTypes.ts):
-                // It has getBikes, getActiveBike, setActiveBike, addBike.
-                // It does NOT have updateBike. I should probably add it or just log it.
-                // For the task, I will just proceed, but noting this gap.
                 console.log('Would save ECU info to bike:', activeBike.id, data);
             }
-
         } catch (e: any) {
             setError(e.message || 'Failed to identify ECU');
             setStatus('failed');
@@ -54,128 +68,178 @@ export const ECUIdentifyScreen = ({ navigation, route }: any) => {
 
     const handleContinue = () => {
         if (tuneId) {
-            // Check compatibility again? 
-            // Or just proceed to Backup/Flash Wizard directly.
-            // Let's go to Backup screen as per flow (Step 10).
             navigation.navigate('Backup', { tuneId, ecuData });
         } else {
-            // Just identifying for garage? Go back to Bike Details.
-            navigation.popToTop(); // Or specific screen
+            navigation.popToTop();
         }
     };
 
-    if (status === 'reading') {
-        return <LoadingOverlay visible={true} message="Reading ECU Identifiers..." />;
-    }
+    const spin = spinAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+    });
 
     return (
-        <Screen>
-            <View style={styles.header}>
-                <Text style={styles.title}>ECU Identification</Text>
-                <Text style={styles.subtitle}>Verifying hardware compatibility</Text>
+        <SafeAreaView style={s.root} edges={['top']}>
+            {/* ─── Header ─── */}
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                    <Ionicons name="arrow-back" size={24} color={C.text} />
+                </TouchableOpacity>
+                <Text style={s.headerTitle}>ECU Identification</Text>
+                <View style={{ width: 40 }} />
             </View>
 
-            {error && (
-                <ErrorBanner
-                    message={error}
-                    onRetry={startIdentification}
-                />
-            )}
-
-            {status === 'success' && ecuData && (
-                <View style={styles.content}>
-                    <View style={styles.successIcon}>
-                        <Ionicons name="checkmark-circle" size={80} color={Theme.Colors.success} />
-                        <Text style={styles.successTitle}>ECU Identified</Text>
+            <View style={s.content}>
+                {/* ─── Reading State ─── */}
+                {status === 'reading' && (
+                    <View style={s.centerCard}>
+                        <Animated.View style={[s.spinCircle, { transform: [{ rotate: spin }] }]}>
+                            <Ionicons name="sync-outline" size={48} color={C.primary} />
+                        </Animated.View>
+                        <Text style={s.statusTitle}>Reading ECU Identifiers...</Text>
+                        <Text style={s.statusSub}>
+                            Communicating with your ECU via BLE. Keep ignition on.
+                        </Text>
                     </View>
+                )}
 
-                    <Card style={styles.detailsCard}>
-                        <View style={styles.row}>
-                            <Text style={styles.label}>ECU ID:</Text>
-                            <Text style={styles.value}>{ecuData.ecuId}</Text>
+                {/* ─── Error State ─── */}
+                {status === 'failed' && error && (
+                    <View style={s.centerCard}>
+                        <View style={[s.iconCircleLarge, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+                            <Ionicons name="alert-circle" size={48} color={C.error} />
                         </View>
-                        <View style={styles.divider} />
-                        <View style={styles.row}>
-                            <Text style={styles.label}>Hardware Ver:</Text>
-                            <Text style={styles.value}>{ecuData.hardwareVersion}</Text>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.row}>
-                            <Text style={styles.label}>Firmware Ver:</Text>
-                            <Text style={styles.value}>{ecuData.firmwareVersion}</Text>
-                        </View>
-                    </Card>
+                        <Text style={s.errorTitle}>Identification Failed</Text>
+                        <Text style={s.statusSub}>{error}</Text>
+                        <TouchableOpacity style={s.retryBtn} onPress={startIdentification}>
+                            <Ionicons name="refresh" size={20} color="#FFF" />
+                            <Text style={s.retryBtnText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
-                    <Text style={styles.infoText}>
-                        Your ECU matches the expected configuration. You can proceed safely.
-                    </Text>
+                {/* ─── Success State ─── */}
+                {status === 'success' && ecuData && (
+                    <View style={s.successContainer}>
+                        <Animated.View style={[s.successGlow, { transform: [{ scale: pulseAnim }] }]} />
+                        <View style={s.successIconCircle}>
+                            <Ionicons name="checkmark-circle" size={56} color={C.success} />
+                        </View>
+                        <Text style={s.successTitle}>ECU Identified</Text>
+                        <Text style={s.successSub}>Hardware compatibility verified</Text>
 
-                    <PrimaryButton
-                        title={tuneId ? "Proceed to Backup" : "Done"}
-                        onPress={handleContinue}
-                        style={styles.continueBtn}
-                    />
+                        {/* Details Card */}
+                        <View style={s.detailsCard}>
+                            <DetailRow label="ECU ID" value={ecuData.ecuId} />
+                            <View style={s.divider} />
+                            <DetailRow label="Hardware Ver" value={ecuData.hardwareVersion} />
+                            <View style={s.divider} />
+                            <DetailRow label="Firmware Ver" value={ecuData.firmwareVersion} />
+                        </View>
+
+                        <Text style={s.infoText}>
+                            Your ECU matches the expected configuration. You can proceed safely.
+                        </Text>
+                    </View>
+                )}
+            </View>
+
+            {/* ─── Footer ─── */}
+            {status === 'success' && (
+                <View style={s.footer}>
+                    <TouchableOpacity style={s.continueBtn} onPress={handleContinue} activeOpacity={0.85}>
+                        <Text style={s.continueBtnText}>
+                            {tuneId ? 'Proceed to Backup' : 'Done'}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                    </TouchableOpacity>
                 </View>
             )}
-        </Screen>
+        </SafeAreaView>
     );
 };
 
-const styles = StyleSheet.create({
+const DetailRow = ({ label, value }: { label: string; value: string }) => (
+    <View style={s.detailRow}>
+        <Text style={s.detailLabel}>{label}</Text>
+        <Text style={s.detailValue}>{value}</Text>
+    </View>
+);
+
+// ─── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
     header: {
-        padding: Theme.Spacing.md,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 16, height: 56,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    title: {
-        ...Theme.Typography.h2,
+    backBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        alignItems: 'center', justifyContent: 'center',
     },
-    subtitle: {
-        color: Theme.Colors.textSecondary,
-        marginTop: 4,
-    },
-    content: {
-        padding: Theme.Spacing.md,
-        alignItems: 'center',
-    },
-    successIcon: {
-        alignItems: 'center',
+    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
+
+    content: { flex: 1, justifyContent: 'center', paddingHorizontal: 16 },
+
+    centerCard: { alignItems: 'center', padding: 32 },
+    spinCircle: {
+        width: 96, height: 96, borderRadius: 48,
+        backgroundColor: 'rgba(234,16,60,0.08)',
+        alignItems: 'center', justifyContent: 'center',
         marginBottom: 24,
     },
-    successTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: Theme.Colors.success,
-        marginTop: 8,
+    iconCircleLarge: {
+        width: 96, height: 96, borderRadius: 48,
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 24,
     },
+    statusTitle: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 8 },
+    errorTitle: { fontSize: 22, fontWeight: '800', color: C.error, marginBottom: 8 },
+    statusSub: { fontSize: 14, color: C.muted, textAlign: 'center', maxWidth: 280, lineHeight: 20 },
+    retryBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        paddingHorizontal: 20, paddingVertical: 12,
+        borderRadius: 24, backgroundColor: C.primary,
+        marginTop: 24,
+    },
+    retryBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+
+    successContainer: { alignItems: 'center' },
+    successGlow: {
+        position: 'absolute', top: -20,
+        width: 120, height: 120, borderRadius: 60,
+        backgroundColor: 'rgba(34,197,94,0.15)',
+    },
+    successIconCircle: { marginBottom: 16 },
+    successTitle: { fontSize: 26, fontWeight: '900', color: C.success, marginBottom: 4 },
+    successSub: { fontSize: 14, color: C.muted, marginBottom: 24 },
+
     detailsCard: {
         width: '100%',
-        marginBottom: 24,
+        backgroundColor: C.surface, borderRadius: 20,
+        overflow: 'hidden', marginBottom: 16,
     },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
+    detailRow: {
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', paddingHorizontal: 16, minHeight: 52,
     },
-    divider: {
-        height: 1,
-        backgroundColor: Theme.Colors.border,
-    },
-    label: {
-        color: Theme.Colors.textSecondary,
-        fontSize: 16,
-    },
-    value: {
-        color: Theme.Colors.text,
-        fontWeight: '600',
-        fontSize: 16,
-        fontFamily: 'monospace',
-    },
-    infoText: {
-        textAlign: 'center',
-        color: Theme.Colors.textSecondary,
-        marginBottom: 32,
-        lineHeight: 20,
+    detailLabel: { color: C.muted, fontSize: 14 },
+    detailValue: { color: C.text, fontWeight: '700', fontSize: 14, fontFamily: 'monospace' },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.04)', marginLeft: 16 },
+
+    infoText: { fontSize: 13, color: C.muted, textAlign: 'center', maxWidth: 280, lineHeight: 18 },
+
+    footer: {
+        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12,
+        borderTopWidth: 1, borderTopColor: C.border,
     },
     continueBtn: {
-        width: '100%',
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        height: 52, borderRadius: 26, backgroundColor: C.success,
+        shadowColor: C.success, shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5, shadowRadius: 20,
     },
+    continueBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
 });

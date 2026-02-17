@@ -1,58 +1,40 @@
 import { AuthService, AuthResult } from '../../domain/services/AuthService';
 import { User } from '../../domain/entities/User';
-import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
-// NOTE: Replace these with actual environment variables in production
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 const SESSION_KEY = 'revsync_session';
 
+/**
+ * Auth service — bypassed for testing.
+ * Any email/password combination succeeds.
+ * Session persists across restarts via SecureStore.
+ */
 export class SupabaseAuthService implements AuthService {
-    private supabase;
 
-    constructor() {
-        this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-
-    async signIn(email: string, password: string): Promise<AuthResult> {
-        // START: Mock logic for prototype (Supabase requires real creds)
-        if ((email === 'demo@revsync.com' && password === 'garage') || (email === 'Amzatk1' && password === 'Hamzaayo1312')) {
-            const user: User = {
-                id: email === 'Amzatk1' ? 'test-user-001' : 'mock-user-123',
-                email: email,
-                firstName: email === 'Amzatk1' ? 'Hamza' : 'RevSync',
-                lastName: email === 'Amzatk1' ? 'User' : 'Rider',
-                createdAt: Date.now(),
-            };
-
-            // Persist session securely
-            await this.saveSession(user);
-
-            return {
-                success: true,
-                user
-            };
-        }
-        // END: Mock logic
-
-        return { success: false, error: 'Invalid credentials. Try demo@revsync.com / garage' };
-    }
-
-    async signUp(email: string, password: string): Promise<AuthResult> {
-        // START: Mock logic
+    async signIn(email: string, _password: string): Promise<AuthResult> {
         const user: User = {
-            id: 'new-user-' + Date.now(),
+            id: `user-${Date.now()}`,
             email,
-            createdAt: Date.now()
+            firstName: email.split('@')[0] || 'Rider',
+            lastName: '',
+            createdAt: Date.now(),
         };
 
         await this.saveSession(user);
+        return { success: true, user };
+    }
 
-        return {
-            success: true,
-            user
+    async signUp(email: string, _password: string): Promise<AuthResult> {
+        const user: User = {
+            id: `user-${Date.now()}`,
+            email,
+            firstName: email.split('@')[0] || 'Rider',
+            lastName: '',
+            createdAt: Date.now(),
         };
+
+        await this.saveSession(user);
+        return { success: true, user };
     }
 
     async signOut(): Promise<void> {
@@ -71,7 +53,7 @@ export class SupabaseAuthService implements AuthService {
         return null;
     }
 
-    async resetPassword(email: string): Promise<boolean> {
+    async resetPassword(_email: string): Promise<boolean> {
         return true;
     }
 
@@ -81,13 +63,5 @@ export class SupabaseAuthService implements AuthService {
         } catch (e) {
             console.error('Failed to save session', e);
         }
-    }
-
-    private mapUser(supabaseUser: any): User {
-        return {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
-            createdAt: new Date(supabaseUser.created_at).getTime(),
-        };
     }
 }

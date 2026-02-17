@@ -1,13 +1,27 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import {
+    View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
+    ActivityIndicator, RefreshControl, Alert, Platform, StatusBar,
+} from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { Theme } from '../theme';
-import { Screen } from '../components/SharedComponents';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../di/ServiceLocator';
 import { Tune, TuneFilter } from '../../domain/services/DomainTypes';
 import { TuneCard } from '../components/TuneCard';
 import { useAppStore } from '../store/useAppStore';
+
+// ── Design tokens ──
+const C = {
+    primary: '#ea103c',
+    bg: '#1a1a1a',
+    surface: '#2d2d2d',
+    border: '#404040',
+    neutral400: '#a3a3a3',
+    neutral500: '#a3a3a3',
+    neutral600: '#737373',
+    neutral700: '#525252',
+    white: '#ffffff',
+};
 
 export const TuneMarketplaceScreen = ({ navigation }: any) => {
     const { activeBike } = useAppStore();
@@ -31,7 +45,6 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                 minStage: filterStage || undefined,
                 compatibleBikeId: compatibleOnly ? activeBike?.id : undefined
             };
-
             const results = await tuneService.getTunes(filter, 1);
             setTunes(results);
         } catch (error) {
@@ -51,90 +64,26 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
         fetchTunes(true);
     };
 
-    const renderHeader = () => (
-        <View style={styles.headerContainer}>
-            <Text style={styles.title}>Tune Marketplace</Text>
-
-            {/* Search Bar */}
-            <View style={styles.searchBar}>
-                <Ionicons name="search" size={20} color={Theme.Colors.textSecondary} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search tunes..."
-                    placeholderTextColor={Theme.Colors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Ionicons name="close-circle" size={20} color={Theme.Colors.textSecondary} />
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Filter Chips */}
-            <View style={styles.filtersScroll}>
-                <TouchableOpacity
-                    style={[styles.filterChip, compatibleOnly && styles.activeChip]}
-                    onPress={() => setCompatibleOnly(!compatibleOnly)}
-                >
-                    <Text style={[styles.chipText, compatibleOnly && styles.activeChipText]}>
-                        {activeBike ? `For ${activeBike.make} ${activeBike.model}` : 'Compatible Only'}
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.filterChip, onlySafe && styles.activeChip]}
-                    onPress={() => setOnlySafe(!onlySafe)}
-                >
-                    <Ionicons name="shield-checkmark" size={14} color={onlySafe ? '#000' : Theme.Colors.text} style={{ marginRight: 4 }} />
-                    <Text style={[styles.chipText, onlySafe && styles.activeChipText]}>Safe Rated</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.filterChip, filterStage === 1 && styles.activeChip]}
-                    onPress={() => setFilterStage(filterStage === 1 ? null : 1)}
-                >
-                    <Text style={[styles.chipText, filterStage === 1 && styles.activeChipText]}>Stage 1</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.filterChip, filterStage === 2 && styles.activeChip]}
-                    onPress={() => setFilterStage(filterStage === 2 ? null : 2)}
-                >
-                    <Text style={[styles.chipText, filterStage === 2 && styles.activeChipText]}>Stage 2</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.filterChip, filterStage === 3 && styles.activeChip]}
-                    onPress={() => setFilterStage(filterStage === 3 ? null : 3)}
-                >
-                    <Text style={[styles.chipText, filterStage === 3 && styles.activeChipText]}>Stage 3</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
-
     const handleImport = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: '*/*',
                 copyToCacheDirectory: true,
             });
-
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const file = result.assets[0];
                 const newTune: Tune = {
                     id: `import-${Date.now()}`,
-                    title: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+                    title: file.name.replace(/\.[^/.]+$/, ""),
                     bikeId: activeBike?.id || 'unknown',
                     stage: 0,
                     price: 0,
-                    safetyRating: 100, // User imported, assume they trust it
+                    safetyRating: 100,
                     compatibilityRaw: [],
                     description: `Imported from ${file.name}`,
                     version: 'Custom',
                     checksum: 'imported-checksum',
                 };
-
                 const tuneService = ServiceLocator.getTuneService();
                 await tuneService.importTune(newTune);
                 setTunes(prev => [newTune, ...prev]);
@@ -146,13 +95,81 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
         }
     };
 
+    // ── Filter chip helper ──
+    const Chip = ({ label, active, onPress, icon }: any) => (
+        <TouchableOpacity
+            style={[styles.chip, active && styles.chipActive]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            {icon && <Ionicons name={icon} size={14} color={active ? '#000' : C.white} style={{ marginRight: 4 }} />}
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+        </TouchableOpacity>
+    );
+
+    const renderHeader = () => (
+        <View style={styles.headerContainer}>
+            {/* Title + filter icon */}
+            <View style={styles.titleRow}>
+                <Text style={styles.title}>Tunes</Text>
+                <TouchableOpacity style={styles.filterIconBtn}>
+                    <Ionicons name="options-outline" size={22} color={C.neutral400} />
+                </TouchableOpacity>
+            </View>
+
+            {/* Search */}
+            <View style={styles.searchBar}>
+                <Ionicons name="search" size={20} color={C.neutral500} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search tunes..."
+                    placeholderTextColor={C.neutral500}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <Ionicons name="close-circle" size={20} color={C.neutral500} />
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {/* Filter Chips */}
+            <View style={styles.chipRow}>
+                <Chip
+                    label={activeBike ? 'Make/Model' : 'Make/Model'}
+                    active={compatibleOnly}
+                    onPress={() => setCompatibleOnly(!compatibleOnly)}
+                />
+                <Chip
+                    label="Stage"
+                    active={filterStage !== null}
+                    onPress={() => setFilterStage(filterStage ? null : 1)}
+                />
+                <Chip
+                    label="Safety"
+                    active={onlySafe}
+                    onPress={() => setOnlySafe(!onlySafe)}
+                    icon="shield-checkmark"
+                />
+                <Chip
+                    label="Price"
+                    active={false}
+                    onPress={() => { }}
+                />
+            </View>
+        </View>
+    );
+
     return (
-        <Screen>
+        <View style={styles.root}>
+            <StatusBar barStyle="light-content" />
+
             {renderHeader()}
 
             {loading && !refreshing ? (
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color={Theme.Colors.primary} />
+                    <ActivityIndicator size="large" color={C.primary} />
                 </View>
             ) : (
                 <FlatList
@@ -166,119 +183,156 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                     )}
                     contentContainerStyle={styles.listContent}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.Colors.primary} />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
                     }
-                    ListHeaderComponent={
-                        <TouchableOpacity style={styles.importButton} onPress={handleImport}>
-                            <Ionicons name="cloud-upload-outline" size={24} color={Theme.Colors.primary} />
-                            <Text style={styles.importText}>Import from File...</Text>
-                        </TouchableOpacity>
-                    }
+                    showsVerticalScrollIndicator={false}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
-                            <Ionicons name="documents-outline" size={64} color={Theme.Colors.textSecondary} />
-                            <Text style={styles.emptyText}>No tunes found matching your filters.</Text>
+                            <Ionicons name="documents-outline" size={48} color={C.neutral600} />
+                            <Text style={styles.emptyTitle}>No Tunes Found</Text>
+                            <Text style={styles.emptyBody}>No tunes found matching your filters.</Text>
+                            <TouchableOpacity style={styles.importBtn} onPress={handleImport}>
+                                <Ionicons name="cloud-upload-outline" size={20} color={C.primary} />
+                                <Text style={styles.importBtnText}>Import from File</Text>
+                            </TouchableOpacity>
                         </View>
                     }
                 />
             )}
-        </Screen>
+        </View>
     );
 };
 
+// ════════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-    container: {
+    root: {
         flex: 1,
-        backgroundColor: Theme.Colors.background,
+        backgroundColor: C.bg,
     },
+
+    // ── Header ──
     headerContainer: {
-        paddingHorizontal: Theme.Spacing.md,
-        paddingBottom: Theme.Spacing.sm,
-        backgroundColor: Theme.Colors.background,
+        paddingTop: Platform.OS === 'ios' ? 60 : 44,
+        paddingHorizontal: 24,
+        paddingBottom: 12,
+        backgroundColor: C.bg,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
     },
     title: {
-        ...Theme.Typography.h2,
-        marginBottom: Theme.Spacing.md,
+        fontSize: 32,
+        fontWeight: '800',
+        color: C.white,
+        letterSpacing: -0.5,
     },
+    filterIconBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: C.surface,
+        borderWidth: 1,
+        borderColor: C.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    // ── Search Bar ──
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderRadius: 24,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
+        backgroundColor: C.surface,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-        marginBottom: Theme.Spacing.md,
+        borderColor: C.border,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginBottom: 14,
     },
     searchInput: {
         flex: 1,
-        color: Theme.Colors.text,
-        marginLeft: 8,
+        color: C.white,
+        marginLeft: 10,
         fontSize: 16,
     },
-    filtersScroll: {
+
+    // ── Chips ──
+    chipRow: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         gap: 8,
     },
-    filterChip: {
+    chip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: Theme.Colors.surface,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 50,
+        backgroundColor: C.surface,
         borderWidth: 1,
-        borderColor: Theme.Colors.border,
+        borderColor: C.border,
     },
-    activeChip: {
-        backgroundColor: Theme.Colors.primary,
-        borderColor: Theme.Colors.primary,
+    chipActive: {
+        backgroundColor: C.primary,
+        borderColor: C.primary,
     },
     chipText: {
-        color: Theme.Colors.text,
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '500',
+        color: C.white,
     },
-    activeChipText: {
+    chipTextActive: {
         color: '#000',
         fontWeight: '700',
     },
+
+    // ── List ──
     listContent: {
-        padding: Theme.Spacing.md,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 100,
     },
     center: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
+
+    // ── Empty ──
     emptyState: {
-        padding: Theme.Spacing.xl,
         alignItems: 'center',
-        justifyContent: 'center',
+        paddingVertical: 48,
+        gap: 8,
     },
-    emptyText: {
-        color: Theme.Colors.textSecondary,
-        marginTop: Theme.Spacing.md,
-        fontSize: 16,
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#D4D4D4',
+        marginTop: 8,
     },
-    importButton: {
+    emptyBody: {
+        fontSize: 14,
+        color: C.neutral500,
+        textAlign: 'center',
+    },
+    importBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        borderWidth: 1,
-        borderColor: Theme.Colors.primary,
-        borderStyle: 'dashed',
+        gap: 8,
+        marginTop: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
         borderRadius: 12,
-        marginBottom: Theme.Spacing.md,
-        backgroundColor: 'rgba(225, 29, 72, 0.04)',
+        borderWidth: 1,
+        borderColor: C.primary,
+        borderStyle: 'dashed',
+        backgroundColor: 'rgba(225,29,72,0.04)',
     },
-    importText: {
-        color: Theme.Colors.primary,
-        fontWeight: 'bold',
-        marginLeft: 8,
-        fontSize: 16,
+    importBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: C.primary,
     },
 });

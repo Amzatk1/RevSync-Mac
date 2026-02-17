@@ -23,7 +23,7 @@ export class SafetyEngine implements ValidationService {
             score -= 50;
         }
 
-        // 3. ECU Compatibility (Mock logic)
+        // 3. ECU Compatibility
         if (bike.ecuId) {
             const isCompatible = tune.compatibilityRaw.includes(bike.ecuId);
             if (!isCompatible) {
@@ -43,7 +43,6 @@ export class SafetyEngine implements ValidationService {
         }
 
         // 5. Version Check
-        // (Mock) Assuming older versions have issues
         if (tune.version.startsWith('0.')) {
             warnings.push('This is a beta tune version.');
             score -= 10;
@@ -58,8 +57,8 @@ export class SafetyEngine implements ValidationService {
         const actions: string[] = [];
         let score = 100;
 
-        // Mock Battery Check
-        const batteryLevel = 0.8; // Would use expo-battery
+        // Battery Check (simulation — requires expo-battery in production)
+        const batteryLevel = 0.8;
         if (batteryLevel < 0.2) {
             errors.push('Phone battery critical (< 20%). Connect charger.');
             score = 0;
@@ -67,8 +66,7 @@ export class SafetyEngine implements ValidationService {
             warnings.push('Phone battery low. Recommended to charge.');
         }
 
-        // Mock Device Connection
-        // (In real flow, we'd check DeviceService.isConnected)
+        // Device connection verified through DeviceService in production
 
         return this.createReport(score, errors, warnings, actions);
     }

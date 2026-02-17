@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Theme } from '../../theme';
-import { Screen, PrimaryButton, Card } from '../../components/SharedComponents';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StorageAdapter } from '../../../data/services/StorageAdapter';
 
@@ -14,6 +13,17 @@ interface AcceptanceRecord {
     acceptedAt: string;
     version: string;
 }
+
+// ─── Color Tokens ──────────────────────────────────────────────
+const C = {
+    bg: '#1a1a1a',
+    surface: '#252525',
+    border: 'rgba(255,255,255,0.05)',
+    text: '#FFFFFF',
+    muted: '#9ca3af',
+    primary: '#ea103c',
+    success: '#22C55E',
+};
 
 export const LegalDocumentScreen = ({ route, navigation }: any) => {
     const { title, content } = route.params;
@@ -57,126 +67,123 @@ export const LegalDocumentScreen = ({ route, navigation }: any) => {
         : null;
 
     return (
-        <Screen scroll>
-            <View style={styles.container}>
-                <Text style={styles.title}>{title}</Text>
+        <SafeAreaView style={s.root} edges={['top']}>
+            {/* ─── Header ─── */}
+            <View style={s.header}>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                    <Ionicons name="arrow-back" size={24} color={C.text} />
+                </TouchableOpacity>
+                <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
+                <View style={{ width: 40 }} />
+            </View>
 
-                {/* Version & Acceptance Badge */}
-                <View style={styles.metaRow}>
-                    <View style={styles.versionBadge}>
-                        <Text style={styles.versionText}>v1.0</Text>
-                    </View>
-                    {acceptance && (
-                        <View style={styles.acceptedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color={Theme.Colors.success} />
-                            <Text style={styles.acceptedText}>Accepted {formattedDate}</Text>
-                        </View>
-                    )}
+            {/* ─── Meta Row ─── */}
+            <View style={s.metaRow}>
+                <View style={s.versionPill}>
+                    <Text style={s.versionText}>v1.0</Text>
                 </View>
-
-                <View style={styles.contentContainer}>
-                    <Text style={styles.text}>{content}</Text>
-                </View>
-
-                {/* Accept Button (only for required docs) */}
-                {isRequired && (
-                    <View style={styles.footer}>
-                        {acceptance ? (
-                            <Card style={styles.confirmedCard}>
-                                <View style={styles.confirmedRow}>
-                                    <Ionicons name="shield-checkmark" size={24} color={Theme.Colors.success} />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.confirmedTitle}>Accepted</Text>
-                                        <Text style={styles.confirmedDate}>
-                                            Version {acceptance.version} • {formattedDate}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </Card>
-                        ) : (
-                            <PrimaryButton
-                                title={accepting ? 'Saving...' : `I Accept ${title}`}
-                                onPress={handleAccept}
-                                loading={accepting}
-                                icon="shield-checkmark-outline"
-                            />
-                        )}
+                {acceptance && (
+                    <View style={s.acceptedPill}>
+                        <Ionicons name="checkmark-circle" size={14} color={C.success} />
+                        <Text style={s.acceptedText}>Accepted {formattedDate}</Text>
                     </View>
                 )}
             </View>
-        </Screen>
+
+            {/* ─── Content ─── */}
+            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+                <View style={s.contentCard}>
+                    <Text style={s.documentText}>{content}</Text>
+                </View>
+            </ScrollView>
+
+            {/* ─── Footer ─── */}
+            {isRequired && (
+                <View style={s.footer}>
+                    {acceptance ? (
+                        <View style={s.confirmedCard}>
+                            <Ionicons name="shield-checkmark" size={24} color={C.success} />
+                            <View style={{ flex: 1, marginLeft: 14 }}>
+                                <Text style={s.confirmedTitle}>Accepted</Text>
+                                <Text style={s.confirmedDate}>
+                                    Version {acceptance.version} • {formattedDate}
+                                </Text>
+                            </View>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={s.acceptButton}
+                            onPress={handleAccept}
+                            disabled={accepting}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="shield-checkmark-outline" size={20} color="#FFF" />
+                            <Text style={s.acceptButtonText}>
+                                {accepting ? 'Saving...' : `I Accept ${title}`}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            )}
+        </SafeAreaView>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        padding: Theme.Spacing.md,
+// ─── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    header: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 16, height: 56,
+        borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    title: {
-        ...Theme.Typography.h2,
-        marginBottom: 8,
+    backBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        alignItems: 'center', justifyContent: 'center',
     },
+    headerTitle: { fontSize: 17, fontWeight: '700', color: C.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
+
     metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: Theme.Spacing.lg,
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        paddingHorizontal: 16, paddingVertical: 12,
     },
-    versionBadge: {
-        backgroundColor: Theme.Colors.surfaceHighlight,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
+    versionPill: {
+        backgroundColor: C.surface,
+        paddingHorizontal: 12, paddingVertical: 4,
+        borderRadius: 12,
     },
-    versionText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: Theme.Colors.textSecondary,
+    versionText: { fontSize: 12, fontWeight: '600', color: C.muted },
+    acceptedPill: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
     },
-    acceptedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
+    acceptedText: { fontSize: 12, color: C.success, fontWeight: '500' },
+
+    scrollContent: { padding: 16, paddingBottom: 120 },
+    contentCard: {
+        backgroundColor: C.surface,
+        borderRadius: 16, padding: 20,
+        borderWidth: 1, borderColor: C.border,
     },
-    acceptedText: {
-        fontSize: 12,
-        color: Theme.Colors.success,
-        fontWeight: '500',
-    },
-    contentContainer: {
-        backgroundColor: Theme.Colors.surface,
-        borderRadius: Theme.Layout.borderRadius,
-        padding: 16,
-        marginBottom: Theme.Spacing.lg,
-        borderWidth: 1,
-        borderColor: Theme.Colors.border,
-    },
-    text: {
-        ...Theme.Typography.body,
-        fontSize: 14,
-        lineHeight: 22,
-    },
+    documentText: { fontSize: 14, lineHeight: 22, color: C.muted },
+
     footer: {
-        marginTop: 8,
+        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12,
+        borderTopWidth: 1, borderTopColor: C.border,
     },
     confirmedCard: {
-        borderColor: Theme.Colors.success,
-        borderWidth: 1,
-        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: 'rgba(34,197,94,0.08)',
+        borderRadius: 16, padding: 16,
+        borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
     },
-    confirmedRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
+    confirmedTitle: { fontSize: 16, fontWeight: '700', color: C.success },
+    confirmedDate: { fontSize: 12, color: C.muted, marginTop: 2 },
+    acceptButton: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        height: 52, borderRadius: 26,
+        backgroundColor: C.primary,
+        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5, shadowRadius: 20,
     },
-    confirmedTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: Theme.Colors.success,
-    },
-    confirmedDate: {
-        fontSize: 12,
-        color: Theme.Colors.textSecondary,
-        marginTop: 2,
-    },
+    acceptButtonText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
 });
