@@ -164,7 +164,12 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
                     <Ionicons name="refresh" size={20} color="#FFF" />
                     <Text style={s.primaryBtnText}>Retry Recovery</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.secondaryBtn} onPress={() => { }} activeOpacity={0.7}>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Profile', { screen: 'LogsExport' })} activeOpacity={0.7}>
+                    <Ionicons name="document-text-outline" size={18} color="#d4d4d4" />
+                    <Text style={s.secondaryBtnText}>Export Session Logs</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Profile', { screen: 'Support' })} activeOpacity={0.7}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={18} color="#d4d4d4" />
                     <Text style={s.secondaryBtnText}>Contact Support</Text>
                 </TouchableOpacity>
             </View>

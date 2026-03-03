@@ -1,31 +1,39 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { supabase } from '../../services/supabase';
+import { useAuth } from '../context/AuthContext';
 import { theme } from '../../styles/theme';
 
 export default function LoginScreen() {
+    const { signIn, signUp } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(false);
 
     async function handleAuth() {
-        setLoading(true);
-        if (isSignUp) {
-            const { error } = await supabase.auth.signUp({
-                email,
-                password,
-            });
-            if (error) Alert.alert('Error', error.message);
-            else Alert.alert('Success', 'Check your inbox for email verification!');
-        } else {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-            if (error) Alert.alert('Error', error.message);
+        if (!email.trim() || !password.trim()) {
+            Alert.alert('Error', 'Please enter your email and password');
+            return;
         }
-        setLoading(false);
+
+        setLoading(true);
+        try {
+            if (isSignUp) {
+                const { error } = await signUp(email, password);
+                if (error) {
+                    Alert.alert('Error', error);
+                }
+            } else {
+                const { error } = await signIn(email, password);
+                if (error) {
+                    Alert.alert('Error', error);
+                }
+            }
+        } catch (e: any) {
+            Alert.alert('Error', e.uiMessage || e.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (

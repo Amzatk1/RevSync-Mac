@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Animated, Easing, TouchableOpacity 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
+import * as Haptics from 'expo-haptics';
 
 // ─── Color Tokens ──────────────────────────────────────────────
 const C = {
@@ -24,7 +25,7 @@ interface VerifyStep {
 }
 
 export const VerificationScreen = ({ navigation, route }: any) => {
-    const { tuneId, deviceId } = route.params || {};
+    const { tuneId, deviceId, flashJobId } = route.params || {};
     const [steps, setSteps] = useState<VerifyStep[]>([
         { label: 'Read-back Checksum', status: 'pending' },
         { label: 'Signature Match', status: 'pending' },
@@ -121,10 +122,35 @@ export const VerificationScreen = ({ navigation, route }: any) => {
             });
 
             setOverall('pass');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Record flash job as completed on server
+            try {
+                const { ApiClient } = await import('../../../data/http/ApiClient');
+                if (flashJobId) {
+                    await ApiClient.getInstance().patch(`/v1/garage/flash-jobs/${flashJobId}/`, {
+                        status: 'COMPLETED',
+                        verified_at: new Date().toISOString(),
+                        checksum_matched: true,
+                    });
+                }
+            } catch { /* offline — will sync later */ }
 
         } catch (e: any) {
             setError(e.message || 'Verification Failed');
             setOverall('fail');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+            // Record verification failure on server
+            try {
+                const { ApiClient } = await import('../../../data/http/ApiClient');
+                if (flashJobId) {
+                    await ApiClient.getInstance().patch(`/v1/garage/flash-jobs/${flashJobId}/`, {
+                        status: 'VERIFY_FAILED',
+                        error_message: e.message,
+                    });
+                }
+            } catch { /* offline */ }
         }
     };
 

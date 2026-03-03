@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, Animated, Easing,
-    Image, StatusBar, Platform, Dimensions,
+    Image, StatusBar, Dimensions,
     TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -34,6 +34,7 @@ const FEATURES = [
 ];
 
 export const WelcomeScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     // --- Animations ---
     const heroOpacity = useRef(new Animated.Value(0)).current;
     const heroScale = useRef(new Animated.Value(1.08)).current;
@@ -114,7 +115,7 @@ export const WelcomeScreen = ({ navigation }: any) => {
             </View>
 
             {/* ─── Content ─── */}
-            <View style={styles.content}>
+            <View style={[styles.content, { paddingBottom: insets.bottom + 16 }]}>
                 {/* Title + Subtitle */}
                 <View style={styles.titleBlock}>
                     <Animated.Text style={[styles.title, { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }]}>
@@ -235,7 +236,6 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingTop: HERO_HEIGHT + 24,
         paddingHorizontal: 24,
-        paddingBottom: Platform.OS === 'ios' ? 36 : 24,
         justifyContent: 'flex-start',
     },
     titleBlock: {

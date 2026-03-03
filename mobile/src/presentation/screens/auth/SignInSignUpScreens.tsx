@@ -1,12 +1,13 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
-    View, Text, TextInput, StyleSheet, TouchableOpacity,
+    View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView,
     Alert, Animated, KeyboardAvoidingView, Platform, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/useAppStore';
 
-// ── Design tokens matching the HTML mockup ──
+// ── Design Tokens ──
 const C = {
     primary: '#ea103c',
     bg: '#1a1a1a',
@@ -40,6 +41,7 @@ const getPasswordStrength = (pwd: string): { level: 'weak' | 'fair' | 'strong'; 
 //  SIGN IN
 // ════════════════════════════════════════════════════════════════════
 export const SignInScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -57,86 +59,93 @@ export const SignInScreen = ({ navigation }: any) => {
     };
 
     return (
-        <View style={styles.root}>
+        <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
             <StatusBar barStyle="light-content" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.title}>Sign In</Text>
-                    <Text style={styles.subtitle}>Welcome back to RevSync.</Text>
-                </View>
-
-                {/* Form */}
-                <View style={styles.form}>
-                    {/* Email Input */}
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="mail-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter your email"
-                            placeholderTextColor={C.neutral500}
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Sign In</Text>
+                        <Text style={styles.subtitle}>Welcome back to RevSync.</Text>
                     </View>
 
-                    {/* Password Input */}
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter your password"
-                            placeholderTextColor={C.neutral500}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!showPassword}
-                        />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                            <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.neutral500} />
+                    {/* Form */}
+                    <View style={styles.form}>
+                        {/* Email Input */}
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="mail-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter your email"
+                                placeholderTextColor={C.neutral500}
+                                value={email}
+                                onChangeText={setEmail}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                            />
+                        </View>
+
+                        {/* Password Input */}
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter your password"
+                                placeholderTextColor={C.neutral500}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry={!showPassword}
+                            />
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.neutral500} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Forgot Password */}
+                        <TouchableOpacity
+                            style={styles.forgotRow}
+                            onPress={() => Alert.alert('Forgot Password', 'Please check your email to reset your password.')}
+                        >
+                            <Text style={styles.forgotText}>Forgot password?</Text>
                         </TouchableOpacity>
-                    </View>
 
-                    {/* Forgot Password */}
-                    <TouchableOpacity
-                        style={styles.forgotRow}
-                        onPress={() => Alert.alert('Forgot Password', 'Please check your email to reset your password.')}
-                    >
-                        <Text style={styles.forgotText}>Forgot password?</Text>
-                    </TouchableOpacity>
-
-                    {/* Sign In Button */}
-                    <TouchableOpacity
-                        style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
-                        onPress={handleSignIn}
-                        activeOpacity={0.85}
-                        disabled={isLoading}
-                    >
-                        <Text style={styles.primaryBtnText}>
-                            {isLoading ? 'Signing In...' : 'Sign In'}
-                        </Text>
-                        {!isLoading && <Ionicons name="arrow-forward" size={20} color={C.white} />}
-                    </TouchableOpacity>
-
-                    {/* Create Account Link */}
-                    <View style={styles.switchRow}>
-                        <Text style={styles.switchText}>Don't have an account?</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                            <Text style={styles.switchLink}> Create account</Text>
+                        {/* Sign In Button */}
+                        <TouchableOpacity
+                            style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
+                            onPress={handleSignIn}
+                            activeOpacity={0.85}
+                            disabled={isLoading}
+                        >
+                            <Text style={styles.primaryBtnText}>
+                                {isLoading ? 'Signing In...' : 'Sign In'}
+                            </Text>
+                            {!isLoading && <Ionicons name="arrow-forward" size={20} color={C.white} />}
                         </TouchableOpacity>
+
+                        {/* Create Account Link */}
+                        <View style={styles.switchRow}>
+                            <Text style={styles.switchText}>Don't have an account?</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                                <Text style={styles.switchLink}> Create account</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+
+                    {/* Footer */}
+                    <Text style={styles.termsFooter}>
+                        By signing in, you agree to our Terms of Service and Privacy Policy.
+                    </Text>
+                </ScrollView>
             </KeyboardAvoidingView>
-
-            {/* Footer */}
-            <Text style={styles.termsFooter}>
-                By signing in, you agree to our Terms of Service and Privacy Policy.
-            </Text>
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -144,6 +153,7 @@ export const SignInScreen = ({ navigation }: any) => {
 //  SIGN UP
 // ════════════════════════════════════════════════════════════════════
 export const SignUpScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -187,111 +197,118 @@ export const SignUpScreen = ({ navigation }: any) => {
     };
 
     return (
-        <View style={styles.root}>
+        <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
             <StatusBar barStyle="light-content" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.title}>Create Account</Text>
-                    <Text style={styles.subtitle}>Join the RevSync community.</Text>
-                </View>
-
-                <Animated.View style={[styles.form, { transform: [{ translateX: shakeAnim }] }]}>
-                    {/* Email */}
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="mail-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Enter your email"
-                            placeholderTextColor={C.neutral500}
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Create Account</Text>
+                        <Text style={styles.subtitle}>Join the RevSync community.</Text>
                     </View>
 
-                    {/* Password */}
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Min 8 characters"
-                            placeholderTextColor={C.neutral500}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!showPassword}
-                        />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                            <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.neutral500} />
-                        </TouchableOpacity>
-                    </View>
+                    <Animated.View style={[styles.form, { transform: [{ translateX: shakeAnim }] }]}>
+                        {/* Email */}
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="mail-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter your email"
+                                placeholderTextColor={C.neutral500}
+                                value={email}
+                                onChangeText={setEmail}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                            />
+                        </View>
 
-                    {/* Strength meter */}
-                    {password.length > 0 && (
-                        <View style={styles.strengthRow}>
-                            <View style={styles.strengthTrack}>
-                                <View style={[styles.strengthFill, { width: `${strength.score * 100}%`, backgroundColor: strength.color }]} />
+                        {/* Password */}
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Min 8 characters"
+                                placeholderTextColor={C.neutral500}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry={!showPassword}
+                            />
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.neutral500} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Strength meter */}
+                        {password.length > 0 && (
+                            <View style={styles.strengthRow}>
+                                <View style={styles.strengthTrack}>
+                                    <View style={[styles.strengthFill, { width: `${strength.score * 100}%`, backgroundColor: strength.color }]} />
+                                </View>
+                                <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                                    {strength.level.charAt(0).toUpperCase() + strength.level.slice(1)}
+                                </Text>
                             </View>
-                            <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                                {strength.level.charAt(0).toUpperCase() + strength.level.slice(1)}
+                        )}
+
+                        {/* Confirm Password */}
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Re-enter password"
+                                placeholderTextColor={C.neutral500}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                secureTextEntry
+                            />
+                        </View>
+
+                        {/* Terms checkbox */}
+                        <TouchableOpacity style={styles.termsRow} onPress={() => setTermsAccepted(!termsAccepted)} activeOpacity={0.7}>
+                            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                                {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                            </View>
+                            <Text style={styles.termsText}>
+                                I agree to the <Text style={styles.termsLink}>Terms & Conditions</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>
                             </Text>
-                        </View>
-                    )}
-
-                    {/* Confirm Password */}
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Re-enter password"
-                            placeholderTextColor={C.neutral500}
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                            secureTextEntry
-                        />
-                    </View>
-
-                    {/* Terms checkbox */}
-                    <TouchableOpacity style={styles.termsRow} onPress={() => setTermsAccepted(!termsAccepted)} activeOpacity={0.7}>
-                        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                            {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
-                        </View>
-                        <Text style={styles.termsText}>
-                            I agree to the <Text style={styles.termsLink}>Terms & Conditions</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>
-                        </Text>
-                    </TouchableOpacity>
-
-                    {/* Sign Up Button */}
-                    <TouchableOpacity
-                        style={[styles.primaryBtn, (!termsAccepted || isLoading) && { opacity: 0.5 }]}
-                        onPress={handleSignUp}
-                        activeOpacity={0.85}
-                        disabled={!termsAccepted || isLoading}
-                    >
-                        <Text style={styles.primaryBtnText}>
-                            {isLoading ? 'Creating Account...' : 'Create Account'}
-                        </Text>
-                        {!isLoading && <Ionicons name="arrow-forward" size={20} color={C.white} />}
-                    </TouchableOpacity>
-
-                    {/* Switch to Sign In */}
-                    <View style={styles.switchRow}>
-                        <Text style={styles.switchText}>Already have an account?</Text>
-                        <TouchableOpacity onPress={() => navigation.goBack()}>
-                            <Text style={styles.switchLink}> Sign In</Text>
                         </TouchableOpacity>
-                    </View>
-                </Animated.View>
-            </KeyboardAvoidingView>
 
-            <Text style={styles.termsFooter}>
-                By creating an account, you agree to our Terms of Service and Privacy Policy.
-            </Text>
-        </View>
+                        {/* Sign Up Button */}
+                        <TouchableOpacity
+                            style={[styles.primaryBtn, (!termsAccepted || isLoading) && { opacity: 0.5 }]}
+                            onPress={handleSignUp}
+                            activeOpacity={0.85}
+                            disabled={!termsAccepted || isLoading}
+                        >
+                            <Text style={styles.primaryBtnText}>
+                                {isLoading ? 'Creating Account...' : 'Create Account'}
+                            </Text>
+                            {!isLoading && <Ionicons name="arrow-forward" size={20} color={C.white} />}
+                        </TouchableOpacity>
+
+                        {/* Switch to Sign In */}
+                        <View style={styles.switchRow}>
+                            <Text style={styles.switchText}>Already have an account?</Text>
+                            <TouchableOpacity onPress={() => navigation.goBack()}>
+                                <Text style={styles.switchLink}> Sign In</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+
+                    <Text style={styles.termsFooter}>
+                        By creating an account, you agree to our Terms of Service and Privacy Policy.
+                    </Text>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
@@ -302,12 +319,15 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
         backgroundColor: C.bg,
-        justifyContent: 'center',
-        paddingHorizontal: 24,
     },
     keyboardView: {
         flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
         justifyContent: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 24,
     },
 
     // ── Header ──
@@ -405,13 +425,11 @@ const styles = StyleSheet.create({
 
     // ── Terms footer ──
     termsFooter: {
-        position: 'absolute',
-        bottom: Platform.OS === 'ios' ? 40 : 24,
-        left: 24,
-        right: 24,
         textAlign: 'center',
         fontSize: 11,
         color: C.neutral800,
+        lineHeight: 16,
+        marginTop: 24,
     },
 
     // ── Password strength ──

@@ -48,7 +48,8 @@ export class ApiTuneService implements TuneService {
                 }
                 return results;
             }
-            throw error;
+            // No cache available — return empty instead of crashing
+            return [];
         }
     }
 

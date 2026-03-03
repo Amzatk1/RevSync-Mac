@@ -6,6 +6,7 @@ import { Theme } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { Animated, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Tunes Screens
 import { TuneMarketplaceScreen } from '../screens/TuneMarketplaceScreen';
@@ -13,6 +14,7 @@ import { TuneDetailsScreen } from '../screens/tunes/TuneDetailsScreen';
 import { TuneValidationScreen } from '../screens/tunes/TuneValidationScreen';
 import { CheckoutScreen } from '../screens/tunes/CheckoutScreen';
 import { DownloadManagerScreen } from '../screens/tunes/DownloadManagerScreen';
+import { TuneCompareScreen } from '../screens/tunes/TuneCompareScreen';
 
 // Garage Screens
 import { GarageScreen } from '../screens/GarageScreen';
@@ -26,6 +28,8 @@ import { ECUIdentifyScreen } from '../screens/flash/ECUIdentifyScreen';
 import { BackupScreen } from '../screens/flash/BackupScreen';
 import { VerificationScreen } from '../screens/flash/VerificationScreen';
 import { RecoveryScreen } from '../screens/flash/RecoveryScreen';
+import { FlashHistoryScreen } from '../screens/flash/FlashHistoryScreen';
+import { TelemetryScreen } from '../screens/flash/TelemetryScreen';
 
 // Profile Screens
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
@@ -77,6 +81,7 @@ const TunesStack = () => (
         <Stack.Screen name="TuneValidation" component={TuneValidationScreen} />
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
         <Stack.Screen name="DownloadManager" component={DownloadManagerScreen} />
+        <Stack.Screen name="TuneCompare" component={TuneCompareScreen} />
     </Stack.Navigator>
 );
 
@@ -106,6 +111,8 @@ const FlashStack = () => (
         <Stack.Screen name="FlashWizard" component={FlashWizardScreen} />
         <Stack.Screen name="Verification" component={VerificationScreen} />
         <Stack.Screen name="Recovery" component={RecoveryScreen} />
+        <Stack.Screen name="FlashHistory" component={FlashHistoryScreen} />
+        <Stack.Screen name="Telemetry" component={TelemetryScreen} />
     </Stack.Navigator>
 );
 
@@ -133,52 +140,57 @@ const ProfileStack = () => (
 
 // --- Main Tab Navigator ---
 
-const MainNavigator = () => (
-    <Tab.Navigator
-        screenOptions={({ route }) => ({
-            headerShown: false,
-            tabBarStyle: {
-                backgroundColor: '#18181B',
-                borderTopWidth: 0,
-                paddingBottom: 8,
-                paddingTop: 8,
-                height: 68,
-                elevation: 24,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: -4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
-            },
-            tabBarActiveTintColor: Theme.Colors.primary,
-            tabBarInactiveTintColor: '#52525B',
-            tabBarLabelStyle: {
-                fontSize: 11,
-                fontWeight: '600',
-                letterSpacing: 0.2,
-            },
-            tabBarIcon: ({ focused, color, size }) => {
-                let iconName: any;
+const MainNavigator = () => {
+    const insets = useSafeAreaInsets();
+    const tabBarBottomPadding = Math.max(insets.bottom, 8);
 
-                if (route.name === 'Tunes') {
-                    iconName = focused ? 'speedometer' : 'speedometer-outline';
-                } else if (route.name === 'Garage') {
-                    iconName = focused ? 'car-sport' : 'car-sport-outline';
-                } else if (route.name === 'Flash') {
-                    iconName = focused ? 'flash' : 'flash-outline';
-                } else if (route.name === 'Profile') {
-                    iconName = focused ? 'person' : 'person-outline';
-                }
+    return (
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                headerShown: false,
+                tabBarStyle: {
+                    backgroundColor: '#18181B',
+                    borderTopWidth: 0,
+                    paddingBottom: tabBarBottomPadding,
+                    paddingTop: 8,
+                    height: 56 + tabBarBottomPadding,
+                    elevation: 24,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 12,
+                },
+                tabBarActiveTintColor: Theme.Colors.primary,
+                tabBarInactiveTintColor: '#52525B',
+                tabBarLabelStyle: {
+                    fontSize: 11,
+                    fontWeight: '600',
+                    letterSpacing: 0.2,
+                },
+                tabBarIcon: ({ focused, color, size }) => {
+                    let iconName: any;
 
-                return <Ionicons name={iconName} size={focused ? 26 : 24} color={color} />;
-            },
-        })}
-    >
-        <Tab.Screen name="Tunes" component={TunesStack} />
-        <Tab.Screen name="Garage" component={GarageStack} />
-        <Tab.Screen name="Flash" component={FlashStack} />
-        <Tab.Screen name="Profile" component={ProfileStack} />
-    </Tab.Navigator>
-);
+                    if (route.name === 'Tunes') {
+                        iconName = focused ? 'speedometer' : 'speedometer-outline';
+                    } else if (route.name === 'Garage') {
+                        iconName = focused ? 'car-sport' : 'car-sport-outline';
+                    } else if (route.name === 'Flash') {
+                        iconName = focused ? 'flash' : 'flash-outline';
+                    } else if (route.name === 'Profile') {
+                        iconName = focused ? 'person' : 'person-outline';
+                    }
+
+                    return <Ionicons name={iconName} size={focused ? 26 : 24} color={color} />;
+                },
+            })}
+        >
+            <Tab.Screen name="Tunes" component={TunesStack} />
+            <Tab.Screen name="Garage" component={GarageStack} />
+            <Tab.Screen name="Flash" component={FlashStack} />
+            <Tab.Screen name="Profile" component={ProfileStack} />
+        </Tab.Navigator>
+    );
+};
 
 // --- Root App Navigator ---
 

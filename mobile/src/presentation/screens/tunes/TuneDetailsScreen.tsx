@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, ScrollView,
-    Platform, StatusBar, Animated, Easing, Image,
+    View, Text, StyleSheet, TouchableOpacity,
+    StatusBar, Animated, Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { Tune } from '../../../domain/services/DomainTypes';
 import { useAppStore } from '../../store/useAppStore';
@@ -42,6 +43,7 @@ const getStageColor = (stage: number) => {
 };
 
 export const TuneDetailsScreen = ({ route, navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const { tuneId } = route.params;
     const { activeBike } = useAppStore();
     const [tune, setTune] = useState<Tune | null>(null);
@@ -100,7 +102,7 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
             <StatusBar barStyle="light-content" />
 
             {/* ─── Header ─── */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity
                     style={styles.headerBtn}
                     onPress={() => navigation.goBack()}
@@ -119,7 +121,7 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
 
             <Animated.ScrollView
                 style={{ flex: 1, opacity: fadeAnim }}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
                 showsVerticalScrollIndicator={false}
             >
                 {/* ─── Title + Price ─── */}
@@ -192,6 +194,20 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
                     </View>
                 </View>
 
+                {/* Compare Button */}
+                <TouchableOpacity
+                    style={{
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        backgroundColor: '#252525', borderRadius: 12, paddingVertical: 12,
+                        borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 20
+                    }}
+                    onPress={() => navigation.navigate('TuneCompare', { tuneId: tune.id })}
+                    activeOpacity={0.7}
+                >
+                    <Ionicons name="git-compare-outline" size={18} color="#ea103c" />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#ea103c' }}>Compare vs Stock</Text>
+                </TouchableOpacity>
+
                 {/* ─── Specs Grid ─── */}
                 <View style={styles.specsGrid}>
                     <View style={styles.specCard}>
@@ -247,12 +263,10 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
                     </View>
                 )}
 
-                {/* bottom spacer */}
-                <View style={{ height: 160 }} />
             </Animated.ScrollView>
 
             {/* ─── Bottom Bar ─── */}
-            <View style={styles.bottomBar}>
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
                 <View style={styles.bottomPriceRow}>
                     <View>
                         <Text style={styles.bottomPriceLabel}>TOTAL</Text>
@@ -291,7 +305,6 @@ const styles = StyleSheet.create({
 
     // ── Header ──
     header: {
-        paddingTop: Platform.OS === 'ios' ? 56 : 40,
         paddingBottom: 8,
         paddingHorizontal: 24,
         flexDirection: 'row',
@@ -585,7 +598,6 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.10)',
         padding: 24,
-        paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     },
     bottomPriceRow: {
         flexDirection: 'row',

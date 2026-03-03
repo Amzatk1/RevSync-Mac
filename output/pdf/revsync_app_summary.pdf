@@ -1,0 +1,262 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+7 0 obj
+<< /Length 4100 >>
+stream
+BT
+/F2 20 Tf
+48.00 744.00 Td
+(RevSync App Summary \(Repo-Based\)) Tj
+ET
+BT
+/F1 9.2 Tf
+48.00 724.00 Td
+(Evidence sources: README + backend/mobile/web code and docs in this repository.) Tj
+ET
+0.75 w
+48 711.00 m 564 711.00 l S
+BT
+/F2 12.2 Tf
+48.00 695.00 Td
+(What It Is) Tj
+ET
+BT
+/F1 10.2 Tf
+48.00 681.00 Td
+(RevSync is a motorcycle ECU tuning platform with a React Native/Expo mobile client, a Django) Tj
+ET
+BT
+/F1 10.2 Tf
+48.00 669.50 Td
+(REST backend, and a Next.js web app surface.) Tj
+ET
+BT
+/F1 10.2 Tf
+48.00 657.00 Td
+(It combines tune discovery, purchase/download, flashing workflows, and server-side safety) Tj
+ET
+BT
+/F1 10.2 Tf
+48.00 645.50 Td
+(validation/signing before customer delivery.) Tj
+ET
+BT
+/F2 12.2 Tf
+48.00 627.00 Td
+(Who It Is For) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 613.00 Td
+(- Primary persona: performance-focused motorcycle riders who buy and flash ECU tunes.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 601.40 Td
+(- Secondary personas: tuners and admins who upload, review, publish, and support tune) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 590.20 Td
+(  listings.) Tj
+ET
+BT
+/F2 12.2 Tf
+48.00 572.60 Td
+(What It Does) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 558.60 Td
+(- Marketplace browsing, detail views, purchase checks, entitlements, and secure download) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 547.40 Td
+(  links.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 535.80 Td
+(- Garage management for vehicles, ECU backups, and flash job tracking APIs.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 524.20 Td
+(- Guided mobile flash flow: device connect, ECU identify, backup, flash, verification,) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 513.00 Td
+(  recovery, telemetry.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 501.40 Td
+(- Tune safety pipeline: malware scan, package/schema checks, hash checks, and ECU) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 490.20 Td
+(  compatibility validation.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 478.60 Td
+(- Secure distribution via Ed25519 signing plus client-side signature verification before) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 467.40 Td
+(  flashing.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 455.80 Td
+(- Auth/account/community features: JWT login/refresh, profiles, legal acceptance,) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 444.60 Td
+(  preferences, follows, chat.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 433.00 Td
+(- Payments integration via Stripe payment-intent creation and webhook handling.) Tj
+ET
+BT
+/F2 12.2 Tf
+48.00 415.40 Td
+(How It Works \(Architecture\)) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 401.40 Td
+(- Clients: Expo mobile app \(`mobile/src/...`\) and Next.js web app \(`web/src/app/...`\).) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 389.80 Td
+(- API layer: Django apps \(`users`, `garage`, `marketplace`, `safety_layer`, `payments`,) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 378.60 Td
+(  `chat`, `tuners`\).) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 367.00 Td
+(- Data/services: SQLite default DB \(optional Postgres via `DATABASE_URL`\) plus Supabase) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 355.80 Td
+(  auth/storage buckets.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 344.20 Td
+(- Async processing: Celery workers run validation/signing pipeline and move packages from) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 333.00 Td
+(  quarantine to validated storage.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 321.40 Td
+(- Data flow: tuner upload -> quarantine -> validate/sign -> approve/publish -> purchase ->) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 310.20 Td
+(  signed URL download -> mobile verify -> flash enabled.) Tj
+ET
+BT
+/F1 10.1 Tf
+48.00 298.60 Td
+(- Desktop runtime implementation: Not found in repo \(desktop README marks it as planned\).) Tj
+ET
+BT
+/F2 12.2 Tf
+48.00 281.00 Td
+(How To Run \(Minimal\)) Tj
+ET
+BT
+/F2 10.2 Tf
+48.00 267.00 Td
+(1\) Backend) Tj
+ET
+BT
+/F3 9.0 Tf
+58.00 255.80 Td
+(cd backend && python3 -m venv venv && source venv/bin/activate) Tj
+ET
+BT
+/F3 9.0 Tf
+58.00 245.80 Td
+(pip install -r requirements.txt && python manage.py migrate && python manage.py runserver 0.0.0.0:8000) Tj
+ET
+BT
+/F2 10.2 Tf
+48.00 235.80 Td
+(2\) Mobile) Tj
+ET
+BT
+/F3 9.0 Tf
+58.00 224.60 Td
+(cd mobile && npm install && npm start) Tj
+ET
+BT
+/F2 10.2 Tf
+48.00 214.60 Td
+(3\) Web \(optional\)) Tj
+ET
+BT
+/F3 9.0 Tf
+58.00 203.40 Td
+(cd web && npm install && npm run dev) Tj
+ET
+BT
+/F1 8.2 Tf
+48.00 28.00 Td
+(Generated from repo evidence on 2026-03-03.) Tj
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000267 00000 n 
+0000000337 00000 n 
+0000000412 00000 n 
+0000000480 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+4632
+%%EOF

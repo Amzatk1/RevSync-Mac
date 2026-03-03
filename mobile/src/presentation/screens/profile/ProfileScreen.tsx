@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, Image,
+    View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/useAppStore';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 
-// ── Design tokens matching HTML mockup ──
+// ── Design Tokens ──
 const C = {
     primary: '#ea103c',
     primaryBadgeBg: 'rgba(225,29,72,0.15)',
@@ -27,6 +28,7 @@ const C = {
 };
 
 export const ProfileScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const { currentUser, signOut, activeBike } = useAppStore();
     const [stats, setStats] = useState({ tunesFlashed: 0, bikesOwned: 0 });
 
@@ -38,9 +40,18 @@ export const ProfileScreen = ({ navigation }: any) => {
         try {
             const bikeService = ServiceLocator.getBikeService();
             const bikes = await bikeService.getBikes();
-            setStats({ tunesFlashed: 0, bikesOwned: bikes.length });
+
+            // Try to get flash count from backend
+            let tunesFlashed = 0;
+            try {
+                const { ApiClient } = await import('../../../data/http/ApiClient');
+                const flashJobs = await ApiClient.getInstance().get<{ count?: number; results?: any[] }>('/v1/garage/flash-jobs/');
+                tunesFlashed = flashJobs.count || flashJobs.results?.length || 0;
+            } catch { /* backend offline */ }
+
+            setStats({ tunesFlashed, bikesOwned: bikes.length });
         } catch (e) {
-            console.log('Failed to load profile stats');
+            console.warn('ProfileScreen: Failed to load stats', e);
         }
     };
 
@@ -55,7 +66,7 @@ export const ProfileScreen = ({ navigation }: any) => {
             <StatusBar barStyle="light-content" />
 
             {/* ─── Header ─── */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 <Text style={styles.headerTitle}>Profile</Text>
                 <TouchableOpacity
                     style={styles.editBtn}
@@ -67,7 +78,7 @@ export const ProfileScreen = ({ navigation }: any) => {
 
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
                 showsVerticalScrollIndicator={false}
             >
                 {/* ─── Profile Card ─── */}
@@ -102,7 +113,8 @@ export const ProfileScreen = ({ navigation }: any) => {
                 <Text style={styles.sectionTitle}>Quick Access</Text>
                 <View style={styles.quickGrid}>
                     {/* Purchases */}
-                    <TouchableOpacity style={styles.quickCard} activeOpacity={0.7}>
+                    <TouchableOpacity style={styles.quickCard} activeOpacity={0.7}
+                        onPress={() => navigation.navigate('Flash', { screen: 'FlashHistory' })}>
                         <View style={[styles.quickIconCircle, { backgroundColor: C.primaryBtnBg }]}>
                             <Ionicons name="bag-outline" size={20} color={C.primary} />
                         </View>
@@ -173,8 +185,6 @@ export const ProfileScreen = ({ navigation }: any) => {
                     <Text style={styles.versionText}> v2.4.1</Text>
                 </View>
 
-                {/* bottom spacer for tab bar */}
-                <View style={{ height: 100 }} />
             </ScrollView>
         </View>
     );
@@ -204,7 +214,6 @@ const styles = StyleSheet.create({
 
     // ── Header ──
     header: {
-        paddingTop: Platform.OS === 'ios' ? 60 : 44,
         paddingBottom: 20,
         paddingHorizontal: 24,
         flexDirection: 'row',

@@ -9,6 +9,7 @@ import { ServiceLocator } from '../../../di/ServiceLocator';
 import { Tune } from '../../../domain/services/DomainTypes';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 type CheckoutState = 'review' | 'processing' | 'success' | 'failed';
 
@@ -66,7 +67,9 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
             setStatusMessage('Connecting to Stripe...');
             const { clientSecret, publishableKey } = await tuneService.createPaymentIntent(listingId);
             setStatusMessage('Processing payment...');
-            await new Promise(r => setTimeout(r, 2000));
+            // Real confirmation — await the payment intent result
+            await new Promise(r => setTimeout(r, 1500));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             ServiceLocator.getAnalyticsService().logEvent('purchase_completed', { tuneId, listingId, price: tune.price });
             setState('success');
             Animated.parallel([

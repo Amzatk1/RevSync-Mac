@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert, Platform, StatusBar,
+    RefreshControl, Alert, StatusBar,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ServiceLocator } from '../../di/ServiceLocator';
 import { Tune, TuneFilter } from '../../domain/services/DomainTypes';
 import { TuneCard } from '../components/TuneCard';
+import { SkeletonTuneCard } from '../components/SkeletonCards';
 import { useAppStore } from '../store/useAppStore';
 
 // ── Design tokens ──
@@ -24,6 +27,7 @@ const C = {
 };
 
 export const TuneMarketplaceScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const { activeBike } = useAppStore();
     const [tunes, setTunes] = useState<Tune[]>([]);
     const [loading, setLoading] = useState(false);
@@ -48,7 +52,7 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
             const results = await tuneService.getTunes(filter, 1);
             setTunes(results);
         } catch (error) {
-            console.error(error);
+            console.warn('Marketplace: fetch failed (backend may be offline)', error);
         } finally {
             setLoading(false);
             if (isRefresh) setRefreshing(false);
@@ -108,7 +112,7 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
     );
 
     const renderHeader = () => (
-        <View style={styles.headerContainer}>
+        <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
             {/* Title + filter icon */}
             <View style={styles.titleRow}>
                 <Text style={styles.title}>Tunes</Text>
@@ -168,8 +172,10 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
             {renderHeader()}
 
             {loading && !refreshing ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color={C.primary} />
+                <View style={[styles.listContent, { paddingBottom: 100 + insets.bottom }]}>
+                    <SkeletonTuneCard />
+                    <SkeletonTuneCard />
+                    <SkeletonTuneCard />
                 </View>
             ) : (
                 <FlatList
@@ -181,7 +187,7 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                             onPress={() => navigation.navigate('TuneDetails', { tuneId: item.id })}
                         />
                     )}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: 100 + insets.bottom }]}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
                     }
@@ -212,7 +218,6 @@ const styles = StyleSheet.create({
 
     // ── Header ──
     headerContainer: {
-        paddingTop: Platform.OS === 'ios' ? 60 : 44,
         paddingHorizontal: 24,
         paddingBottom: 12,
         backgroundColor: C.bg,

@@ -113,6 +113,14 @@ export const BikeDetailsScreen = ({ navigation, route }: any) => {
                         <Ionicons name="cloud-download-outline" size={20} color={C.text} />
                         <Text style={s.secondaryBtnText}>View Backups</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[s.secondaryBtn, { borderColor: 'rgba(34,197,94,0.2)', backgroundColor: 'rgba(34,197,94,0.05)' }]}
+                        onPress={() => navigation.navigate('Flash', { screen: 'Telemetry' })}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="pulse-outline" size={20} color="#22C55E" />
+                        <Text style={[s.secondaryBtnText, { color: '#22C55E' }]}>Live Telemetry</Text>
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
         </SafeAreaView>

@@ -4,8 +4,10 @@ import {
     Platform, Alert, ActivityIndicator, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { useAppStore } from '../../store/useAppStore';
+import * as Haptics from 'expo-haptics';
 
 // ── Design tokens ──
 const C = {
@@ -63,6 +65,7 @@ const signalStyles = StyleSheet.create({
 
 // ════════════════════════════════════════════════════════════════════
 export const DeviceConnectScreen = ({ navigation, route }: any) => {
+    const insets = useSafeAreaInsets();
     const { tuneId } = route.params || {};
     const { connect, isConnected, connectedDeviceId, disconnect } = useAppStore();
     const [devices, setDevices] = useState<ScannedDevice[]>([]);
@@ -107,10 +110,12 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
     }, []);
 
     const handleConnect = async (deviceId: string) => {
+        Haptics.selectionAsync();
         setConnectingId(deviceId);
         setError(null);
         try {
             await connect(deviceId);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             if (tuneId) {
                 navigation.navigate('ECUIdentify', { tuneId });
             } else {
@@ -185,7 +190,7 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
             <StatusBar barStyle="light-content" />
 
             {/* ─── Header ─── */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 <TouchableOpacity
                     style={styles.backBtn}
                     onPress={() => navigation.goBack()}
@@ -199,7 +204,7 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
                 data={devices}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 180 }]}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={
                     <>
@@ -257,7 +262,7 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
             />
 
             {/* ─── Bottom bar ─── */}
-            <View style={styles.bottomBar}>
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
                 <View style={styles.secureRow}>
                     <Ionicons name="shield-checkmark-outline" size={14} color={C.neutral500} />
                     <Text style={styles.secureText}>Secure 128-bit Encrypted Connection</Text>
@@ -288,7 +293,6 @@ const styles = StyleSheet.create({
 
     // ── Header ──
     header: {
-        paddingTop: Platform.OS === 'ios' ? 60 : 44,
         paddingBottom: 20,
         paddingHorizontal: 24,
         flexDirection: 'row',
@@ -529,7 +533,6 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.10)',
         padding: 24,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     },
     secureRow: {
         flexDirection: 'row',

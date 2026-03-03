@@ -7,29 +7,34 @@ export interface Agreement {
     accepted_at: string;
 }
 
+/**
+ * Legal documents service — connects to Django backend.
+ * All endpoints under /api/v1/legal/...
+ */
 export const legalService = {
     /**
      * Get user's accepted legal documents history.
-     * Falls back to empty array when backend is unreachable.
+     * Backend: GET /api/v1/legal/history/
      */
     async getHistory(): Promise<Agreement[]> {
         try {
-            return await ApiClient.getInstance().get<Agreement[]>('/users/legal/history/');
+            return await ApiClient.getInstance().get<Agreement[]>('/v1/legal/history/');
         } catch {
-            // Backend unavailable — return empty (shows "No agreements" state)
             return [];
         }
     },
 
     /**
      * Record acceptance of a document.
-     * Falls back silently when backend is unreachable.
+     * Backend: POST /api/v1/legal/accept/
      */
-    async acceptDocument(type: 'TERMS' | 'PRIVACY' | 'SAFETY' | 'ANALYTICS', version: string): Promise<any> {
-        try {
-            return await ApiClient.getInstance().post('/users/legal/accept/', { document_type: type, version });
-        } catch {
-            return { success: true };
-        }
-    }
+    async acceptDocument(
+        type: 'TERMS' | 'PRIVACY' | 'SAFETY' | 'ANALYTICS',
+        version: string
+    ): Promise<any> {
+        return ApiClient.getInstance().post('/v1/legal/accept/', {
+            document_type: type,
+            version,
+        });
+    },
 };

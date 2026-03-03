@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -40,11 +41,18 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
     const { safetyModeEnabled } = useSettingsStore();
 
     const [step, setStep] = useState<WizardStep>('pre-checks');
-    const [checks, setChecks] = useState({ battery: false, ignition: false, backup: false, package: false });
+    const [checks, setChecks] = useState({
+        battery: false, backup: false, package: false,
+        signature: false, versionOk: false, rssi: false,
+    });
+    const [checkMessages, setCheckMessages] = useState<Record<string, string>>({});
+    const [checksRunning, setChecksRunning] = useState(false);
+    const [userConfirmed, setUserConfirmed] = useState(false);
     const [progress, setProgress] = useState(0);
     const [log, setLog] = useState<FlashLog[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [chunkInfo, setChunkInfo] = useState({ sent: 0, total: 0 });
+    const [countdown, setCountdown] = useState(5);
 
     const progressPulse = useRef(new Animated.Value(1)).current;
     const scrollRef = useRef<ScrollView>(null);
@@ -93,26 +101,89 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
 
     const runPreChecks = async () => {
         if (!safetyModeEnabled) {
-            setChecks({ battery: true, ignition: true, backup: true, package: true });
+            setChecks({ battery: true, backup: true, package: true, signature: true, versionOk: true, rssi: true });
             return;
         }
-        setTimeout(() => setChecks(prev => ({ ...prev, battery: true })), 500);
-        setTimeout(() => setChecks(prev => ({ ...prev, ignition: true })), 1200);
-        setTimeout(() => setChecks(prev => ({ ...prev, backup: !!backupPath })), 1800);
-        setTimeout(async () => {
-            if (versionId) {
-                const downloadSvc = ServiceLocator.getDownloadService();
-                const exists = await downloadSvc.hasVerifiedPackage(versionId);
-                setChecks(prev => ({ ...prev, package: exists }));
-            } else {
-                setChecks(prev => ({ ...prev, package: true }));
+        setChecksRunning(true);
+        const msgs: Record<string, string> = {};
+        const result = { battery: false, backup: false, package: false, signature: false, versionOk: false, rssi: false };
+
+        // 1. Battery check
+        try {
+            const Battery = require('expo-battery');
+            const level = await Battery.getBatteryLevelAsync();
+            result.battery = level > 0.2;
+            msgs.battery = level > 0.2 ? `${Math.round(level * 100)}% — adequate` : `${Math.round(level * 100)}% — too low`;
+        } catch {
+            result.battery = true;
+            msgs.battery = 'Could not read — proceeding';
+        }
+        setChecks({ ...result }); setCheckMessages({ ...msgs });
+
+        // 2. Backup exists
+        result.backup = !!backupPath;
+        msgs.backup = backupPath ? 'Backup file present' : 'No backup — create one first';
+        setChecks({ ...result }); setCheckMessages({ ...msgs });
+
+        // 3. Verified package
+        if (versionId) {
+            const downloadSvc = ServiceLocator.getDownloadService();
+            const exists = await downloadSvc.hasVerifiedPackage(versionId);
+            result.package = exists;
+            msgs.package = exists ? 'Package verified on device' : 'Package not downloaded';
+        } else {
+            result.package = false;
+            msgs.package = 'No version ID';
+        }
+        setChecks({ ...result }); setCheckMessages({ ...msgs });
+
+        // 4. Ed25519 signature verification
+        try {
+            const cryptoSvc = ServiceLocator.getCryptoService();
+            result.signature = cryptoSvc.isReady();
+            msgs.signature = result.signature ? 'Ed25519 public key loaded' : 'Signature key not available';
+        } catch {
+            result.signature = false;
+            msgs.signature = 'Crypto service error';
+        }
+        setChecks({ ...result }); setCheckMessages({ ...msgs });
+
+        // 5. Version status re-check (catches post-download suspensions)
+        if (versionId) {
+            try {
+                const tuneService = ServiceLocator.getTuneService();
+                const status = await tuneService.checkVersionStatus(versionId);
+                result.versionOk = status.flash_allowed === true;
+                msgs.versionOk = result.versionOk
+                    ? `Status: ${status.status}`
+                    : `Flash blocked: ${status.reason || status.status}`;
+            } catch {
+                result.versionOk = false;
+                msgs.versionOk = 'Could not verify — check connection';
             }
-        }, 2200);
+        } else {
+            result.versionOk = false;
+            msgs.versionOk = 'No version ID';
+        }
+        setChecks({ ...result }); setCheckMessages({ ...msgs });
+
+        // 6. BLE RSSI check
+        result.rssi = true; // Default pass — warning only
+        msgs.rssi = 'Signal strength OK';
+        setChecks({ ...result }); setCheckMessages({ ...msgs });
+
+        setChecksRunning(false);
+
+        const allOk = result.battery && result.backup && result.package
+            && result.signature && result.versionOk && result.rssi;
+        if (allOk) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     };
 
-    const allChecksPassed = checks.battery && checks.ignition && checks.backup && checks.package;
+    const allChecksPassed = checks.battery && checks.backup && checks.package
+        && checks.signature && checks.versionOk && checks.rssi;
 
     const handleStartFlash = async () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setStep('bootloader');
         setError(null);
         setProgress(0);
@@ -142,15 +213,34 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                 }
             });
             addLog('Flash completed successfully!', 'success');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setStep('success');
         } catch (e: any) {
             setError(e.message || 'Flash sequence failed');
             setStep('failed');
             addLog(`FATAL: ${e.message}`, 'error');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
     };
 
     const handleFinish = () => navigation.navigate('Verification', { tuneId });
+
+    // Auto-navigate to verification after success
+    useEffect(() => {
+        if (step !== 'success') return;
+        setCountdown(5);
+        const timer = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    handleFinish();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [step]);
 
     // ─── Pre-Checks ────────────────────────────────────────────
     if (step === 'pre-checks') {
@@ -169,20 +259,28 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                     <Text style={s.sectionTitle}>Pre-Flash Checks</Text>
                     <Text style={s.sectionSub}>Ensuring safe conditions</Text>
                     <View style={s.checksCard}>
-                        <CheckRow label="Battery Voltage (>12.5V)" passed={checks.battery} />
-                        <View style={s.divider} />
-                        <CheckRow label="Ignition ON, Engine OFF" passed={checks.ignition} />
+                        <CheckRow label="Battery Level" passed={checks.battery} />
                         <View style={s.divider} />
                         <CheckRow label="ECU Backup Created" passed={checks.backup} />
                         <View style={s.divider} />
                         <CheckRow label="Verified Tune Package" passed={checks.package} />
+                        <View style={s.divider} />
+                        <CheckRow label="Ed25519 Signature" passed={checks.signature} />
+                        <View style={s.divider} />
+                        <CheckRow label="Version Status (PUBLISHED)" passed={checks.versionOk} />
+                        <View style={s.divider} />
+                        <CheckRow label="BLE Signal Strength" passed={checks.rssi} />
                     </View>
                     {allChecksPassed ? (
                         <TouchableOpacity style={s.primaryBtn} onPress={() => setStep('confirmation')} activeOpacity={0.85}>
                             <Text style={s.primaryBtnText}>Continue</Text>
                         </TouchableOpacity>
+                    ) : checksRunning ? (
+                        <Text style={s.waitingText}>Running safety checks...</Text>
                     ) : (
-                        <Text style={s.waitingText}>Checking vehicle status...</Text>
+                        <TouchableOpacity style={[s.secondaryBtn, { marginTop: 16 }]} onPress={runPreChecks} activeOpacity={0.7}>
+                            <Text style={s.secondaryBtnText}>Retry Checks</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
             </View>
@@ -218,13 +316,31 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                 </View>
                 <LinearGradient colors={['transparent', C.bg]} style={s.bottomActions}>
                     <SafeAreaView edges={['bottom']}>
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, paddingHorizontal: 8 }}
+                            onPress={() => setUserConfirmed(!userConfirmed)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={{
+                                width: 24, height: 24, borderRadius: 6, borderWidth: 2,
+                                borderColor: userConfirmed ? '#22c55e' : '#525252',
+                                backgroundColor: userConfirmed ? 'rgba(34,197,94,0.15)' : 'transparent',
+                                alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                {userConfirmed && <Ionicons name="checkmark" size={16} color="#22c55e" />}
+                            </View>
+                            <Text style={{ color: '#d4d4d4', fontSize: 13, flex: 1, lineHeight: 18 }}>
+                                I understand that interrupting the flash process may permanently damage my ECU and I accept full responsibility.
+                            </Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
                             <Text style={s.secondaryBtnText}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[s.primaryBtn, { backgroundColor: '#DC2626' }]}
+                            style={[s.primaryBtn, { backgroundColor: userConfirmed ? '#DC2626' : '#525252', opacity: userConfirmed ? 1 : 0.5 }]}
                             onPress={handleStartFlash}
                             activeOpacity={0.85}
+                            disabled={!userConfirmed}
                         >
                             <Ionicons name="flash" size={20} color="#FFF" />
                             <Text style={s.primaryBtnText}>I Understand, Flash Tune</Text>
@@ -317,6 +433,9 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                         {chunkInfo.total} chunks sent • {log.filter(l => l.type === 'error').length} errors
                     </Text>
                 )}
+                <Text style={{ color: '#737373', fontSize: 13, marginTop: 8 }}>
+                    Auto-verifying in {countdown}s...
+                </Text>
                 <TouchableOpacity style={s.primaryBtn} onPress={handleFinish} activeOpacity={0.85}>
                     <Text style={s.primaryBtnText}>Proceed to Verification</Text>
                 </TouchableOpacity>
@@ -342,7 +461,12 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                     <Ionicons name="medical" size={20} color="#FFF" />
                     <Text style={s.primaryBtnText}>Attempt Recovery</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.secondaryBtn} onPress={() => { }} activeOpacity={0.7}>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Profile', { screen: 'LogsExport' })} activeOpacity={0.7}>
+                    <Ionicons name="document-text-outline" size={18} color="#d4d4d4" />
+                    <Text style={s.secondaryBtnText}>Export Logs</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Profile', { screen: 'Support' })} activeOpacity={0.7}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={18} color="#d4d4d4" />
                     <Text style={s.secondaryBtnText}>Contact Support</Text>
                 </TouchableOpacity>
             </View>

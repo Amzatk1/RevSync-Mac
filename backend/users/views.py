@@ -31,9 +31,9 @@ class UserDetailView(generics.RetrieveAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     lookup_field = 'username'
 
-class MeView(generics.RetrieveAPIView):
+class MeView(generics.RetrieveUpdateAPIView):
     """
-    Get current user details.
+    Get or update current user details (first_name, last_name, etc.).
     """
     serializer_class = UserSerializer
     permission_classes = (permissions.IsAuthenticated,)

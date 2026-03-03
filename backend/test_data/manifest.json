@@ -1,0 +1,36 @@
+{
+  "uploader_supabase_user_id": "1",
+  "listing_id": "f3b7b6c2-1bfc-483f-91ca-601070d57e9b",
+  "version": "1.0.0",
+  "created_at": "2026-02-19T15:30:00Z",
+  "supported_ecu": {
+    "ecu_family": "Bosch_MSE6",
+    "hw_ids": [
+      "YZF-R6-2020-STD",
+      "YZF-R6-2023-STD"
+    ]
+  },
+  "bike_fitment": {
+    "make": "Yamaha",
+    "model": "YZF-R6",
+    "year_from": 2020,
+    "year_to": 2024
+  },
+  "requirements": {
+    "fuel_octane_min": 91,
+    "required_mods": [],
+    "warnings": [
+      "Ensure stock exhaust is installed"
+    ]
+  },
+  "safety": {
+    "risk_level": "LOW",
+    "known_limitations": [
+      "Not for track use without clutch kit"
+    ]
+  },
+  "file": {
+    "tune_filename": "tune.bin",
+    "tune_size_bytes": 256
+  }
+}

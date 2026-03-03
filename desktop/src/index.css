@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Reset ───────────────────────────────────────────── */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0c0c0f;
+    color: #e2e8f0;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2a2a30;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #ea103c;
+}
+
+/* ─── Material Icons ───────────────────────────────────────── */
+.icon {
+    font-family: 'Material Symbols Outlined';
+    font-size: 20px;
+    font-weight: normal;
+    font-style: normal;
+    display: inline-block;
+}
+
+/* ─── Terminal ─────────────────────────────────────────────── */
+.terminal-bg {
+    background: #050507;
+}
+
+/* ─── Command Palette ──────────────────────────────────────── */
+.command-shadow {
+    box-shadow: 0 0 40px 0 rgba(0, 0, 0, 0.8), 0 0 15px 0 rgba(234, 16, 60, 0.1);
+}
+
+/* ─── 3D Grid ──────────────────────────────────────────────── */
+.grid-3d {
+    perspective: 1000px;
+}
+
+.grid-3d-plane {
+    transform: rotateX(60deg) rotateZ(-15deg) scale(0.8);
+    transform-style: preserve-3d;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Heatmap Cell Hover ───────────────────────────────────── */
+.heatmap-cell {
+    transition: all 0.15s ease;
+}
+
+.heatmap-cell:hover {
+    outline: 1px solid white;
+    z-index: 10;
+}
+
+/* ─── Gauge Ring ───────────────────────────────────────────── */
+.gauge-ring {
+    filter: drop-shadow(0 0 8px var(--gauge-color, rgba(234, 16, 60, 0.5)));
+}
+
+/* ─── Dot Grid Background ─────────────────────────────────── */
+.dot-grid {
+    background-image: radial-gradient(#ea103c 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.04;
+}
+
+/* ─── Danger Glow Background ──────────────────────────────── */
+.danger-gradient {
+    background: radial-gradient(circle at 50% 50%, transparent 50%, rgba(234, 16, 60, 0.12) 100%);
+}
+
+/* ─── Glass Effect ─────────────────────────────────────────── */
+.glass {
+    background: rgba(24, 24, 28, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* ─── Stagger Animations ──────────────────────────────────── */
+.stagger-1 {
+    animation-delay: 0.05s;
+}
+
+.stagger-2 {
+    animation-delay: 0.1s;
+}
+
+.stagger-3 {
+    animation-delay: 0.15s;
+}
+
+.stagger-4 {
+    animation-delay: 0.2s;
+}
+
+.stagger-5 {
+    animation-delay: 0.25s;
+}
+
+.stagger-6 {
+    animation-delay: 0.3s;
+}

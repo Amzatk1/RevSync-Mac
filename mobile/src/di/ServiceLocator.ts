@@ -1,4 +1,3 @@
-// import { BleDeviceService } from '../data/services/BleDeviceService';
 import { ApiBikeService } from '../data/services/ApiBikeService';
 import { MockDeviceService } from '../data/services/MockDeviceService';
 import { SafetyEngine } from '../domain/safety/SafetyEngine';
@@ -8,12 +7,14 @@ import { ApiTuneService } from '../data/services/ApiTuneService';
 import { ConsoleAnalyticsService } from '../data/services/ConsoleAnalyticsService';
 import { CryptoService } from '../data/services/CryptoService';
 import { DownloadService } from '../data/services/DownloadService';
+import type { DeviceService } from '../domain/services/DeviceService';
 
 // Singleton instances
-// Using BleDeviceService for production
-// const deviceService = new BleDeviceService();
-// Fallback if needed: const deviceService = new MockDeviceService();
-const deviceService = new MockDeviceService();
+// DEV: MockDeviceService for Expo Go — never ships in release builds
+// PRODUCTION: BleDeviceService (requires expo-dev-client native build)
+const deviceService: DeviceService = __DEV__
+    ? new MockDeviceService()
+    : new (require('../data/services/BleDeviceService').BleDeviceService)();
 
 const tuneService = new ApiTuneService();
 const bikeService = new ApiBikeService();

@@ -8,28 +8,74 @@ export interface Topic {
     created_at: string;
 }
 
+export interface Conversation {
+    id: number;
+    participants: string[];
+    last_message?: string;
+    updated_at: string;
+}
+
+/**
+ * Community & Chat service — connects to Django backend.
+ * Chat endpoints: /api/chat/...
+ *
+ * Note: 'topics/trending' has no backend endpoint yet — returns empty gracefully.
+ */
 export const communityService = {
     /**
-     * Get trending topics.
-     * Currently returns placeholder data until community backend endpoint is ready.
+     * Get trending topics (placeholder until backend adds this endpoint).
      */
     async getTrendingTopics(): Promise<Topic[]> {
         try {
-            // Ready for backend — uncomment when endpoint exists:
-            // return await ApiClient.getInstance().get<Topic[]>('/community/topics/trending/');
-
-            return new Promise(resolve => {
-                setTimeout(() => {
-                    resolve([
-                        { id: 1, title: '🔥 Best exhaust for R6?', author: 'Rider1', replies_count: 245, created_at: '2h ago' },
-                        { id: 2, title: '🔧 ECU Flash vs Power Commander', author: 'TechGuru', replies_count: 128, created_at: '5h ago' },
-                        { id: 3, title: 'Track Day Prep Guide', author: 'SpeedDemon', replies_count: 89, created_at: '1d ago' },
-                    ]);
-                }, 500);
-            });
-        } catch (error) {
-            console.error('Error fetching topics:', error);
+            return await ApiClient.getInstance().get<Topic[]>('/chat/topics/trending/');
+        } catch {
+            // Endpoint may not exist yet — return empty gracefully
             return [];
         }
-    }
+    },
+
+    /**
+     * Get user's conversations.
+     * Backend: GET /api/chat/conversations/
+     */
+    async getConversations(): Promise<Conversation[]> {
+        try {
+            return await ApiClient.getInstance().get<Conversation[]>('/chat/conversations/');
+        } catch {
+            return [];
+        }
+    },
+
+    /**
+     * Get messages in a conversation.
+     * Backend: GET /api/chat/conversations/<id>/messages/
+     */
+    async getMessages(conversationId: number): Promise<any[]> {
+        try {
+            return await ApiClient.getInstance().get<any[]>(
+                `/chat/conversations/${conversationId}/messages/`
+            );
+        } catch {
+            return [];
+        }
+    },
+
+    /**
+     * Send a message in a conversation.
+     * Backend: POST /api/chat/conversations/<id>/messages/
+     */
+    async sendMessage(conversationId: number, content: string): Promise<any> {
+        return ApiClient.getInstance().post(
+            `/chat/conversations/${conversationId}/messages/`,
+            { content }
+        );
+    },
+
+    /**
+     * Start a new chat with a user.
+     * Backend: POST /api/chat/start/<username>/
+     */
+    async startChat(username: string): Promise<Conversation> {
+        return ApiClient.getInstance().post<Conversation>(`/chat/start/${username}/`);
+    },
 };

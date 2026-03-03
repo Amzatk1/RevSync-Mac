@@ -62,6 +62,25 @@ export const SettingsScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                     <View style={s.divider} />
                     <MenuRow label="Change Password" iconName="lock-closed" iconColor={C.primary} iconBg={tint(C.primary)} onPress={() => { }} />
+                    <View style={s.divider} />
+                    <MenuRow
+                        label="Restore Purchases"
+                        iconName="refresh"
+                        iconColor="#3B82F6"
+                        iconBg={tint('#3B82F6')}
+                        onPress={async () => {
+                            try {
+                                const { ApiClient } = await import('../../../data/http/ApiClient');
+                                const resp: any = await ApiClient.getInstance().get('/v1/marketplace/entitlements/');
+                                const count = resp?.data?.results?.length || resp?.results?.length || 0;
+                                const { Alert } = require('react-native');
+                                Alert.alert('Purchases Restored', `${count} entitlement${count !== 1 ? 's' : ''} synced.`);
+                            } catch {
+                                const { Alert } = require('react-native');
+                                Alert.alert('Error', 'Could not restore purchases. Check your connection.');
+                            }
+                        }}
+                    />
                 </View>
 
                 {/* ─── Hardware ─── */}

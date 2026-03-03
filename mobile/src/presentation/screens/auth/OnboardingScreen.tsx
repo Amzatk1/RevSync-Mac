@@ -37,7 +37,7 @@ interface OnboardingData {
     currentStep: number;
     motorcycleType: string;
     skillLevel: string;
-    ridingStyle: string;
+    ridingStyles: string[];
     goals: string[];
 }
 
@@ -79,13 +79,13 @@ const regions = [
 // ─── Component ───────────────────────────────────────────────
 export const OnboardingScreen = () => {
     const { completeOnboarding } = useAppStore();
-    const { toggleUnits } = useSettingsStore();
+    const { units, toggleUnits } = useSettingsStore();
 
     const [onboardingData, setOnboardingData] = useState<OnboardingData>({
         currentStep: 0,
         motorcycleType: '',
         skillLevel: '',
-        ridingStyle: '',
+        ridingStyles: [],
         goals: [],
     });
 
@@ -122,11 +122,11 @@ export const OnboardingScreen = () => {
         setOnboardingData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const toggleArrayValue = (field: 'goals', value: string) => {
+    const toggleArrayValue = (field: 'goals' | 'ridingStyles', value: string) => {
         setOnboardingData((prev) => ({
             ...prev,
             [field]: prev[field].includes(value)
-                ? prev[field].filter((item) => item !== value)
+                ? prev[field].filter((item: string) => item !== value)
                 : [...prev[field], value],
         }));
     };
@@ -159,6 +159,23 @@ export const OnboardingScreen = () => {
             if (legalState.privacyAccepted) await legalService.acceptDocument('PRIVACY', '1.0');
             if (legalState.safetyAccepted) await legalService.acceptDocument('SAFETY', '1.0');
             if (legalState.analyticsConsent) await legalService.acceptDocument('ANALYTICS', '1.0');
+
+            // Sync riding preferences to backend
+            try {
+                const { ApiClient } = await import('../../../data/http/ApiClient');
+                await ApiClient.getInstance().patch('/v1/profile/me/', {
+                    riding_style: onboardingData.ridingStyles[0] || '',
+                    experience_level: onboardingData.skillLevel,
+                    country: legalState.region || '',
+                });
+            } catch {
+                // Offline — prefs cached locally, will sync on next profile edit
+            }
+
+            if (units !== preferredUnits) {
+                toggleUnits();
+            }
+
             await completeOnboarding();
         } catch (e) {
             console.error('Onboarding failed', e);
@@ -233,7 +250,7 @@ export const OnboardingScreen = () => {
         </View>
     );
 
-    // Step: Motorcycle Type (matches the HTML mockup)
+    // Step: Motorcycle Type
     const MotorcycleTypeStep = () => (
         <View style={s.stepContainer}>
             <View style={{ alignItems: 'center', marginBottom: 8 }}>
@@ -303,23 +320,23 @@ export const OnboardingScreen = () => {
         </View>
     );
 
-    // Step: Riding Style
+    // Step: Riding Style (multi-select)
     const RidingStyleStep = () => (
         <View style={s.stepContainer}>
             <View style={{ alignItems: 'center', marginBottom: 8 }}>
                 <Text style={[s.stepTitle, { textAlign: 'center' }]}>Riding Style</Text>
                 <Text style={[s.stepSub, { textAlign: 'center', maxWidth: 280 }]}>
-                    How do you use your motorcycle?
+                    Select all that apply — most riders value more than one.
                 </Text>
             </View>
             <View style={s.typeGrid}>
                 {ridingStyles.map((style) => {
-                    const selected = onboardingData.ridingStyle === style.id;
+                    const selected = onboardingData.ridingStyles.includes(style.id);
                     return (
                         <TouchableOpacity
                             key={style.id}
                             style={[s.typeCard, selected && s.typeCardSelected]}
-                            onPress={() => updateData('ridingStyle', style.id)}
+                            onPress={() => toggleArrayValue('ridingStyles', style.id)}
                             activeOpacity={0.7}
                         >
                             {selected && (
@@ -391,7 +408,7 @@ export const OnboardingScreen = () => {
             <View style={s.summaryCard}>
                 <SummaryRow label="Motorcycle Type" value={motorcycleTypes.find(t => t.id === onboardingData.motorcycleType)?.name} />
                 <SummaryRow label="Skill Level" value={skillLevels.find(l => l.id === onboardingData.skillLevel)?.name} />
-                <SummaryRow label="Riding Style" value={ridingStyles.find(st => st.id === onboardingData.ridingStyle)?.title} />
+                <SummaryRow label="Riding Style" value={ridingStyles.filter(st => onboardingData.ridingStyles.includes(st.id)).map(st => st.title).join(', ')} />
                 <SummaryRow label="Goals" value={goalOptions.filter(g => onboardingData.goals.includes(g.id)).map(g => g.name).join(', ')} />
             </View>
 
@@ -449,7 +466,7 @@ export const OnboardingScreen = () => {
         { component: LegalStep, canProceed: legalState.termsAccepted && legalState.privacyAccepted && legalState.safetyAccepted },
         { component: MotorcycleTypeStep, canProceed: !!onboardingData.motorcycleType },
         { component: SkillLevelStep, canProceed: !!onboardingData.skillLevel },
-        { component: RidingStyleStep, canProceed: !!onboardingData.ridingStyle },
+        { component: RidingStyleStep, canProceed: onboardingData.ridingStyles.length > 0 },
         { component: GoalsStep, canProceed: onboardingData.goals.length > 0 },
         { component: SummaryStep, canProceed: true },
     ];

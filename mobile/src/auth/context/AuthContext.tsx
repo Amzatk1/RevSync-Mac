@@ -1,87 +1,129 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../../services/supabase';
+import { ServiceLocator } from '../../di/ServiceLocator';
 import { userService } from '../../services/userService';
-import { UserProfile } from '../types';
+import type { RevSyncUser, UserProfile } from '../types';
 
 interface AuthContextType {
-    user: User | null;
-    session: Session | null;
+    user: RevSyncUser | null;
     profile: UserProfile | null;
     isLoading: boolean;
+    signIn: (email: string, password: string) => Promise<{ error?: string }>;
+    signUp: (email: string, password: string) => Promise<{ error?: string }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
-    session: null,
     profile: null,
     isLoading: true,
+    signIn: async () => ({}),
+    signUp: async () => ({}),
     signOut: async () => { },
     refreshProfile: async () => { },
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [session, setSession] = useState<Session | null>(null);
+    const [user, setUser] = useState<RevSyncUser | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchProfile = async (userId: string) => {
-        const userProfile = await userService.getProfile(userId);
+    const authService = ServiceLocator.getAuthService();
+
+    const fetchProfile = async () => {
+        const userProfile = await userService.getProfile();
         if (userProfile) {
-            setProfile(userProfile);
-        } else {
-            // If no profile exists, create a basic one or handle it
-            // For now, we'll just set a partial profile based on auth data
-            setProfile({ id: userId, has_completed_onboarding: false });
+            setProfile({
+                id: String(userProfile.id),
+                bio: userProfile.bio,
+                country: userProfile.country,
+                experience_level: userProfile.experience_level,
+                riding_style: userProfile.riding_style,
+                has_completed_onboarding: userProfile.has_completed_onboarding,
+            });
         }
     };
 
+    // On mount: try to restore session from SecureStore
     useEffect(() => {
-        // Check active sessions and sets the user
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
+        (async () => {
+            try {
+                const restoredUser = await authService.getCurrentUser();
+                if (restoredUser) {
+                    setUser({
+                        id: restoredUser.id,
+                        email: restoredUser.email,
+                        firstName: restoredUser.firstName,
+                        lastName: restoredUser.lastName,
+                        avatarUrl: restoredUser.avatarUrl,
+                        createdAt: restoredUser.createdAt,
+                    });
+                    await fetchProfile();
+                }
+            } catch (e) {
+                console.warn('AuthContext: Session restore failed', e);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
-        });
-
-        // Listen for changes on auth state (sign in, sign out, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-
-            if (session?.user) {
-                await fetchProfile(session.user.id);
-            } else {
-                setProfile(null);
-            }
-
-            setIsLoading(false);
-        });
-
-        return () => subscription.unsubscribe();
+        })();
     }, []);
 
+    const signIn = async (email: string, password: string): Promise<{ error?: string }> => {
+        try {
+            const result = await authService.signIn(email, password);
+            if (result.success && result.user) {
+                setUser({
+                    id: result.user.id,
+                    email: result.user.email,
+                    firstName: result.user.firstName,
+                    lastName: result.user.lastName,
+                    avatarUrl: result.user.avatarUrl,
+                    createdAt: result.user.createdAt,
+                });
+                await fetchProfile();
+                return {};
+            }
+            return { error: 'Sign in failed' };
+        } catch (e: any) {
+            return { error: e.uiMessage || e.message || 'Sign in failed' };
+        }
+    };
+
+    const signUp = async (email: string, password: string): Promise<{ error?: string }> => {
+        try {
+            const result = await authService.signUp(email, password);
+            if (result.success && result.user) {
+                setUser({
+                    id: result.user.id,
+                    email: result.user.email,
+                    firstName: result.user.firstName,
+                    lastName: result.user.lastName,
+                    avatarUrl: result.user.avatarUrl,
+                    createdAt: result.user.createdAt,
+                });
+                await fetchProfile();
+                return {};
+            }
+            return { error: 'Sign up failed' };
+        } catch (e: any) {
+            return { error: e.uiMessage || e.message || 'Sign up failed' };
+        }
+    };
+
     const signOut = async () => {
-        await supabase.auth.signOut();
+        await authService.signOut();
         setProfile(null);
         setUser(null);
-        setSession(null);
     };
 
     const refreshProfile = async () => {
         if (user) {
-            await fetchProfile(user.id);
+            await fetchProfile();
         }
     };
 
     return (
-        <AuthContext.Provider value={{ user, session, profile, isLoading, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ user, profile, isLoading, signIn, signUp, signOut, refreshProfile }}>
             {children}
         </AuthContext.Provider>
     );

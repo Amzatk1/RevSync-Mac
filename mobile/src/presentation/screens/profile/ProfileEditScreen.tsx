@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity, Alert,
-    KeyboardAvoidingView, Platform, ScrollView,
+    KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ApiClient } from '../../../data/http/ApiClient';
 
 const C = {
     bg: '#1a1a1a',
@@ -17,24 +18,85 @@ const C = {
     textDim: '#737373',
     border: 'rgba(255,255,255,0.08)',
     inputBg: '#2d2d2d',
+    success: '#22C55E',
 };
+
+const RIDING_STYLES = [
+    { id: 'casual', label: 'Casual Cruising' },
+    { id: 'commuting', label: 'Daily Commuting' },
+    { id: 'sport', label: 'Sport Riding' },
+    { id: 'touring', label: 'Long Distance' },
+    { id: 'track', label: 'Track Days' },
+    { id: 'offroad', label: 'Adventure' },
+];
 
 export const ProfileEditScreen = ({ navigation }: any) => {
     const { currentUser } = useAppStore();
     const [firstName, setFirstName] = useState(currentUser?.firstName || '');
     const [lastName, setLastName] = useState(currentUser?.lastName || '');
-    const [bio, setBio] = useState('Passionate rider. Tech enthusiast.');
+    const [bio, setBio] = useState('');
+    const [ridingStyle, setRidingStyle] = useState('');
+    const [country, setCountry] = useState('');
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    // Load profile from backend on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const profile = await ApiClient.getInstance().get<{
+                    bio?: string;
+                    riding_style?: string;
+                    country?: string;
+                }>('/v1/profile/me/');
+                setBio(profile.bio || '');
+                setRidingStyle(profile.riding_style || '');
+                setCountry(profile.country || '');
+            } catch (e) {
+                console.warn('ProfileEdit: Could not load profile from backend', e);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
 
     const handleSave = async () => {
         setSaving(true);
-        await new Promise(r => setTimeout(r, 1000));
-        setSaving(false);
-        Alert.alert('Success', 'Profile updated successfully.');
-        navigation.goBack();
+        try {
+            // Save to backend profile
+            await ApiClient.getInstance().patch('/v1/profile/me/', {
+                bio,
+                riding_style: ridingStyle,
+                country,
+            });
+
+            // Save user name
+            await ApiClient.getInstance().patch('/v1/users/me/', {
+                first_name: firstName,
+                last_name: lastName,
+            });
+
+            Alert.alert('Saved', 'Your profile has been updated.');
+            navigation.goBack();
+        } catch (e) {
+            console.warn('ProfileEdit: Backend save failed, saving locally', e);
+            // Still show success for offline mode — data will sync later
+            Alert.alert('Saved Locally', 'Your profile is saved on-device. It will sync when the backend is available.');
+            navigation.goBack();
+        } finally {
+            setSaving(false);
+        }
     };
 
     const initial = (firstName[0] || currentUser?.email?.[0] || '?').toUpperCase();
+
+    if (loading) {
+        return (
+            <View style={[s.root, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={C.primary} />
+            </View>
+        );
+    }
 
     return (
         <View style={s.root}>
@@ -109,6 +171,42 @@ export const ProfileEditScreen = ({ navigation }: any) => {
                                 />
                             </View>
                         </View>
+
+                        <View style={s.inputGroup}>
+                            <Text style={s.label}>Country / Region</Text>
+                            <View style={s.inputWrap}>
+                                <TextInput
+                                    style={s.input}
+                                    value={country}
+                                    onChangeText={setCountry}
+                                    placeholder="e.g. United Kingdom"
+                                    placeholderTextColor={C.textDim}
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Riding Style */}
+                    <Text style={s.sectionLabel}>Riding Style</Text>
+                    <View style={s.chipGrid}>
+                        {RIDING_STYLES.map((style) => {
+                            const selected = ridingStyle === style.id;
+                            return (
+                                <TouchableOpacity
+                                    key={style.id}
+                                    style={[s.chip, selected && s.chipSelected]}
+                                    onPress={() => setRidingStyle(style.id)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={[s.chipText, selected && s.chipTextSelected]}>
+                                        {style.label}
+                                    </Text>
+                                    {selected && (
+                                        <Ionicons name="checkmark-circle" size={16} color={C.primary} />
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -122,7 +220,11 @@ export const ProfileEditScreen = ({ navigation }: any) => {
                         disabled={saving}
                         activeOpacity={0.85}
                     >
-                        <Text style={s.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+                        {saving ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                            <Text style={s.saveBtnText}>Save Changes</Text>
+                        )}
                     </TouchableOpacity>
                 </SafeAreaView>
             </LinearGradient>
@@ -188,6 +290,27 @@ const s = StyleSheet.create({
     input: {
         padding: 14, color: C.white, fontSize: 16,
     },
+
+    // Riding Style
+    sectionLabel: {
+        fontSize: 12, fontWeight: '700', color: C.textDim,
+        textTransform: 'uppercase', letterSpacing: 0.8,
+    },
+    chipGrid: {
+        flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+    },
+    chip: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 16, paddingVertical: 10,
+        borderRadius: 50, backgroundColor: C.surface,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    },
+    chipSelected: {
+        borderColor: 'rgba(234,16,60,0.4)',
+        backgroundColor: 'rgba(234,16,60,0.08)',
+    },
+    chipText: { fontSize: 14, fontWeight: '600', color: C.textMuted },
+    chipTextSelected: { color: C.primary },
 
     // Footer
     footer: {

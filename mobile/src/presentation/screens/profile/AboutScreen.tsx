@@ -97,7 +97,7 @@ export const AboutScreen = ({ navigation }: any) => {
                 {/* ─── Footer ─── */}
                 <View style={s.footer}>
                     <Text style={s.footerText}>Made with ❤️ for the riding community</Text>
-                    <Text style={s.footerCopy}>© 2024 RevSync Technologies Ltd.</Text>
+                    <Text style={s.footerCopy}>© 2025 RevSync Technologies Ltd.</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>

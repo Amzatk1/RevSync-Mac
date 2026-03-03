@@ -1,12 +1,22 @@
 import { ApiClient } from '../data/http/ApiClient';
 
+interface PaginatedResponse<T> {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: T[];
+}
+
 interface Vehicle {
     id: number;
+    name: string;
     make: string;
     model: string;
     year: number;
     vin?: string;
-    nickname?: string;
+    ecu_type?: string;
+    ecu_id?: string;
+    vehicle_type: string;
 }
 
 interface VehicleDefinition {
@@ -17,78 +27,90 @@ interface VehicleDefinition {
     year_end: number;
 }
 
+interface FlashJob {
+    id: number;
+    tune: number;
+    vehicle: number;
+    status: string;
+    progress: number;
+    created_at: string;
+    tune_detail?: { name: string };
+}
+
+/**
+ * Standalone garage service.
+ * All endpoints match the Django backend: /api/v1/garage/...
+ */
 export const garageService = {
     /**
      * Get all vehicles for the current user.
+     * Backend: GET /api/v1/garage/
      */
-    async getVehicles(): Promise<Vehicle[]> {
-        try {
-            return await ApiClient.getInstance().get<Vehicle[]>('/garage/vehicles/');
-        } catch (error) {
-            console.error('Error fetching vehicles:', error);
-            throw error;
-        }
+    async getVehicles(): Promise<PaginatedResponse<Vehicle>> {
+        return ApiClient.getInstance().get<PaginatedResponse<Vehicle>>('/v1/garage/');
     },
 
     /**
      * Get a single vehicle by ID.
+     * Backend: GET /api/v1/garage/<id>/
      */
     async getVehicle(id: number): Promise<Vehicle> {
-        try {
-            return await ApiClient.getInstance().get<Vehicle>(`/garage/vehicles/${id}/`);
-        } catch (error) {
-            console.error(`Error fetching vehicle ${id}:`, error);
-            throw error;
-        }
+        return ApiClient.getInstance().get<Vehicle>(`/v1/garage/${id}/`);
     },
 
     /**
      * Add a new vehicle to the garage.
+     * Backend: POST /api/v1/garage/
      */
     async addVehicle(vehicleData: Partial<Vehicle>): Promise<Vehicle> {
-        try {
-            return await ApiClient.getInstance().post<Vehicle>('/garage/vehicles/', vehicleData);
-        } catch (error) {
-            console.error('Error adding vehicle:', error);
-            throw error;
-        }
+        return ApiClient.getInstance().post<Vehicle>('/v1/garage/', vehicleData);
     },
 
     /**
      * Update an existing vehicle.
+     * Backend: PATCH /api/v1/garage/<id>/
      */
     async updateVehicle(id: number, updates: Partial<Vehicle>): Promise<Vehicle> {
-        try {
-            return await ApiClient.getInstance().put<Vehicle>(`/garage/vehicles/${id}/`, updates);
-        } catch (error) {
-            console.error(`Error updating vehicle ${id}:`, error);
-            throw error;
-        }
+        return ApiClient.getInstance().patch<Vehicle>(`/v1/garage/${id}/`, updates);
     },
 
     /**
      * Delete a vehicle.
+     * Backend: DELETE /api/v1/garage/<id>/
      */
     async deleteVehicle(id: number): Promise<void> {
-        try {
-            await ApiClient.getInstance().delete(`/garage/vehicles/${id}/`);
-        } catch (error) {
-            console.error(`Error deleting vehicle ${id}:`, error);
-            throw error;
-        }
+        await ApiClient.getInstance().delete(`/v1/garage/${id}/`);
     },
 
     /**
      * Search for vehicle definitions (database of all supported bikes).
+     * Backend: GET /api/v1/garage/definitions/?search=<query>
      */
     async searchVehicleDefinitions(query: string): Promise<VehicleDefinition[]> {
         try {
-            return await ApiClient.getInstance().get<VehicleDefinition[]>('/garage/definitions/', {
-                params: { search: query }
-            });
-        } catch (error) {
-            console.error('Error searching definitions:', error);
+            const res = await ApiClient.getInstance().get<PaginatedResponse<VehicleDefinition>>(
+                '/v1/garage/definitions/',
+                { params: { search: query } }
+            );
+            return res.results;
+        } catch {
             return [];
         }
-    }
+    },
+
+    /**
+     * Get flash jobs history.
+     * Backend: GET /api/v1/garage/flash-jobs/
+     */
+    async getFlashJobs(): Promise<PaginatedResponse<FlashJob>> {
+        return ApiClient.getInstance().get<PaginatedResponse<FlashJob>>('/v1/garage/flash-jobs/');
+    },
+
+    /**
+     * Get ECU backups.
+     * Backend: GET /api/v1/garage/backups/
+     */
+    async getBackups(): Promise<PaginatedResponse<any>> {
+        return ApiClient.getInstance().get<PaginatedResponse<any>>('/v1/garage/backups/');
+    },
 };

@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-    View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl,
+    View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl, Animated, Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ServiceLocator } from '../../di/ServiceLocator';
 import { Bike } from '../../domain/services/DomainTypes';
 import { useFocusEffect } from '@react-navigation/native';
+import { SkeletonBikeCard } from '../components/SkeletonCards';
 
 // ─── Color Tokens ──────────────────────────────────────────────
 const C = {
@@ -33,7 +34,7 @@ export const GarageScreen = ({ navigation }: any) => {
             const allBikes = await bikeService.getBikes();
             setBikes(allBikes);
         } catch (e) {
-            console.error(e);
+            console.warn('GarageScreen: loadBikes failed', e);
         } finally {
             setLoading(false);
         }
@@ -117,7 +118,12 @@ export const GarageScreen = ({ navigation }: any) => {
                 contentContainerStyle={s.listContent}
                 refreshControl={<RefreshControl refreshing={loading} onRefresh={loadBikes} tintColor={C.primary} />}
                 ListEmptyComponent={
-                    !loading ? (
+                    loading ? (
+                        <View style={s.listContent}>
+                            <SkeletonBikeCard />
+                            <SkeletonBikeCard />
+                        </View>
+                    ) : (
                         <View style={s.emptyState}>
                             <View style={s.emptyCircle}>
                                 <Ionicons name="construct-outline" size={48} color={C.muted} />
@@ -129,7 +135,7 @@ export const GarageScreen = ({ navigation }: any) => {
                                 <Text style={s.emptyBtnText}>Add Bike</Text>
                             </TouchableOpacity>
                         </View>
-                    ) : null
+                    )
                 }
             />
         </SafeAreaView>

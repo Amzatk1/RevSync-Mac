@@ -32,6 +32,8 @@ interface PackageEntry {
     signatureVerified: boolean;
     hashesMatch: boolean;
     localPath: string;
+    suspended?: boolean;
+    suspendedReason?: string;
 }
 
 interface ActiveDownload {
@@ -78,7 +80,25 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
         setLoading(true);
         try {
             const stored = await StorageAdapter.get<PackageEntry[]>(VERIFIED_PACKAGES_KEY);
-            setPackages(stored || []);
+            const pkgs = stored || [];
+
+            // Check version status for each package (catches post-download suspensions)
+            const tuneService = ServiceLocator.getTuneService();
+            const checked = await Promise.all(
+                pkgs.map(async (pkg) => {
+                    try {
+                        const status = await tuneService.checkVersionStatus(pkg.versionId);
+                        return {
+                            ...pkg,
+                            suspended: !status.flash_allowed,
+                            suspendedReason: status.reason || status.status,
+                        };
+                    } catch {
+                        return pkg; // Offline — keep existing state
+                    }
+                })
+            );
+            setPackages(checked);
         } catch {
             setPackages([]);
         } finally {
@@ -224,25 +244,36 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
 
     // ─── Render Package Item ──────────────────────────────────
     const renderPackageItem = ({ item }: { item: PackageEntry }) => (
-        <View style={s.pkgCard}>
+        <View style={[s.pkgCard, item.suspended && { borderColor: 'rgba(239,68,68,0.3)' }]}>
+            {item.suspended && (
+                <View style={s.rejectedBanner}>
+                    <Ionicons name="alert-circle" size={16} color={C.error} />
+                    <Text style={s.rejectedText}>
+                        Withdrawn{item.suspendedReason ? `: ${item.suspendedReason}` : ' for safety/compliance reasons'}. Flash disabled.
+                    </Text>
+                </View>
+            )}
             <View style={s.pkgRow}>
                 <View style={[s.verifyBadge, {
-                    backgroundColor: item.signatureVerified ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                    backgroundColor: item.suspended
+                        ? 'rgba(239,68,68,0.1)'
+                        : item.signatureVerified ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
                 }]}>
                     <Ionicons
-                        name={item.signatureVerified ? 'shield-checkmark' : 'shield-outline'}
+                        name={item.suspended ? 'ban' : item.signatureVerified ? 'shield-checkmark' : 'shield-outline'}
                         size={22}
-                        color={item.signatureVerified ? C.success : C.error}
+                        color={item.suspended ? C.error : item.signatureVerified ? C.success : C.error}
                     />
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={s.pkgTitle}>{item.title}</Text>
+                    <Text style={[s.pkgTitle, item.suspended && { opacity: 0.5 }]}>{item.title}</Text>
                     <Text style={s.pkgMeta}>
                         Downloaded {new Date(item.downloadedAt).toLocaleDateString()}
                     </Text>
                     <View style={s.chipRow}>
                         <VerifyChip ok={item.signatureVerified} label="Signed" />
                         <VerifyChip ok={item.hashesMatch} label="Hash ✓" />
+                        {item.suspended && <VerifyChip ok={false} label="WITHDRAWN" />}
                     </View>
                 </View>
                 <View style={s.actions}>
