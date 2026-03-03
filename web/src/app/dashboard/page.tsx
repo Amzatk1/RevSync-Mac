@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import type { Vehicle, FlashJob, Purchase, PaginatedResponse } from '@/lib/types';
+
+function statusView(status: string) {
+    if (status === 'COMPLETED') return { bg: 'bg-emerald-500/15', text: 'text-emerald-300', icon: 'check_circle' };
+    if (status === 'FAILED') return { bg: 'bg-red-500/15', text: 'text-red-300', icon: 'error' };
+    if (status === 'FLASHING') return { bg: 'bg-blue-500/15', text: 'text-blue-300', icon: 'autorenew' };
+    return { bg: 'bg-amber-500/15', text: 'text-amber-300', icon: 'schedule' };
+}
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -27,7 +34,7 @@ export default function DashboardPage() {
                 setFlashJobs(fRes.results);
                 setPurchases(pRes.results);
             } catch {
-                // graceful fallback - empty states
+                // fallback to empty UI states
             } finally {
                 setLoading(false);
             }
@@ -36,114 +43,139 @@ export default function DashboardPage() {
 
     const activeBike = vehicles[0];
     const latestFlash = flashJobs[0];
-    const statusConfig: Record<string, { bg: string; text: string; icon: string }> = {
-        COMPLETED: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', icon: 'check_circle' },
-        FAILED: { bg: 'bg-red-500/15', text: 'text-red-300', icon: 'error' },
-        FLASHING: { bg: 'bg-blue-500/15', text: 'text-blue-300', icon: 'autorenew' },
-        PENDING: { bg: 'bg-amber-500/15', text: 'text-amber-300', icon: 'schedule' },
-    };
 
-    const stats = [
+    const totalSpent = useMemo(
+        () => purchases.reduce((sum, purchase) => sum + Number.parseFloat(purchase.price_paid || '0'), 0),
+        [purchases],
+    );
+
+    const completedCount = useMemo(
+        () => flashJobs.filter((job) => job.status === 'COMPLETED').length,
+        [flashJobs],
+    );
+
+    const completionRate = flashJobs.length ? Math.round((completedCount / flashJobs.length) * 100) : 0;
+
+    const dashboardStats = [
         {
-            icon: 'bolt',
-            label: 'Tunes Flashed',
+            title: 'Tunes Flashed',
             value: flashJobs.length,
-            chip: 'text-primary bg-primary/15',
+            icon: 'bolt',
+            helper: `${completedCount} completed`,
+            tone: 'text-primary bg-primary/15',
         },
         {
-            icon: 'two_wheeler',
-            label: 'Bikes Registered',
+            title: 'Garage Size',
             value: vehicles.length,
-            chip: 'text-blue-300 bg-blue-500/15',
+            icon: 'two_wheeler',
+            helper: activeBike ? `Active: ${activeBike.make} ${activeBike.model}` : 'No active bike',
+            tone: 'text-blue-300 bg-blue-500/15',
         },
         {
-            icon: 'shopping_bag',
-            label: 'Purchases',
+            title: 'Tune Library',
             value: purchases.length,
-            chip: 'text-emerald-300 bg-emerald-500/15',
+            icon: 'inventory_2',
+            helper: `$${totalSpent.toFixed(2)} total spend`,
+            tone: 'text-emerald-300 bg-emerald-500/15',
         },
         {
-            icon: 'schedule',
-            label: 'Last Flash',
-            value: latestFlash ? new Date(latestFlash.created_at).toLocaleDateString() : 'Never',
-            chip: 'text-orange-300 bg-orange-500/15',
+            title: 'Success Rate',
+            value: `${completionRate}%`,
+            icon: 'query_stats',
+            helper: latestFlash ? `Last flash ${new Date(latestFlash.created_at).toLocaleDateString()}` : 'No flash history',
+            tone: 'text-amber-300 bg-amber-500/15',
         },
     ];
+
+    const activityFeed = useMemo(() => {
+        const flashEvents = flashJobs.slice(0, 5).map((job) => ({
+            id: `flash-${job.id}`,
+            type: 'flash' as const,
+            date: job.created_at,
+            title: `${job.tune_detail?.name || `Tune #${job.tune || 'N/A'}`}`,
+            subtitle: `Flash job ${job.status.toLowerCase()}`,
+            status: job.status,
+        }));
+
+        const purchaseEvents = purchases.slice(0, 5).map((purchase) => ({
+            id: `purchase-${purchase.id}`,
+            type: 'purchase' as const,
+            date: purchase.created_at,
+            title: purchase.tune?.name || 'Tune purchase',
+            subtitle: `Purchased for $${Number.parseFloat(purchase.price_paid || '0').toFixed(2)}`,
+            status: 'COMPLETED',
+        }));
+
+        return [...flashEvents, ...purchaseEvents]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 6);
+    }, [flashJobs, purchases]);
 
     return (
         <AppLayout
             title={`Welcome back, ${user?.first_name || user?.username || 'Rider'}`}
-            subtitle="Live overview of bikes, flash jobs, and purchased tunes"
+            subtitle="Real-time command center for flash operations, bike profile, and tune library"
         >
             {loading ? (
                 <LoadingSkeleton type="stat" />
             ) : (
                 <section className="mb-7 grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    {stats.map((stat) => (
-                        <article key={stat.label} className="surface-card rounded-2xl p-4 sm:p-5">
+                    {dashboardStats.map((stat, idx) => (
+                        <article key={stat.title} className="surface-card rounded-2xl p-4 sm:p-5 animate-fade-up" style={{ animationDelay: `${idx * 70}ms` }}>
                             <div className="mb-4 flex items-center justify-between">
-                                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">{stat.label}</span>
-                                <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${stat.chip}`}>
+                                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">{stat.title}</span>
+                                <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${stat.tone}`}>
                                     <span className="material-symbols-outlined text-[18px]">{stat.icon}</span>
                                 </span>
                             </div>
                             <p className="truncate text-2xl font-black text-white">{stat.value}</p>
+                            <p className="mt-1 truncate text-xs text-text-muted">{stat.helper}</p>
                         </article>
                     ))}
                 </section>
             )}
 
             <section className="mb-7 grid grid-cols-1 gap-5 xl:grid-cols-12">
-                <article className="surface-card rounded-3xl p-5 sm:p-6 xl:col-span-8">
-                    <div className="mb-5 flex items-center justify-between">
-                        <h3 className="text-xl font-black text-white">Active Bike</h3>
-                        {activeBike && (
-                            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                                Connected
+                <article className="surface-card relative overflow-hidden rounded-3xl p-5 sm:p-6 xl:col-span-8 animate-fade-up">
+                    <div className="pointer-events-none absolute right-[-70px] top-[-80px] h-56 w-56 rounded-full bg-primary/20 blur-3xl" />
+                    <div className="pointer-events-none absolute bottom-[-90px] left-[-80px] h-56 w-56 rounded-full bg-orange-500/15 blur-3xl" />
+
+                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Flash Control</p>
+                            <h3 className="mt-1 text-2xl font-black text-white">Operational Snapshot</h3>
+                        </div>
+                        {latestFlash && (
+                            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-3 py-1 text-[11px] font-semibold text-text-body">
+                                <span className="material-symbols-outlined text-[14px] text-primary">schedule</span>
+                                Last job {new Date(latestFlash.created_at).toLocaleDateString()}
                             </span>
                         )}
                     </div>
 
-                    {loading ? (
-                        <div className="h-24 rounded-xl skeleton-shimmer" />
-                    ) : activeBike ? (
-                        <>
-                            <div className="mb-6 flex items-center gap-4">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
-                                    <span className="material-symbols-outlined text-[30px] text-primary">two_wheeler</span>
-                                </div>
-                                <div>
-                                    <p className="text-xl font-black text-white">{activeBike.name}</p>
-                                    <p className="text-sm text-text-muted">
-                                        {activeBike.year} {activeBike.make} {activeBike.model}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                {[
-                                    { label: 'ECU', value: activeBike.ecu_type || 'Unknown' },
-                                    { label: 'ECU ID', value: activeBike.ecu_id || 'N/A' },
-                                    { label: 'VIN', value: activeBike.vin || 'Not set' },
-                                ].map((item) => (
-                                    <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">{item.label}</p>
-                                        <p className="mt-1 truncate text-sm font-semibold text-white">{item.value}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.01] p-10 text-center">
-                            <span className="material-symbols-outlined text-4xl text-text-muted">add_circle</span>
-                            <p className="mt-2 text-sm text-text-muted">No bikes registered yet.</p>
+                    <div className="relative z-10 mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Completion Rate</p>
+                            <p className="mt-2 text-3xl font-black text-white">{completionRate}%</p>
+                            <p className="mt-1 text-xs text-text-muted">Based on recorded flash jobs</p>
                         </div>
-                    )}
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Current Bike</p>
+                            <p className="mt-2 text-lg font-bold text-white">{activeBike ? activeBike.name : 'Not assigned'}</p>
+                            <p className="mt-1 text-xs text-text-muted">
+                                {activeBike ? `${activeBike.year} ${activeBike.make} ${activeBike.model}` : 'Add a bike to tune safely'}
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Library Value</p>
+                            <p className="mt-2 text-3xl font-black text-white">${totalSpent.toFixed(0)}</p>
+                            <p className="mt-1 text-xs text-text-muted">Across {purchases.length} purchased tune(s)</p>
+                        </div>
+                    </div>
                 </article>
 
-                <aside className="xl:col-span-4">
-                    <div className="surface-card rounded-3xl p-5 sm:p-6">
+                <aside className="space-y-5 xl:col-span-4">
+                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '60ms' }}>
                         <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">Quick Actions</p>
                         <div className="space-y-3">
                             <Link
@@ -158,87 +190,136 @@ export default function DashboardPage() {
                                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] text-sm font-semibold text-white"
                             >
                                 <span className="material-symbols-outlined text-[18px]">download</span>
-                                My Downloads
+                                Open Downloads
                             </Link>
                             <Link
                                 href="/settings"
                                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] text-sm font-semibold text-white"
                             >
-                                <span className="material-symbols-outlined text-[18px]">settings</span>
-                                Settings
+                                <span className="material-symbols-outlined text-[18px]">tune</span>
+                                Review Settings
                             </Link>
                         </div>
-                    </div>
+                    </article>
+
+                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '110ms' }}>
+                        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Bike Details</p>
+                        {activeBike ? (
+                            <div className="space-y-2">
+                                {[
+                                    { label: 'ECU', value: activeBike.ecu_type || 'Unknown' },
+                                    { label: 'ECU ID', value: activeBike.ecu_id || 'N/A' },
+                                    { label: 'VIN', value: activeBike.vin || 'Not set' },
+                                ].map((item) => (
+                                    <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">{item.label}</p>
+                                        <p className="mt-1 truncate text-sm font-semibold text-white">{item.value}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-text-muted">No active bike. Add one from mobile or garage endpoints.</p>
+                        )}
+                    </article>
                 </aside>
             </section>
 
-            <section className="surface-card overflow-hidden rounded-3xl">
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
-                    <h3 className="text-lg font-black text-white">Flash History</h3>
-                    <p className="text-xs font-medium text-text-muted">{flashJobs.length} total entries</p>
-                </div>
+            <section className="mb-7 grid grid-cols-1 gap-5 xl:grid-cols-12">
+                <article className="surface-card overflow-hidden rounded-3xl xl:col-span-8 animate-fade-up">
+                    <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
+                        <h3 className="text-lg font-black text-white">Flash History</h3>
+                        <p className="text-xs font-medium text-text-muted">{flashJobs.length} total entries</p>
+                    </div>
 
-                {loading ? (
-                    <LoadingSkeleton type="table" rows={4} />
-                ) : flashJobs.length === 0 ? (
-                    <div className="py-14 text-center">
-                        <span className="material-symbols-outlined text-4xl text-text-muted">history</span>
-                        <p className="mt-2 text-sm text-text-muted">No flash history yet.</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[680px]">
-                            <thead>
-                                <tr className="border-b border-white/10 text-left">
-                                    <th className="px-6 py-3 th-label">Date</th>
-                                    <th className="px-6 py-3 th-label">Tune</th>
-                                    <th className="px-6 py-3 th-label">Status</th>
-                                    <th className="px-6 py-3 th-label">Progress</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {flashJobs.slice(0, 10).map((job) => {
-                                    const sc = statusConfig[job.status] || {
-                                        bg: 'bg-zinc-500/15',
-                                        text: 'text-zinc-200',
-                                        icon: 'help',
-                                    };
-                                    return (
-                                        <tr key={job.id} className="border-b border-white/6 last:border-0 hover:bg-white/[0.02]">
-                                            <td className="px-6 py-4 text-sm text-text-body">{new Date(job.created_at).toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-white">
-                                                {job.tune_detail?.name || `Tune #${job.tune || 'N/A'}`}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold ${sc.bg} ${sc.text}`}>
-                                                    <span className="material-symbols-outlined text-[14px]">{sc.icon}</span>
-                                                    {job.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                                                        <div
-                                                            className={`h-full rounded-full ${
-                                                                job.status === 'COMPLETED'
-                                                                    ? 'bg-emerald-400'
-                                                                    : job.status === 'FAILED'
-                                                                    ? 'bg-red-400'
-                                                                    : 'bg-primary'
-                                                            }`}
-                                                            style={{ width: `${job.progress}%` }}
-                                                        />
+                    {loading ? (
+                        <LoadingSkeleton type="table" rows={4} />
+                    ) : flashJobs.length === 0 ? (
+                        <div className="py-14 text-center">
+                            <span className="material-symbols-outlined text-4xl text-text-muted">history</span>
+                            <p className="mt-2 text-sm text-text-muted">No flash history yet.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[700px]">
+                                <thead>
+                                    <tr className="border-b border-white/10 text-left">
+                                        <th className="px-6 py-3 th-label">Date</th>
+                                        <th className="px-6 py-3 th-label">Tune</th>
+                                        <th className="px-6 py-3 th-label">Status</th>
+                                        <th className="px-6 py-3 th-label">Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {flashJobs.slice(0, 10).map((job) => {
+                                        const view = statusView(job.status);
+                                        return (
+                                            <tr key={job.id} className="border-b border-white/10 last:border-0 hover:bg-white/[0.02]">
+                                                <td className="px-6 py-4 text-sm text-text-body">{new Date(job.created_at).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 text-sm font-semibold text-white">
+                                                    {job.tune_detail?.name || `Tune #${job.tune || 'N/A'}`}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold ${view.bg} ${view.text}`}>
+                                                        <span className="material-symbols-outlined text-[14px]">{view.icon}</span>
+                                                        {job.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                                                            <div
+                                                                className={`h-full rounded-full ${
+                                                                    job.status === 'COMPLETED'
+                                                                        ? 'bg-emerald-400'
+                                                                        : job.status === 'FAILED'
+                                                                        ? 'bg-red-400'
+                                                                        : 'bg-primary'
+                                                                }`}
+                                                                style={{ width: `${job.progress}%` }}
+                                                            />
+                                                        </div>
+                                                        <span className="w-8 text-right text-xs font-medium text-text-muted">{job.progress}%</span>
                                                     </div>
-                                                    <span className="w-8 text-right text-xs font-medium text-text-muted">{job.progress}%</span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </article>
+
+                <aside className="surface-card rounded-3xl p-5 sm:p-6 xl:col-span-4 animate-fade-up" style={{ animationDelay: '90ms' }}>
+                    <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-lg font-black text-white">Recent Activity</h3>
+                        <span className="rounded-full border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
+                            Live
+                        </span>
                     </div>
-                )}
+                    {activityFeed.length === 0 ? (
+                        <p className="text-sm text-text-muted">No activity captured yet.</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {activityFeed.map((event) => {
+                                const view = statusView(event.status);
+                                return (
+                                    <div key={event.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                                        <div className="mb-1 flex items-start justify-between gap-2">
+                                            <p className="text-sm font-semibold text-white">{event.title}</p>
+                                            <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${view.bg} ${view.text}`}>
+                                                <span className="material-symbols-outlined text-[12px]">{view.icon}</span>
+                                                {event.type}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-text-muted">{event.subtitle}</p>
+                                        <p className="mt-1 text-[11px] text-text-muted/80">{new Date(event.date).toLocaleString()}</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </aside>
             </section>
         </AppLayout>
     );

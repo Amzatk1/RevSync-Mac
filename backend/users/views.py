@@ -110,4 +110,4 @@ class UserPreferenceView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return UserPreference.objects.filter(user=self.request.user)
+        return UserPreference.objects.filter(user=self.request.user).order_by('-updated_at')

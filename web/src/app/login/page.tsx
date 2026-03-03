@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
@@ -12,6 +12,32 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const checkAuthApi = async () => {
+            try {
+                const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+                const response = await fetch(`${base}/v1/users/me/`, {
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                });
+                if (!cancelled) {
+                    // 401 is expected without a token, but it confirms backend auth endpoints are reachable.
+                    setApiStatus(response ? 'online' : 'offline');
+                }
+            } catch {
+                if (!cancelled) setApiStatus('offline');
+            }
+        };
+
+        checkAuthApi();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -64,6 +90,20 @@ export default function LoginPage() {
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Welcome Back</p>
                         <h2 className="mt-2 text-3xl font-black text-white">Sign in to your account</h2>
                         <p className="mt-2 text-sm text-text-muted">Continue where you left off.</p>
+                        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold">
+                            <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                    apiStatus === 'online'
+                                        ? 'bg-emerald-300'
+                                        : apiStatus === 'offline'
+                                        ? 'bg-red-300'
+                                        : 'bg-amber-300'
+                                }`}
+                            />
+                            <span className="text-text-muted">
+                                Auth API {apiStatus === 'online' ? 'reachable' : apiStatus === 'offline' ? 'offline' : 'checking...'}
+                            </span>
+                        </div>
                     </div>
 
                     {error && (

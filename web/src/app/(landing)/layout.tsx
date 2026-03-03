@@ -28,6 +28,9 @@ export default function LandingLayout({ children }: { children: React.ReactNode 
                         <a className="text-sm font-medium text-text-muted hover:text-white" href="#features">
                             Features
                         </a>
+                        <a className="text-sm font-medium text-text-muted hover:text-white" href="#platforms">
+                            Platforms
+                        </a>
                         <a className="text-sm font-medium text-text-muted hover:text-white" href="#workflow">
                             Workflow
                         </a>

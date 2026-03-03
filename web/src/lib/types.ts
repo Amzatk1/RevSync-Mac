@@ -58,6 +58,12 @@ export interface User {
     profile: UserProfile;
 }
 
+export interface UserPreference {
+    key: string;
+    value: unknown;
+    updated_at: string;
+}
+
 // ─── Vehicles ───
 export type VehicleType = 'BIKE' | 'CAR';
 
