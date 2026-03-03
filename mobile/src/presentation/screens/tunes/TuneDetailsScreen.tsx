@@ -80,7 +80,14 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
         }
     };
 
-    const isCompatible = tune && activeBike && tune.bikeId === activeBike.id;
+    const isCompatible = (() => {
+        if (!tune || !activeBike) return false;
+        const compat = (tune.compatibilityRaw || []).join(' ').toLowerCase();
+        const makeOk = compat.includes(activeBike.make.toLowerCase());
+        const modelOk = compat.includes(activeBike.model.toLowerCase());
+        const yearOk = compat.includes(String(activeBike.year));
+        return makeOk && modelOk && (yearOk || compat.includes('-'));
+    })();
 
     if (loading) return <LoadingOverlay visible={true} message="Loading tune..." />;
     if (error) return (
@@ -283,7 +290,11 @@ export const TuneDetailsScreen = ({ route, navigation }: any) => {
                     disabled={!isCompatible}
                     onPress={() => {
                         ServiceLocator.getAnalyticsService().logEvent('tune_validate_initiated', { tuneId: tune.id });
-                        navigation.navigate('TuneValidation', { tuneId: tune.id });
+                        navigation.navigate('TuneValidation', {
+                            tuneId: tune.id,
+                            versionId: tune.versionId,
+                            listingId: tune.listingId || tune.id,
+                        });
                     }}
                 >
                     <Text style={styles.purchaseBtnText}>

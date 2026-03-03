@@ -1,40 +1,35 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-    View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-    RefreshControl, Alert, StatusBar,
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TextInput,
+    TouchableOpacity,
+    RefreshControl,
+    Alert,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ServiceLocator } from '../../di/ServiceLocator';
 import { Tune, TuneFilter } from '../../domain/services/DomainTypes';
 import { TuneCard } from '../components/TuneCard';
 import { SkeletonTuneCard } from '../components/SkeletonCards';
 import { useAppStore } from '../store/useAppStore';
-
-// ── Design tokens ──
-const C = {
-    primary: '#ea103c',
-    bg: '#1a1a1a',
-    surface: '#2d2d2d',
-    border: '#404040',
-    neutral400: '#a3a3a3',
-    neutral500: '#a3a3a3',
-    neutral600: '#737373',
-    neutral700: '#525252',
-    white: '#ffffff',
-};
+import { AppScreen, TopBar, GlassCard, Chip, SectionLabel } from '../components/AppUI';
+import { Theme } from '../theme';
 
 export const TuneMarketplaceScreen = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
     const { activeBike } = useAppStore();
+
     const [tunes, setTunes] = useState<Tune[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Filters
     const [filterStage, setFilterStage] = useState<number | null>(null);
     const [onlySafe, setOnlySafe] = useState(false);
     const [compatibleOnly, setCompatibleOnly] = useState(true);
@@ -47,12 +42,12 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                 searchQuery,
                 onlySafe,
                 minStage: filterStage || undefined,
-                compatibleBikeId: compatibleOnly ? activeBike?.id : undefined
+                compatibleBikeId: compatibleOnly ? activeBike?.id : undefined,
             };
             const results = await tuneService.getTunes(filter, 1);
             setTunes(results);
         } catch (error) {
-            console.warn('Marketplace: fetch failed (backend may be offline)', error);
+            console.warn('Marketplace: fetch failed', error);
         } finally {
             setLoading(false);
             if (isRefresh) setRefreshing(false);
@@ -74,270 +69,266 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                 type: '*/*',
                 copyToCacheDirectory: true,
             });
-            if (!result.canceled && result.assets && result.assets.length > 0) {
+            if (!result.canceled && result.assets?.length) {
                 const file = result.assets[0];
-                const newTune: Tune = {
+                const tune: Tune = {
                     id: `import-${Date.now()}`,
-                    title: file.name.replace(/\.[^/.]+$/, ""),
+                    title: file.name.replace(/\.[^/.]+$/, ''),
                     bikeId: activeBike?.id || 'unknown',
                     stage: 0,
                     price: 0,
-                    safetyRating: 100,
+                    safetyRating: 92,
                     compatibilityRaw: [],
                     description: `Imported from ${file.name}`,
                     version: 'Custom',
-                    checksum: 'imported-checksum',
+                    checksum: 'imported',
                 };
-                const tuneService = ServiceLocator.getTuneService();
-                await tuneService.importTune(newTune);
-                setTunes(prev => [newTune, ...prev]);
-                Alert.alert('Success', 'Custom tune imported successfully!');
+                await ServiceLocator.getTuneService().importTune(tune);
+                setTunes(prev => [tune, ...prev]);
+                Alert.alert('Imported', `${file.name} is now available in your library.`);
             }
         } catch (err) {
-            console.log('Import cancelled or failed', err);
-            Alert.alert('Error', 'Failed to import tune.');
+            console.warn('Import failed', err);
+            Alert.alert('Import failed', 'Could not import tune file.');
         }
     };
 
-    // ── Filter chip helper ──
-    const Chip = ({ label, active, onPress, icon }: any) => (
-        <TouchableOpacity
-            style={[styles.chip, active && styles.chipActive]}
-            onPress={onPress}
-            activeOpacity={0.7}
-        >
-            {icon && <Ionicons name={icon} size={14} color={active ? '#000' : C.white} style={{ marginRight: 4 }} />}
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-        </TouchableOpacity>
-    );
-
-    const renderHeader = () => (
-        <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
-            {/* Title + filter icon */}
-            <View style={styles.titleRow}>
-                <Text style={styles.title}>Tunes</Text>
-                <TouchableOpacity style={styles.filterIconBtn}>
-                    <Ionicons name="options-outline" size={22} color={C.neutral400} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Search */}
-            <View style={styles.searchBar}>
-                <Ionicons name="search" size={20} color={C.neutral500} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search tunes..."
-                    placeholderTextColor={C.neutral500}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Ionicons name="close-circle" size={20} color={C.neutral500} />
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Filter Chips */}
-            <View style={styles.chipRow}>
-                <Chip
-                    label={activeBike ? 'Make/Model' : 'Make/Model'}
-                    active={compatibleOnly}
-                    onPress={() => setCompatibleOnly(!compatibleOnly)}
-                />
-                <Chip
-                    label="Stage"
-                    active={filterStage !== null}
-                    onPress={() => setFilterStage(filterStage ? null : 1)}
-                />
-                <Chip
-                    label="Safety"
-                    active={onlySafe}
-                    onPress={() => setOnlySafe(!onlySafe)}
-                    icon="shield-checkmark"
-                />
-                <Chip
-                    label="Price"
-                    active={false}
-                    onPress={() => { }}
-                />
-            </View>
-        </View>
-    );
+    const stats = {
+        total: tunes.length,
+        safe: tunes.filter(t => t.safetyRating >= 90).length,
+        stage2plus: tunes.filter(t => t.stage >= 2).length,
+    };
 
     return (
-        <View style={styles.root}>
-            <StatusBar barStyle="light-content" />
+        <AppScreen>
+            <TopBar
+                title="Tune Marketplace"
+                subtitle="Discover validated maps for your build"
+                right={
+                    <TouchableOpacity style={styles.iconAction} onPress={handleImport} activeOpacity={0.75}>
+                        <Ionicons name="cloud-upload-outline" size={18} color={Theme.Colors.text} />
+                    </TouchableOpacity>
+                }
+            />
 
-            {renderHeader()}
+            <FlatList
+                data={loading && !refreshing ? [] : tunes}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                    <TuneCard
+                        tune={item}
+                        onPress={() => navigation.navigate('TuneDetails', { tuneId: item.id })}
+                    />
+                )}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 110 }}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.Colors.primary} />}
+                ListHeaderComponent={
+                    <>
+                        <GlassCard style={styles.heroCard}>
+                            <LinearGradient
+                                colors={['rgba(234,16,60,0.18)', 'rgba(234,16,60,0.02)']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                            <View style={styles.heroTop}>
+                                <Text style={styles.heroLabel}>LIVE CATALOG</Text>
+                                <Text style={styles.heroTitle}>Built for riders, tuned for confidence.</Text>
+                                <Text style={styles.heroBody}>
+                                    Compatibility-aware tune discovery with safety scoring and instant entitlement checks.
+                                </Text>
+                            </View>
+                            <View style={styles.statsRow}>
+                                <StatPill label="Total" value={String(stats.total)} />
+                                <StatPill label="Safe" value={String(stats.safe)} />
+                                <StatPill label="Stage 2+" value={String(stats.stage2plus)} />
+                            </View>
+                        </GlassCard>
 
-            {loading && !refreshing ? (
-                <View style={[styles.listContent, { paddingBottom: 100 + insets.bottom }]}>
-                    <SkeletonTuneCard />
-                    <SkeletonTuneCard />
-                    <SkeletonTuneCard />
-                </View>
-            ) : (
-                <FlatList
-                    data={tunes}
-                    keyExtractor={item => item.id}
-                    renderItem={({ item }) => (
-                        <TuneCard
-                            tune={item}
-                            onPress={() => navigation.navigate('TuneDetails', { tuneId: item.id })}
-                        />
-                    )}
-                    contentContainerStyle={[styles.listContent, { paddingBottom: 100 + insets.bottom }]}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-                    }
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Ionicons name="documents-outline" size={48} color={C.neutral600} />
-                            <Text style={styles.emptyTitle}>No Tunes Found</Text>
-                            <Text style={styles.emptyBody}>No tunes found matching your filters.</Text>
-                            <TouchableOpacity style={styles.importBtn} onPress={handleImport}>
-                                <Ionicons name="cloud-upload-outline" size={20} color={C.primary} />
-                                <Text style={styles.importBtnText}>Import from File</Text>
-                            </TouchableOpacity>
+                        <View style={styles.searchWrap}>
+                            <Ionicons name="search" size={18} color={Theme.Colors.textSecondary} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search by tune, bike, or tuner"
+                                placeholderTextColor={Theme.Colors.textTertiary}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                            />
+                            {!!searchQuery && (
+                                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+                                    <Ionicons name="close-circle" size={18} color={Theme.Colors.textTertiary} />
+                                </TouchableOpacity>
+                            )}
                         </View>
-                    }
-                />
-            )}
-        </View>
+
+                        <SectionLabel label="Filters" />
+                        <View style={styles.chipsWrap}>
+                            <Chip label="Compatible" icon="checkmark-circle-outline" active={compatibleOnly} onPress={() => setCompatibleOnly(!compatibleOnly)} />
+                            <Chip label="Safety 90+" icon="shield-checkmark-outline" active={onlySafe} onPress={() => setOnlySafe(!onlySafe)} />
+                            <Chip label="Stage 1+" active={filterStage !== null} onPress={() => setFilterStage(filterStage ? null : 1)} />
+                            <Chip label={activeBike ? `${activeBike.make} ${activeBike.model}` : 'No active bike'} />
+                        </View>
+
+                        {loading && !refreshing && (
+                            <View style={{ marginTop: 8 }}>
+                                <SkeletonTuneCard />
+                                <SkeletonTuneCard />
+                                <SkeletonTuneCard />
+                            </View>
+                        )}
+                    </>
+                }
+                ListEmptyComponent={
+                    !loading ? (
+                        <GlassCard style={styles.emptyCard}>
+                            <Ionicons name="library-outline" size={34} color={Theme.Colors.textSecondary} />
+                            <Text style={styles.emptyTitle}>No tunes matched your current filters</Text>
+                            <Text style={styles.emptyBody}>Try clearing filters or importing a tune package manually.</Text>
+                            <TouchableOpacity style={styles.emptyAction} onPress={handleImport} activeOpacity={0.8}>
+                                <Ionicons name="cloud-upload-outline" size={16} color={Theme.Colors.text} />
+                                <Text style={styles.emptyActionText}>Import from file</Text>
+                            </TouchableOpacity>
+                        </GlassCard>
+                    ) : null
+                }
+            />
+        </AppScreen>
     );
 };
 
-// ════════════════════════════════════════════════════════════════════
-const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: C.bg,
-    },
+const StatPill = ({ label, value }: { label: string; value: string }) => (
+    <View style={styles.statPill}>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+    </View>
+);
 
-    // ── Header ──
-    headerContainer: {
-        paddingHorizontal: 24,
-        paddingBottom: 12,
-        backgroundColor: C.bg,
-    },
-    titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: '800',
-        color: C.white,
-        letterSpacing: -0.5,
-    },
-    filterIconBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: C.surface,
-        borderWidth: 1,
-        borderColor: C.border,
+const styles = StyleSheet.create({
+    iconAction: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.border,
     },
-
-    // ── Search Bar ──
-    searchBar: {
+    heroCard: {
+        overflow: 'hidden',
+        marginTop: 4,
+    },
+    heroTop: {
+        gap: 6,
+    },
+    heroLabel: {
+        fontSize: 10,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 1.1,
+        color: '#FB7185',
+    },
+    heroTitle: {
+        fontSize: 24,
+        lineHeight: 28,
+        letterSpacing: -0.45,
+        fontWeight: '800',
+        color: Theme.Colors.text,
+    },
+    heroBody: {
+        fontSize: 13,
+        color: Theme.Colors.textSecondary,
+        lineHeight: 19,
+    },
+    statsRow: {
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 8,
+    },
+    statPill: {
+        flex: 1,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        paddingVertical: 8,
+        alignItems: 'center',
+    },
+    statValue: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Theme.Colors.text,
+    },
+    statLabel: {
+        marginTop: 2,
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+        color: Theme.Colors.textSecondary,
+    },
+    searchWrap: {
+        marginTop: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: C.surface,
-        borderRadius: 16,
+        gap: 8,
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: C.border,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        marginBottom: 14,
+        borderColor: Theme.Colors.border,
+        backgroundColor: 'rgba(16,17,25,0.78)',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
     },
     searchInput: {
         flex: 1,
-        color: C.white,
-        marginLeft: 10,
-        fontSize: 16,
+        color: Theme.Colors.text,
+        fontSize: 14,
+        paddingVertical: 0,
     },
-
-    // ── Chips ──
-    chipRow: {
+    chipsWrap: {
+        marginBottom: 12,
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
     },
-    chip: {
-        flexDirection: 'row',
+    emptyCard: {
+        marginTop: 12,
         alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 50,
-        backgroundColor: C.surface,
-        borderWidth: 1,
-        borderColor: C.border,
-    },
-    chipActive: {
-        backgroundColor: C.primary,
-        borderColor: C.primary,
-    },
-    chipText: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: C.white,
-    },
-    chipTextActive: {
-        color: '#000',
-        fontWeight: '700',
-    },
-
-    // ── List ──
-    listContent: {
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        paddingBottom: 100,
-    },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-
-    // ── Empty ──
-    emptyState: {
-        alignItems: 'center',
-        paddingVertical: 48,
+        paddingVertical: 24,
         gap: 8,
     },
     emptyTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#D4D4D4',
-        marginTop: 8,
-    },
-    emptyBody: {
-        fontSize: 14,
-        color: C.neutral500,
+        marginTop: 3,
+        fontSize: 17,
+        fontWeight: '800',
+        color: Theme.Colors.text,
         textAlign: 'center',
     },
-    importBtn: {
+    emptyBody: {
+        maxWidth: 280,
+        textAlign: 'center',
+        fontSize: 13,
+        lineHeight: 19,
+        color: Theme.Colors.textSecondary,
+    },
+    emptyAction: {
+        marginTop: 8,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginTop: 16,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
+        gap: 7,
+        borderRadius: 999,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        backgroundColor: 'rgba(234,16,60,0.16)',
         borderWidth: 1,
-        borderColor: C.primary,
-        borderStyle: 'dashed',
-        backgroundColor: 'rgba(225,29,72,0.04)',
+        borderColor: 'rgba(234,16,60,0.3)',
     },
-    importBtnText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: C.primary,
+    emptyActionText: {
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 0.3,
+        color: Theme.Colors.text,
+        textTransform: 'uppercase',
     },
 });

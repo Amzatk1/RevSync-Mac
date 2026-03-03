@@ -53,8 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUser({
                         id: restoredUser.id,
                         email: restoredUser.email,
-                        firstName: restoredUser.firstName,
-                        lastName: restoredUser.lastName,
+                        firstName: restoredUser.firstName ?? '',
+                        lastName: restoredUser.lastName ?? '',
                         avatarUrl: restoredUser.avatarUrl,
                         createdAt: restoredUser.createdAt,
                     });
@@ -75,8 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser({
                     id: result.user.id,
                     email: result.user.email,
-                    firstName: result.user.firstName,
-                    lastName: result.user.lastName,
+                    firstName: result.user.firstName ?? '',
+                    lastName: result.user.lastName ?? '',
                     avatarUrl: result.user.avatarUrl,
                     createdAt: result.user.createdAt,
                 });
@@ -96,8 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser({
                     id: result.user.id,
                     email: result.user.email,
-                    firstName: result.user.firstName,
-                    lastName: result.user.lastName,
+                    firstName: result.user.firstName ?? '',
+                    lastName: result.user.lastName ?? '',
                     avatarUrl: result.user.avatarUrl,
                     createdAt: result.user.createdAt,
                 });

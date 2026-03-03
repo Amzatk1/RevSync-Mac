@@ -1,28 +1,30 @@
 export const Colors = {
-    // Brand Colors
-    primary: '#E11D48', // Keeping Brand Red but richer
+    // Brand
+    primary: '#EA103C',
     primaryVariant: '#BE123C',
-    accent: '#00E5FF', // Neon Cyan for high-tech accents
+    accent: '#00D4FF',
 
-    // Backgrounds
-    background: '#09090B', // Zinc-950 (Deep, rich black)
-    surface: '#18181B', // Zinc-900
-    surfaceHighlight: '#27272A', // Zinc-800
+    // Surfaces
+    background: '#0B0B11',
+    surface: '#171824',
+    surfaceHighlight: '#202233',
+    surfaceMuted: '#12131B',
 
     // Text
-    text: '#FAFAFA', // Zinc-50
-    textSecondary: '#A1A1AA', // Zinc-400
-    textTertiary: '#52525B', // Zinc-600
+    text: '#F8FAFC',
+    textSecondary: '#9CA3AF',
+    textTertiary: '#6B7280',
 
     // Functional
-    success: '#10B981', // Emerald-500
-    warning: '#F59E0B', // Amber-500
-    error: '#EF4444', // Red-500
-    info: '#3B82F6', // Blue-500
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#3B82F6',
 
-    // UI Utilities
-    border: '#27272A', // Zinc-800
-    divider: '#27272A',
+    // UI utilities
+    border: 'rgba(255,255,255,0.12)',
+    divider: 'rgba(255,255,255,0.08)',
+    overlay: 'rgba(7,8,12,0.72)',
     backdrop: 'rgba(0,0,0,0.7)',
     white: '#FFFFFF',
     black: '#000000',
@@ -80,8 +82,8 @@ export const Theme = {
     Typography,
     Shadows,
     Layout: {
-        borderRadius: 16,
-        buttonRadius: 12,
-        cardRadius: 16,
+        borderRadius: 18,
+        buttonRadius: 14,
+        cardRadius: 18,
     },
 };

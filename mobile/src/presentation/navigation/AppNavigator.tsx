@@ -149,23 +149,32 @@ const MainNavigator = () => {
             screenOptions={({ route }) => ({
                 headerShown: false,
                 tabBarStyle: {
-                    backgroundColor: '#18181B',
+                    position: 'absolute',
+                    left: 14,
+                    right: 14,
+                    bottom: 10,
+                    borderRadius: 22,
+                    backgroundColor: 'rgba(18,19,28,0.94)',
                     borderTopWidth: 0,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)',
                     paddingBottom: tabBarBottomPadding,
-                    paddingTop: 8,
-                    height: 56 + tabBarBottomPadding,
-                    elevation: 24,
+                    paddingTop: 10,
+                    height: 64 + tabBarBottomPadding,
+                    elevation: 20,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 12,
+                    shadowOpacity: 0.35,
+                    shadowRadius: 18,
                 },
+                tabBarLabelPosition: 'below-icon',
                 tabBarActiveTintColor: Theme.Colors.primary,
-                tabBarInactiveTintColor: '#52525B',
+                tabBarInactiveTintColor: '#73737F',
                 tabBarLabelStyle: {
-                    fontSize: 11,
-                    fontWeight: '600',
-                    letterSpacing: 0.2,
+                    fontSize: 10,
+                    fontWeight: '700',
+                    letterSpacing: 0.35,
+                    marginTop: 3,
                 },
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName: any;
@@ -180,7 +189,20 @@ const MainNavigator = () => {
                         iconName = focused ? 'person' : 'person-outline';
                     }
 
-                    return <Ionicons name={iconName} size={focused ? 26 : 24} color={color} />;
+                    return (
+                        <View
+                            style={{
+                                width: 36,
+                                height: 30,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: focused ? 'rgba(234,16,60,0.14)' : 'transparent',
+                            }}
+                        >
+                            <Ionicons name={iconName} size={focused ? 24 : 22} color={color} />
+                        </View>
+                    );
                 },
             })}
         >

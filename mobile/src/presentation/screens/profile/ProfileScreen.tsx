@@ -1,428 +1,285 @@
 import React, { useEffect, useState } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/useAppStore';
 import { ServiceLocator } from '../../../di/ServiceLocator';
+import { AppScreen, TopBar, GlassCard, SectionLabel } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ── Design Tokens ──
-const C = {
-    primary: '#ea103c',
-    primaryBadgeBg: 'rgba(225,29,72,0.15)',
-    primaryBadgeText: '#FB7185',
-    primaryBtnBg: 'rgba(225,29,72,0.10)',
-    bg: '#1a1a1a',
-    surface: '#2d2d2d',
-    surfaceDark: '#262626',
-    border: '#404040',
-    neutral400: '#a3a3a3',
-    neutral500: '#a3a3a3',
-    neutral600: '#737373',
-    neutral700: '#525252',
-    neutral800: '#404040',
-    white: '#ffffff',
-    emerald: '#10B981',
-    blue: '#3B82F6',
-};
+type QuickStat = { label: string; value: string; icon: keyof typeof Ionicons.glyphMap; color: string };
+
+const MENU: Array<{ label: string; icon: keyof typeof Ionicons.glyphMap; screen: string; desc: string }> = [
+    { label: 'Settings', icon: 'settings-outline', screen: 'Settings', desc: 'App controls and preferences' },
+    { label: 'Support', icon: 'help-buoy-outline', screen: 'Support', desc: 'Get help and report issues' },
+    { label: 'Legal', icon: 'shield-checkmark-outline', screen: 'LegalMenu', desc: 'Policies and agreements' },
+    { label: 'Privacy', icon: 'eye-off-outline', screen: 'Privacy', desc: 'Data controls and export' },
+    { label: 'About', icon: 'information-circle-outline', screen: 'About', desc: 'Version and platform details' },
+];
 
 export const ProfileScreen = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
-    const { currentUser, signOut, activeBike } = useAppStore();
+    const { currentUser, activeBike, signOut } = useAppStore();
     const [stats, setStats] = useState({ tunesFlashed: 0, bikesOwned: 0 });
 
     useEffect(() => {
-        loadStats();
+        (async () => {
+            try {
+                const bikes = await ServiceLocator.getBikeService().getBikes();
+                let tunesFlashed = 0;
+                try {
+                    const { ApiClient } = await import('../../../data/http/ApiClient');
+                    const flashJobs = await ApiClient.getInstance().get<{ count?: number; results?: any[] }>('/v1/garage/flash-jobs/');
+                    tunesFlashed = flashJobs.count || flashJobs.results?.length || 0;
+                } catch {
+                    // ignore backend-offline path
+                }
+                setStats({ tunesFlashed, bikesOwned: bikes.length });
+            } catch (e) {
+                console.warn('Profile stats load failed', e);
+            }
+        })();
     }, []);
 
-    const loadStats = async () => {
-        try {
-            const bikeService = ServiceLocator.getBikeService();
-            const bikes = await bikeService.getBikes();
+    const displayName = currentUser?.firstName
+        ? `${currentUser.firstName}${currentUser.lastName ? ` ${currentUser.lastName}` : ''}`
+        : currentUser?.email?.split('@')[0] || 'Rider';
+    const initials = displayName.slice(0, 2).toUpperCase();
 
-            // Try to get flash count from backend
-            let tunesFlashed = 0;
-            try {
-                const { ApiClient } = await import('../../../data/http/ApiClient');
-                const flashJobs = await ApiClient.getInstance().get<{ count?: number; results?: any[] }>('/v1/garage/flash-jobs/');
-                tunesFlashed = flashJobs.count || flashJobs.results?.length || 0;
-            } catch { /* backend offline */ }
-
-            setStats({ tunesFlashed, bikesOwned: bikes.length });
-        } catch (e) {
-            console.warn('ProfileScreen: Failed to load stats', e);
-        }
-    };
-
-    const handleSignOut = async () => {
-        await signOut();
-    };
-
-    const initials = currentUser?.email?.substring(0, 2).toUpperCase() || 'US';
+    const quickStats: QuickStat[] = [
+        { label: 'Flashes', value: String(stats.tunesFlashed), icon: 'flash-outline', color: '#FB7185' },
+        { label: 'Bikes', value: String(stats.bikesOwned), icon: 'bicycle-outline', color: '#60A5FA' },
+        { label: 'Active', value: activeBike ? `${activeBike.make} ${activeBike.model}` : 'None', icon: 'checkmark-circle-outline', color: '#4ADE80' },
+    ];
 
     return (
-        <View style={styles.root}>
-            <StatusBar barStyle="light-content" />
+        <AppScreen>
+            <TopBar
+                title="Profile"
+                subtitle="Account, safety, and workspace controls"
+                right={
+                    <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('ProfileEdit')} activeOpacity={0.8}>
+                        <Ionicons name="pencil-outline" size={16} color={Theme.Colors.text} />
+                    </TouchableOpacity>
+                }
+            />
 
-            {/* ─── Header ─── */}
-            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-                <Text style={styles.headerTitle}>Profile</Text>
-                <TouchableOpacity
-                    style={styles.editBtn}
-                    onPress={() => navigation.navigate('ProfileEdit')}
-                >
-                    <Ionicons name="pencil-outline" size={18} color={C.neutral400} />
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+            <FlatList
+                data={MENU}
+                keyExtractor={(item) => item.label}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 110 }}
                 showsVerticalScrollIndicator={false}
-            >
-                {/* ─── Profile Card ─── */}
-                <View style={styles.profileCard}>
-                    <View style={styles.profileRow}>
-                        {/* Avatar */}
-                        <View style={styles.avatarOuter}>
-                            <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>{initials}</Text>
-                            </View>
-                        </View>
-                        {/* Info */}
-                        <View style={styles.profileInfo}>
-                            <Text style={styles.profileName} numberOfLines={1}>
-                                {currentUser?.firstName
-                                    ? `${currentUser.firstName} ${currentUser.lastName || ''}`
-                                    : currentUser?.email?.split('@')[0] || 'Rider'}
-                            </Text>
-                            <Text style={styles.profileEmail} numberOfLines={1}>
-                                {currentUser?.email || 'rider@revsync.io'}
-                            </Text>
-                            <View style={styles.badgeRow}>
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>PRO MEMBER</Text>
+                ListHeaderComponent={
+                    <>
+                        <GlassCard style={styles.identityCard}>
+                            <View style={styles.identityRow}>
+                                <View style={styles.avatarWrap}>
+                                    <Text style={styles.avatarText}>{initials}</Text>
+                                </View>
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                    <Text style={styles.nameText} numberOfLines={1}>{displayName}</Text>
+                                    <Text style={styles.emailText} numberOfLines={1}>{currentUser?.email || 'Not signed in'}</Text>
+                                    <View style={styles.rolePill}>
+                                        <Text style={styles.roleText}>RevSync Workspace</Text>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-                    </View>
-                </View>
+                        </GlassCard>
 
-                {/* ─── Quick Access ─── */}
-                <Text style={styles.sectionTitle}>Quick Access</Text>
-                <View style={styles.quickGrid}>
-                    {/* Purchases */}
-                    <TouchableOpacity style={styles.quickCard} activeOpacity={0.7}
-                        onPress={() => navigation.navigate('Flash', { screen: 'FlashHistory' })}>
-                        <View style={[styles.quickIconCircle, { backgroundColor: C.primaryBtnBg }]}>
-                            <Ionicons name="bag-outline" size={20} color={C.primary} />
+                        <SectionLabel label="Quick Snapshot" />
+                        <View style={styles.statsGrid}>
+                            {quickStats.map((item) => (
+                                <GlassCard key={item.label} style={styles.statCard}>
+                                    <Ionicons name={item.icon} size={16} color={item.color} />
+                                    <Text numberOfLines={1} style={styles.statValue}>{item.value}</Text>
+                                    <Text style={styles.statLabel}>{item.label}</Text>
+                                </GlassCard>
+                            ))}
                         </View>
-                        <View>
-                            <Text style={styles.quickLabel}>Purchases</Text>
-                            <Text style={styles.quickSub}>{stats.tunesFlashed} Orders</Text>
-                        </View>
-                    </TouchableOpacity>
 
-                    {/* Active Bike */}
-                    <TouchableOpacity style={styles.quickCard} activeOpacity={0.7}>
-                        <View style={[styles.quickIconCircle, { backgroundColor: 'rgba(16,185,129,0.10)' }]}>
-                            <Ionicons name="bicycle" size={20} color={C.emerald} />
-                        </View>
-                        <View>
-                            <Text style={styles.quickLabel}>Active Bike</Text>
-                            <Text style={styles.quickSub} numberOfLines={1}>
-                                {activeBike
-                                    ? `${activeBike.make} ${activeBike.model}`
-                                    : 'None'}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* Tuner Status — full width */}
-                    <TouchableOpacity style={[styles.quickCard, styles.quickCardFull]} activeOpacity={0.7}>
-                        <View style={styles.quickCardFullInner}>
-                            <View style={[styles.quickIconCircle, { backgroundColor: 'rgba(59,130,246,0.10)' }]}>
-                                <Ionicons name="options-outline" size={20} color={C.blue} />
+                        <SectionLabel label="Workspace" />
+                    </>
+                }
+                renderItem={({ item }) => (
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => navigation.navigate(item.screen)}
+                        activeOpacity={0.8}
+                    >
+                        <View style={styles.menuLeft}>
+                            <View style={styles.menuIconWrap}>
+                                <Ionicons name={item.icon} size={18} color={Theme.Colors.textSecondary} />
                             </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.quickLabel}>Tuner Status</Text>
-                                <Text style={styles.quickSub}>Authorized Dealer</Text>
+                                <Text style={styles.menuTitle}>{item.label}</Text>
+                                <Text style={styles.menuDesc}>{item.desc}</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color={C.neutral600} />
                         </View>
+                        <Ionicons name="chevron-forward" size={17} color={Theme.Colors.textTertiary} />
                     </TouchableOpacity>
-                </View>
-
-                {/* ─── General Menu ─── */}
-                <Text style={[styles.sectionTitle, { marginTop: 24 }]}>General</Text>
-                <View style={styles.menuCard}>
-                    <MenuRow
-                        icon="settings-outline"
-                        label="Settings"
-                        onPress={() => navigation.navigate('Settings')}
-                        showBorder
-                    />
-                    <MenuRow
-                        icon="help-buoy-outline"
-                        label="Support"
-                        onPress={() => navigation.navigate('Support')}
-                        showBorder
-                    />
-                    <MenuRow
-                        icon="shield-outline"
-                        label="Legal"
-                        onPress={() => navigation.navigate('LegalMenu')}
-                        showBorder={false}
-                    />
-                </View>
-
-                {/* ─── Sign Out + Version ─── */}
-                <View style={styles.signOutRow}>
-                    <TouchableOpacity onPress={handleSignOut}>
-                        <Text style={styles.signOutText}>Sign Out</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.versionText}> v2.4.1</Text>
-                </View>
-
-            </ScrollView>
-        </View>
+                )}
+                ListFooterComponent={
+                    <View style={styles.footerBlock}>
+                        <TouchableOpacity onPress={signOut} style={styles.signOutBtn} activeOpacity={0.8}>
+                            <Ionicons name="log-out-outline" size={16} color="#FCA5A5" />
+                            <Text style={styles.signOutText}>Sign Out</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.version}>RevSync Mobile v2.4.1 (Build 8902)</Text>
+                    </View>
+                }
+            />
+        </AppScreen>
     );
 };
 
-// ── Menu Row ──
-const MenuRow = ({ icon, label, onPress, showBorder }: any) => (
-    <TouchableOpacity
-        style={[styles.menuRow, showBorder && styles.menuRowBorder]}
-        onPress={onPress}
-        activeOpacity={0.6}
-    >
-        <View style={styles.menuRowLeft}>
-            <Ionicons name={icon} size={22} color={C.neutral400} />
-            <Text style={styles.menuRowLabel}>{label}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={C.neutral600} />
-    </TouchableOpacity>
-);
-
-// ════════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: C.bg,
-    },
-
-    // ── Header ──
-    header: {
-        paddingBottom: 20,
-        paddingHorizontal: 24,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(26,26,26,0.95)',
-    },
-    headerTitle: {
-        fontSize: 30,
-        fontWeight: '800',
-        color: C.white,
-        letterSpacing: -0.5,
-    },
     editBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: C.surface,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: C.border,
+        borderColor: Theme.Colors.border,
+        backgroundColor: 'rgba(255,255,255,0.06)',
     },
-
-    scrollView: {
-        flex: 1,
+    identityCard: {
+        marginTop: 4,
     },
-    scrollContent: {
-        paddingHorizontal: 16,
-        paddingTop: 8,
-    },
-
-    // ── Profile Card ──
-    profileCard: {
-        backgroundColor: C.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: C.border,
-        padding: 24,
-        marginBottom: 8,
-    },
-    profileRow: {
+    identityRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 20,
-    },
-    avatarOuter: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 2,
-        borderColor: 'rgba(225,29,72,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        // glow
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-    },
-    avatar: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
-        backgroundColor: C.surfaceDark,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarText: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: C.primary,
-    },
-    profileInfo: {
-        flex: 1,
-        minWidth: 0,
-    },
-    profileName: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: C.white,
-    },
-    profileEmail: {
-        fontSize: 14,
-        color: C.neutral500,
-        fontWeight: '500',
-        marginTop: 2,
-    },
-    badgeRow: {
-        flexDirection: 'row',
-        marginTop: 10,
-    },
-    badge: {
-        backgroundColor: C.neutral800,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 50,
-        borderWidth: 1,
-        borderColor: C.neutral700,
-    },
-    badgeText: {
-        fontSize: 10,
-        fontWeight: '700',
-        color: C.neutral400,
-        letterSpacing: 0.8,
-    },
-
-    // ── Section Title ──
-    sectionTitle: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: C.neutral500,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginLeft: 8,
-        marginBottom: 10,
-        marginTop: 6,
-    },
-
-    // ── Quick Access Grid ──
-    quickGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 16,
-    },
-    quickCard: {
-        flex: 1,
-        minWidth: '40%',
-        backgroundColor: C.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: C.border,
-        padding: 16,
         gap: 12,
     },
-    quickCardFull: {
-        flex: undefined,
-        minWidth: '100%',
-        width: '100%',
-        paddingVertical: 16,
-    },
-    quickCardFullInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-    },
-    quickIconCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+    avatarWrap: {
+        width: 62,
+        height: 62,
+        borderRadius: 31,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: 'rgba(234,16,60,0.35)',
+        backgroundColor: 'rgba(234,16,60,0.12)',
     },
-    quickLabel: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: C.white,
+    avatarText: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: Theme.Colors.primary,
     },
-    quickSub: {
+    nameText: {
+        fontSize: 20,
+        letterSpacing: -0.35,
+        fontWeight: '800',
+        color: Theme.Colors.text,
+    },
+    emailText: {
+        marginTop: 2,
         fontSize: 12,
-        color: C.neutral500,
-        marginTop: 1,
+        color: Theme.Colors.textSecondary,
     },
-
-    // ── General Menu ──
-    menuCard: {
-        backgroundColor: C.surface,
-        borderRadius: 16,
+    rolePill: {
+        marginTop: 8,
+        alignSelf: 'flex-start',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        backgroundColor: 'rgba(234,16,60,0.16)',
         borderWidth: 1,
-        borderColor: C.border,
-        overflow: 'hidden',
+        borderColor: 'rgba(234,16,60,0.3)',
+    },
+    roleText: {
+        fontSize: 10,
+        letterSpacing: 0.9,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        color: '#FB7185',
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    statCard: {
+        flex: 1,
+        paddingVertical: 12,
+        gap: 2,
+    },
+    statValue: {
+        marginTop: 2,
+        fontSize: 15,
+        fontWeight: '800',
+        color: Theme.Colors.text,
+    },
+    statLabel: {
+        fontSize: 10,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+        fontWeight: '700',
+        color: Theme.Colors.textSecondary,
     },
     menuRow: {
+        marginBottom: 8,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Theme.Colors.border,
+        backgroundColor: 'rgba(20,22,33,0.74)',
+        paddingHorizontal: 12,
+        paddingVertical: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 16,
-        paddingHorizontal: 16,
     },
-    menuRowBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: C.border,
-    },
-    menuRowLeft: {
+    menuLeft: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: 10,
+        paddingRight: 6,
     },
-    menuRowLabel: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#D4D4D4',
-    },
-
-    // ── Sign Out ──
-    signOutRow: {
-        flexDirection: 'row',
+    menuIconWrap: {
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 16,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.border,
+    },
+    menuTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Theme.Colors.text,
+    },
+    menuDesc: {
+        marginTop: 2,
+        fontSize: 12,
+        color: Theme.Colors.textSecondary,
+    },
+    footerBlock: {
         marginTop: 8,
+        alignItems: 'center',
+    },
+    signOutBtn: {
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(239,68,68,0.25)',
+        backgroundColor: 'rgba(239,68,68,0.12)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
     },
     signOutText: {
         fontSize: 12,
-        fontWeight: '600',
-        color: C.neutral500,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.35,
+        color: '#FCA5A5',
     },
-    versionText: {
-        fontSize: 12,
-        color: C.neutral500,
+    version: {
+        marginTop: 12,
+        fontSize: 11,
+        color: Theme.Colors.textTertiary,
     },
 });

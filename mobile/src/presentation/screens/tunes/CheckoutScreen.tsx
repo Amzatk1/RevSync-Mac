@@ -43,9 +43,10 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
             const tuneService = ServiceLocator.getTuneService();
             const data = await tuneService.getTuneDetails(tuneId);
             setTune(data);
-            if (data?.listingId) {
+            const listingId = data?.listingId || data?.id;
+            if (listingId) {
                 try {
-                    const { owned } = await tuneService.checkPurchase(data.listingId);
+                    const { owned } = await tuneService.checkPurchase(listingId);
                     if (owned) setAlreadyOwned(true);
                 } catch { }
             }
@@ -65,7 +66,7 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
             const tuneService = ServiceLocator.getTuneService();
             const listingId = tune.listingId || tune.id;
             setStatusMessage('Connecting to Stripe...');
-            const { clientSecret, publishableKey } = await tuneService.createPaymentIntent(listingId);
+            await tuneService.createPaymentIntent(listingId);
             setStatusMessage('Processing payment...');
             // Real confirmation — await the payment intent result
             await new Promise(r => setTimeout(r, 1500));
@@ -103,9 +104,15 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
                 <Text style={s.successDesc}>{tune.title} is already in your library.</Text>
                 <TouchableOpacity
                     style={s.payBtn}
-                    onPress={() => navigation.navigate('DownloadManager', {
-                        versionId: tune.versionId, listingId: tune.listingId || tune.id, title: tune.title,
-                    })}
+                    onPress={() => {
+                        if (!tune.versionId) {
+                            Alert.alert('Unavailable', 'No published version is available for download yet.');
+                            return;
+                        }
+                        navigation.navigate('DownloadManager', {
+                            versionId: tune.versionId, listingId: tune.listingId || tune.id, title: tune.title,
+                        });
+                    }}
                     activeOpacity={0.85}
                 >
                     <Ionicons name="download-outline" size={20} color="#FFF" />
@@ -131,9 +138,15 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
                 <Text style={s.successDesc}>{tune.title} is now in your library.</Text>
                 <TouchableOpacity
                     style={s.payBtn}
-                    onPress={() => navigation.navigate('DownloadManager', {
-                        versionId: tune.versionId, listingId: tune.listingId || tune.id, title: tune.title,
-                    })}
+                    onPress={() => {
+                        if (!tune.versionId) {
+                            Alert.alert('Unavailable', 'No published version is available for download yet.');
+                            return;
+                        }
+                        navigation.navigate('DownloadManager', {
+                            versionId: tune.versionId, listingId: tune.listingId || tune.id, title: tune.title,
+                        });
+                    }}
                     activeOpacity={0.85}
                 >
                     <Ionicons name="download-outline" size={20} color="#FFF" />

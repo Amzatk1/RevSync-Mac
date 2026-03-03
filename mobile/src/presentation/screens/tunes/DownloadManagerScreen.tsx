@@ -32,6 +32,9 @@ interface PackageEntry {
     signatureVerified: boolean;
     hashesMatch: boolean;
     localPath: string;
+    signatureBase64?: string;
+    tuneHashSha256?: string;
+    serverHashes?: TunePackage['serverHashes'];
     suspended?: boolean;
     suspendedReason?: string;
 }
@@ -142,6 +145,9 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
                 signatureVerified: result.package.signatureVerified,
                 hashesMatch: result.package.hashesMatch,
                 localPath: result.package.localPkgPath,
+                signatureBase64: result.package.signatureBase64,
+                tuneHashSha256: result.package.tuneHashSha256,
+                serverHashes: result.package.serverHashes,
             };
             const updated = [...packages.filter(p => p.versionId !== versionId), entry];
             setPackages(updated);
@@ -174,6 +180,14 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
     };
 
     const handleReverify = async (entry: PackageEntry) => {
+        if (!entry.signatureBase64 || !entry.tuneHashSha256 || !entry.serverHashes) {
+            Alert.alert(
+                'Re-verify unavailable',
+                'This package was downloaded before verification metadata was stored. Re-download it to re-verify.'
+            );
+            return;
+        }
+
         const downloadService = ServiceLocator.getDownloadService();
         const pkg: TunePackage = {
             versionId: entry.versionId,
@@ -181,9 +195,9 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
             localPkgPath: entry.localPath,
             tuneBinPath: entry.localPath,
             manifestPath: '',
-            signatureBase64: '',
-            tuneHashSha256: '',
-            serverHashes: {} as any,
+            signatureBase64: entry.signatureBase64,
+            tuneHashSha256: entry.tuneHashSha256,
+            serverHashes: entry.serverHashes,
             signatureVerified: entry.signatureVerified,
             hashesMatch: entry.hashesMatch,
             downloadedAt: entry.downloadedAt,

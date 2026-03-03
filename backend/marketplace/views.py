@@ -12,6 +12,9 @@ Covers:
 
 import uuid
 import logging
+import json
+import os
+from datetime import timedelta
 
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.views import APIView
@@ -69,7 +72,12 @@ class MarketplaceBrowseView(generics.ListAPIView):
     Public marketplace browsing. Lists all active tune listings.
     Supports filtering by vehicle_make and vehicle_model.
     """
-    queryset = TuneListing.objects.filter(is_active=True).order_by('-created_at')
+    queryset = (
+        TuneListing.objects
+        .filter(is_active=True, versions__status=TuneVersion.State.PUBLISHED)
+        .distinct()
+        .order_by('-created_at')
+    )
     serializer_class = TuneListingSerializer
     permission_classes = [permissions.AllowAny]
     filterset_fields = ['vehicle_make', 'vehicle_model']
@@ -79,7 +87,11 @@ class MarketplaceDetailView(generics.RetrieveAPIView):
     """
     Public marketplace detail for a single listing.
     """
-    queryset = TuneListing.objects.filter(is_active=True)
+    queryset = (
+        TuneListing.objects
+        .filter(is_active=True, versions__status=TuneVersion.State.PUBLISHED)
+        .distinct()
+    )
     serializer_class = TuneListingSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -364,6 +376,7 @@ class DownloadLinkView(APIView):
             # Hashes URL
             hashes_path = version.validated_path.replace('package.revsyncpkg', 'hashes.json')
             hashes_url = create_signed_url('validated', hashes_path, expires_in)
+            hashes_payload = self._load_hashes_payload(version, hashes_path)
 
         except Exception as e:
             logger.error(f"Failed to generate signed URLs: {e}")
@@ -387,12 +400,14 @@ class DownloadLinkView(APIView):
             'download_url': pkg_url,
             'signature_url': sig_url,
             'hashes_url': hashes_url,
+            'hashes': hashes_payload,
             'signature_b64': version.signature_base64,
             'tune_hash_sha256': version.file_hash_sha256,
             'manifest_hash_sha256': version.manifest_hash_sha256,
             'version_id': str(version.id),
             'version_number': version.version_number,
             'expires_in': 300,
+            'expires_at': (timezone.now() + timedelta(seconds=300)).isoformat(),
         })
 
     @staticmethod
@@ -401,6 +416,41 @@ class DownloadLinkView(APIView):
         if xff:
             return xff.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
+
+    @staticmethod
+    def _load_hashes_payload(version: TuneVersion, hashes_path: str) -> dict:
+        """
+        Returns hashes.json payload from validated storage.
+        Falls back to a minimal payload so clients can still proceed in dev.
+        """
+        from core.supabase_client import download_to_temp
+
+        temp_path = None
+        try:
+            temp_path = download_to_temp('validated', hashes_path)
+            with open(temp_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+            raise ValueError('hashes.json was not a JSON object')
+        except Exception as e:
+            logger.warning(f"Could not load hashes.json for version {version.id}: {e}")
+            return {
+                'version_id': str(version.id),
+                'listing_id': str(version.listing.id),
+                'tune_hash_sha256': version.file_hash_sha256,
+                'manifest_hash_sha256': version.manifest_hash_sha256,
+                'package_hash_sha256': '',
+                'algorithm': 'sha256',
+                'key_id': 'unknown',
+                'signed_at': version.signed_at.isoformat() if version.signed_at else timezone.now().isoformat(),
+            }
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
 
 
 # ─────────────────────────────────────────────────────────────────────

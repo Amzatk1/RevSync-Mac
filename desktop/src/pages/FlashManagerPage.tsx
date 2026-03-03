@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import api from '../lib/api';
 
 const CHECKLIST = [
     'ECU Power Supply Stable (>12V)',
     'Original ROM Backup Saved',
     'Checksum Verification Passed',
+    'Server Version Status Verified',
     'Ignition ON, Engine OFF',
     'Diagnostic Session Active',
     'Security Access Granted',
@@ -20,13 +22,89 @@ const LOG_LINES = [
 export default function FlashManagerPage() {
     const [progress, setProgress] = useState(0);
     const [phase, setPhase] = useState<'idle' | 'flashing' | 'done'>('idle');
-    const [checked, setChecked] = useState<boolean[]>(CHECKLIST.map(() => true));
+    const [checked, setChecked] = useState<boolean[]>(CHECKLIST.map((_, idx) => idx !== 3));
     const [logs, setLogs] = useState(LOG_LINES);
+    const [versionId, setVersionId] = useState('');
+    const [serverGate, setServerGate] = useState<{
+        checking: boolean;
+        valid: boolean;
+        status: string;
+        message: string;
+    }>({
+        checking: false,
+        valid: false,
+        status: 'UNVERIFIED',
+        message: 'Enter a version ID and verify before flashing.',
+    });
 
-    const allChecked = checked.every(Boolean);
+    const allChecked = checked.every(Boolean) && serverGate.valid;
 
-    const startFlash = () => {
-        if (!allChecked) return;
+    const verifyServerGate = async () => {
+        const candidate = versionId.trim();
+        if (!candidate) {
+            setServerGate({
+                checking: false,
+                valid: false,
+                status: 'UNVERIFIED',
+                message: 'Version ID is required.',
+            });
+            const c = [...checked];
+            c[3] = false;
+            setChecked(c);
+            return false;
+        }
+
+        setServerGate((prev) => ({ ...prev, checking: true, message: 'Checking server gate...' }));
+
+        try {
+            const status = await api.get<{
+                status: string;
+                flash_allowed: boolean;
+                has_entitlement: boolean;
+            }>(`/v1/marketplace/version-status/${candidate}/`);
+
+            const valid = status.flash_allowed === true;
+            setServerGate({
+                checking: false,
+                valid,
+                status: status.status,
+                message: valid
+                    ? `Flash allowed (${status.status})`
+                    : `Flash blocked (${status.status})`,
+            });
+            const c = [...checked];
+            c[3] = valid;
+            setChecked(c);
+            return valid;
+        } catch (error: any) {
+            setServerGate({
+                checking: false,
+                valid: false,
+                status: 'ERROR',
+                message: error?.uiMessage || 'Could not verify version status.',
+            });
+            const c = [...checked];
+            c[3] = false;
+            setChecked(c);
+            return false;
+        }
+    };
+
+    const startFlash = async () => {
+        const validGate = await verifyServerGate();
+        if (!validGate) {
+            setLogs((prev) => [
+                ...prev,
+                {
+                    time: new Date().toLocaleTimeString(),
+                    text: 'Flash blocked by server verification gate.',
+                    badge: 'BLOCKED',
+                    badgeColor: 'text-red-500',
+                },
+            ]);
+            return;
+        }
+        if (!checked.every(Boolean)) return;
         setPhase('flashing');
         setProgress(0);
     };
@@ -91,6 +169,27 @@ export default function FlashManagerPage() {
                                     <span className="text-text-muted">{k}</span><span className={`${c} font-mono text-xs`}>{v}</span>
                                 </div>
                             ))}
+                            <div className="mt-3 rounded-lg border border-white/10 bg-bg-dark/40 p-2.5">
+                                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">Server Gate</p>
+                                <div className="flex gap-2">
+                                    <input
+                                        value={versionId}
+                                        onChange={(e) => setVersionId(e.target.value)}
+                                        placeholder="Version UUID"
+                                        className="h-8 flex-1 rounded border border-border-dark bg-bg-dark px-2 text-xs text-white focus:border-primary focus:outline-none"
+                                    />
+                                    <button
+                                        onClick={verifyServerGate}
+                                        disabled={serverGate.checking}
+                                        className="rounded border border-primary/40 bg-primary/15 px-2.5 text-xs font-semibold text-primary disabled:opacity-50"
+                                    >
+                                        {serverGate.checking ? 'Checking' : 'Verify'}
+                                    </button>
+                                </div>
+                                <p className={`mt-1.5 text-[11px] ${serverGate.valid ? 'text-green-400' : 'text-text-muted'}`}>
+                                    {serverGate.message}
+                                </p>
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             {[{ label: 'Voltage', val: '12.8', unit: 'V', pct: 80, color: 'bg-green-500' }, { label: 'Temp', val: '42', unit: '°C', pct: 40, color: 'bg-blue-500' }].map(d => (
@@ -125,7 +224,7 @@ export default function FlashManagerPage() {
                                     </label>
                                 ))}
                             </div>
-                            <button onClick={startFlash} disabled={!allChecked || phase === 'flashing'}
+                            <button onClick={startFlash} disabled={!allChecked || phase === 'flashing' || serverGate.checking}
                                 className={`w-full h-14 rounded-lg font-black text-lg uppercase flex items-center justify-center gap-3 transition-all ${phase === 'done' ? 'bg-green-600 text-white' :
                                     phase === 'flashing' ? 'bg-gradient-to-r from-primary to-red-600 text-white shadow-[0_0_20px_rgba(234,16,60,0.4)] border border-red-500' :
                                         allChecked ? 'bg-gradient-to-r from-primary to-red-600 text-white shadow-[0_0_20px_rgba(234,16,60,0.4)] border border-red-500 hover:scale-[1.01] active:scale-[0.99]' :

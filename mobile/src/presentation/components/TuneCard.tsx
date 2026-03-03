@@ -1,102 +1,71 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Tune } from '../../domain/services/DomainTypes';
-
-// ── Design tokens ──
-const C = {
-    primary: '#ea103c',
-    primaryBadgeBg: 'rgba(225,29,72,0.15)',
-    primaryBadgeText: '#FB7185',
-    bg: '#1a1a1a',
-    surface: '#2d2d2d',
-    surfaceDark: '#262626',
-    border: '#404040',
-    neutral400: '#a3a3a3',
-    neutral500: '#a3a3a3',
-    neutral600: '#737373',
-    neutral700: '#525252',
-    white: '#ffffff',
-    success: '#22C55E',
-    successBg: 'rgba(34,197,94,0.15)',
-    yellow: '#EAB308',
-};
+import { Theme } from '../theme';
 
 interface TuneCardProps {
     tune: Tune;
     onPress: () => void;
 }
 
-const getStageColor = (stage: number) => {
-    if (stage === 1) return { bg: 'rgba(59,130,246,0.15)', text: '#60A5FA', label: 'Stage 1' };
-    if (stage === 2) return { bg: C.primaryBadgeBg, text: C.primaryBadgeText, label: 'Stage 2' };
-    if (stage === 3) return { bg: 'rgba(168,85,247,0.15)', text: '#C084FC', label: 'Stage 3' };
-    return { bg: C.primaryBadgeBg, text: C.primaryBadgeText, label: `ECO` };
+const stageConfig = (stage: number) => {
+    if (stage === 1) return { label: 'Stage 1', bg: 'rgba(59,130,246,0.16)', text: '#93C5FD' };
+    if (stage === 2) return { label: 'Stage 2', bg: 'rgba(234,16,60,0.16)', text: '#FB7185' };
+    if (stage === 3) return { label: 'Stage 3', bg: 'rgba(168,85,247,0.18)', text: '#D8B4FE' };
+    return { label: 'Custom', bg: 'rgba(148,163,184,0.15)', text: '#CBD5E1' };
 };
 
-const getSafetyInfo = (rating: number) => {
-    if (rating > 90) return { label: 'Safe', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' };
-    if (rating > 80) return { label: 'Moderate', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' };
-    return { label: 'Risky', color: '#EF4444', bg: 'rgba(239,68,68,0.1)' };
+const safetyConfig = (score: number) => {
+    if (score >= 90) return { label: 'SAFE', color: Theme.Colors.success };
+    if (score >= 80) return { label: 'MOD', color: Theme.Colors.warning };
+    return { label: 'RISK', color: Theme.Colors.error };
 };
 
 export const TuneCard = ({ tune, onPress }: TuneCardProps) => {
-    const stageStyle = getStageColor(tune.stage);
-    const safety = getSafetyInfo(tune.safetyRating);
-    const isCompatible = tune.safetyRating > 80; // simplified
+    const stage = stageConfig(tune.stage);
+    const safety = safetyConfig(tune.safetyRating);
+    const price = tune.price === 0 ? 'Free' : `$${tune.price.toFixed(2)}`;
 
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-            <View style={styles.cardContent}>
-                {/* Top badges row */}
-                <View style={styles.topRow}>
-                    <View style={styles.badgesLeft}>
-                        <View style={[styles.stageBadge, { backgroundColor: stageStyle.bg }]}>
-                            <Text style={[styles.stageBadgeText, { color: stageStyle.text }]}>
-                                {stageStyle.label}
-                            </Text>
-                        </View>
-                        {isCompatible && (
-                            <View style={styles.compatBadge}>
-                                <Ionicons name="checkmark-circle" size={12} color={C.success} />
-                                <Text style={styles.compatText}>COMPATIBLE</Text>
-                            </View>
-                        )}
+        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.78}>
+            <View style={styles.rowTop}>
+                <View style={styles.tags}>
+                    <View style={[styles.tag, { backgroundColor: stage.bg }]}>
+                        <Text style={[styles.tagText, { color: stage.text }]}>{stage.label}</Text>
                     </View>
-                    {/* Star rating */}
-                    <View style={styles.ratingBadge}>
-                        <Ionicons name="star" size={12} color={C.yellow} />
-                        <Text style={styles.ratingText}>
-                            {(4.5 + (tune.safetyRating % 5) / 10).toFixed(1)}
-                        </Text>
+                    <View style={styles.safetyTag}>
+                        <View style={[styles.dot, { backgroundColor: safety.color }]} />
+                        <Text style={[styles.safetyText, { color: safety.color }]}>{safety.label}</Text>
                     </View>
                 </View>
+                <View style={styles.ratingWrap}>
+                    <Ionicons name="star" size={12} color="#FBBF24" />
+                    <Text style={styles.ratingText}>{(4.2 + (tune.safetyRating % 6) / 10).toFixed(1)}</Text>
+                </View>
+            </View>
 
-                {/* Main content: Thumbnail + Info */}
-                <View style={styles.mainRow}>
-                    {/* Thumbnail */}
-                    <View style={styles.thumbnail}>
-                        <Ionicons name="bicycle" size={28} color={C.neutral600} />
-                    </View>
+            <View style={styles.rowMain}>
+                <LinearGradient
+                    colors={['rgba(234,16,60,0.20)', 'rgba(22,24,36,0.65)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.iconPlate}
+                >
+                    <Ionicons name="flash" size={24} color={Theme.Colors.primary} />
+                </LinearGradient>
 
-                    {/* Info */}
-                    <View style={styles.infoCol}>
-                        <Text style={styles.title} numberOfLines={1}>{tune.title}</Text>
-                        <View style={styles.authorRow}>
-                            <Ionicons name="person-outline" size={12} color={C.neutral500} />
-                            <Text style={styles.authorText}>
-                                {tune.description?.split(' ').slice(0, 2).join(' ') || 'Tuner'}
-                            </Text>
-                        </View>
-                        <Text style={styles.price}>
-                            {tune.price === 0 ? 'Free' : `$${tune.price.toFixed(2)}`}
-                        </Text>
-                    </View>
+                <View style={styles.info}>
+                    <Text numberOfLines={1} style={styles.title}>{tune.title}</Text>
+                    <Text numberOfLines={1} style={styles.meta}>
+                        {tune.version} • Safety {tune.safetyRating}
+                    </Text>
+                    <Text style={styles.price}>{price}</Text>
+                </View>
 
-                    {/* Arrow button */}
-                    <TouchableOpacity style={styles.arrowBtn} onPress={onPress}>
-                        <Ionicons name="arrow-forward" size={18} color={C.primary} />
-                    </TouchableOpacity>
+                <View style={styles.arrow}>
+                    <Ionicons name="chevron-forward" size={18} color={Theme.Colors.primary} />
                 </View>
             </View>
         </TouchableOpacity>
@@ -105,115 +74,110 @@ export const TuneCard = ({ tune, onPress }: TuneCardProps) => {
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: C.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: C.border,
         marginBottom: 12,
-        overflow: 'hidden',
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        backgroundColor: 'rgba(17,19,30,0.78)',
+        padding: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.22,
+        shadowRadius: 16,
+        elevation: 8,
     },
-    cardContent: {
-        padding: 16,
-    },
-
-    // Top row
-    topRow: {
+    rowTop: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 12,
     },
-    badgesLeft: {
+    tags: {
         flexDirection: 'row',
-        gap: 8,
         alignItems: 'center',
+        gap: 8,
     },
-    stageBadge: {
+    tag: {
+        borderRadius: 8,
         paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
+        paddingVertical: 4,
     },
-    stageBadgeText: {
+    tagText: {
         fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 0.3,
+        fontWeight: '800',
+        letterSpacing: 0.4,
         textTransform: 'uppercase',
     },
-    compatBadge: {
+    safetyTag: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        backgroundColor: C.successBg,
+        gap: 5,
+        borderRadius: 999,
         paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
+        paddingVertical: 4,
+        backgroundColor: 'rgba(255,255,255,0.05)',
     },
-    compatText: {
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    safetyText: {
         fontSize: 10,
-        fontWeight: '700',
-        color: C.success,
-        letterSpacing: 0.3,
+        fontWeight: '800',
+        letterSpacing: 0.35,
     },
-    ratingBadge: {
+    ratingWrap: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 5,
     },
     ratingText: {
         fontSize: 12,
-        fontWeight: '600',
-        color: C.neutral400,
+        fontWeight: '700',
+        color: Theme.Colors.textSecondary,
     },
-
-    // Main row
-    mainRow: {
+    rowMain: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 14,
+        gap: 12,
     },
-    thumbnail: {
-        width: 64,
-        height: 64,
-        borderRadius: 12,
-        backgroundColor: C.surfaceDark,
+    iconPlate: {
+        width: 58,
+        height: 58,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: C.border,
     },
-    infoCol: {
+    info: {
         flex: 1,
-        justifyContent: 'center',
+        minWidth: 0,
     },
     title: {
         fontSize: 16,
-        fontWeight: '700',
-        color: C.white,
-        marginBottom: 2,
+        fontWeight: '800',
+        letterSpacing: -0.2,
+        color: Theme.Colors.text,
     },
-    authorRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginBottom: 4,
-    },
-    authorText: {
+    meta: {
+        marginTop: 2,
         fontSize: 12,
-        color: C.neutral500,
+        color: Theme.Colors.textSecondary,
     },
     price: {
+        marginTop: 5,
         fontSize: 15,
-        fontWeight: '700',
-        color: C.primary,
+        fontWeight: '800',
+        color: Theme.Colors.primary,
     },
-
-    // Arrow
-    arrowBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(225,29,72,0.10)',
+    arrow: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(234,16,60,0.12)',
     },
 });

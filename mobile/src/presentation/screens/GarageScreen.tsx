@@ -1,28 +1,25 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-    View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl, Animated, Easing,
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    Alert,
+    RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAppStore } from '../store/useAppStore';
 import { ServiceLocator } from '../../di/ServiceLocator';
 import { Bike } from '../../domain/services/DomainTypes';
-import { useFocusEffect } from '@react-navigation/native';
 import { SkeletonBikeCard } from '../components/SkeletonCards';
-
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    divider: 'rgba(255,255,255,0.04)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-    success: '#22C55E',
-};
+import { AppScreen, TopBar, GlassCard, SectionLabel } from '../components/AppUI';
+import { Theme } from '../theme';
 
 export const GarageScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const { activeBike, loadActiveBike } = useAppStore();
     const [bikes, setBikes] = useState<Bike[]>([]);
     const [loading, setLoading] = useState(false);
@@ -31,188 +28,297 @@ export const GarageScreen = ({ navigation }: any) => {
         setLoading(true);
         try {
             const bikeService = ServiceLocator.getBikeService();
-            const allBikes = await bikeService.getBikes();
-            setBikes(allBikes);
+            setBikes(await bikeService.getBikes());
         } catch (e) {
-            console.warn('GarageScreen: loadBikes failed', e);
+            console.warn('GarageScreen: load failed', e);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            loadBikes();
-        }, [loadBikes])
-    );
+    useFocusEffect(useCallback(() => { loadBikes(); }, [loadBikes]));
 
     const handleSelectBike = async (bike: Bike) => {
-        const bikeService = ServiceLocator.getBikeService();
-        await bikeService.setActiveBike(bike.id);
+        await ServiceLocator.getBikeService().setActiveBike(bike.id);
         await loadActiveBike();
-        Alert.alert('Bike Selected', `${bike.year} ${bike.make} ${bike.model} is now active.`);
+        Alert.alert('Active bike updated', `${bike.year} ${bike.make} ${bike.model} is now selected.`);
     };
 
-    const renderBikeItem = ({ item }: { item: Bike }) => {
-        const isActive = activeBike?.id === item.id;
-        return (
-            <TouchableOpacity
-                style={[s.bikeCard, isActive && s.activeCard]}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('BikeDetails', { bikeId: item.id })}
-            >
-                <View style={s.cardRow}>
-                    <View style={[s.iconCircle, { backgroundColor: isActive ? 'rgba(234,16,60,0.1)' : 'rgba(255,255,255,0.06)' }]}>
-                        <Ionicons name="bicycle" size={24} color={isActive ? C.primary : C.muted} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={s.bikeTitle}>{item.year} {item.make} {item.model}</Text>
-                        <Text style={s.bikeVin}>VIN: {item.vin || 'N/A'}</Text>
-                    </View>
-                    {isActive && (
-                        <View style={s.activePill}>
-                            <View style={s.activeDot} />
-                            <Text style={s.activeText}>Active</Text>
-                        </View>
-                    )}
-                </View>
-
-                <View style={s.cardDivider} />
-
-                <View style={s.cardActions}>
-                    <TouchableOpacity
-                        style={s.actionBtn}
-                        onPress={() => handleSelectBike(item)}
-                        disabled={isActive}
-                    >
-                        <Text style={[s.actionText, isActive && { color: C.muted }]}>
-                            {isActive ? 'Current Ride' : 'Select Ride'}
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={s.actionBtn}
-                        onPress={() => navigation.navigate('BikeDetails', { bikeId: item.id })}
-                    >
-                        <Text style={s.actionText}>Details</Text>
-                        <Ionicons name="chevron-forward" size={16} color={C.primary} />
-                    </TouchableOpacity>
-                </View>
-            </TouchableOpacity>
-        );
-    };
+    const headerSubtitle = activeBike
+        ? `Active: ${activeBike.make} ${activeBike.model}`
+        : 'No active bike selected';
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <Text style={s.headerTitle}>My Garage</Text>
-                <TouchableOpacity style={s.addBtn} onPress={() => navigation.navigate('AddBike')} activeOpacity={0.7}>
-                    <Ionicons name="add" size={24} color="#FFF" />
-                </TouchableOpacity>
-            </View>
-
-            <FlatList
-                data={bikes}
-                renderItem={renderBikeItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={s.listContent}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={loadBikes} tintColor={C.primary} />}
-                ListEmptyComponent={
-                    loading ? (
-                        <View style={s.listContent}>
-                            <SkeletonBikeCard />
-                            <SkeletonBikeCard />
-                        </View>
-                    ) : (
-                        <View style={s.emptyState}>
-                            <View style={s.emptyCircle}>
-                                <Ionicons name="construct-outline" size={48} color={C.muted} />
-                            </View>
-                            <Text style={s.emptyTitle}>Garage Empty</Text>
-                            <Text style={s.emptySub}>Add your first bike to start tuning.</Text>
-                            <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('AddBike')} activeOpacity={0.85}>
-                                <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-                                <Text style={s.emptyBtnText}>Add Bike</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )
+        <AppScreen>
+            <TopBar
+                title="Garage"
+                subtitle={headerSubtitle}
+                right={
+                    <TouchableOpacity
+                        style={styles.addAction}
+                        onPress={() => navigation.navigate('AddBike')}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="add" size={18} color={Theme.Colors.text} />
+                    </TouchableOpacity>
                 }
             />
-        </SafeAreaView>
+
+            <FlatList
+                data={loading ? [] : bikes}
+                keyExtractor={item => item.id}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 110 }}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={loading} onRefresh={loadBikes} tintColor={Theme.Colors.primary} />}
+                ListHeaderComponent={
+                    <>
+                        <GlassCard style={styles.overviewCard}>
+                            <View style={styles.overviewItem}>
+                                <Text style={styles.overviewValue}>{bikes.length}</Text>
+                                <Text style={styles.overviewLabel}>Bikes</Text>
+                            </View>
+                            <View style={styles.overviewDivider} />
+                            <View style={styles.overviewItem}>
+                                <Text style={styles.overviewValue}>{activeBike ? '1' : '0'}</Text>
+                                <Text style={styles.overviewLabel}>Active</Text>
+                            </View>
+                            <View style={styles.overviewDivider} />
+                            <View style={styles.overviewItem}>
+                                <Text style={styles.overviewValue}>{bikes.filter(b => !!b.vin).length}</Text>
+                                <Text style={styles.overviewLabel}>VIN Tagged</Text>
+                            </View>
+                        </GlassCard>
+                        <SectionLabel label="Your Bikes" />
+                        {loading && (
+                            <>
+                                <SkeletonBikeCard />
+                                <SkeletonBikeCard />
+                            </>
+                        )}
+                    </>
+                }
+                renderItem={({ item }) => {
+                    const isActive = activeBike?.id === item.id;
+                    return (
+                        <GlassCard style={[styles.bikeCard, isActive && styles.bikeCardActive]}>
+                            <View style={styles.cardTop}>
+                                <View style={styles.iconWrap}>
+                                    <Ionicons name="bicycle" size={20} color={isActive ? Theme.Colors.primary : Theme.Colors.textSecondary} />
+                                </View>
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                    <Text style={styles.bikeTitle} numberOfLines={1}>
+                                        {item.year} {item.make} {item.model}
+                                    </Text>
+                                    <Text style={styles.bikeMeta} numberOfLines={1}>
+                                        VIN: {item.vin || 'Not linked'}
+                                    </Text>
+                                </View>
+                                {isActive && (
+                                    <View style={styles.activeBadge}>
+                                        <View style={styles.activeDot} />
+                                        <Text style={styles.activeBadgeText}>ACTIVE</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <View style={styles.actionsRow}>
+                                <TouchableOpacity
+                                    style={[styles.actionBtn, isActive && styles.actionBtnMuted]}
+                                    disabled={isActive}
+                                    onPress={() => handleSelectBike(item)}
+                                >
+                                    <Text style={[styles.actionText, isActive && styles.actionTextMuted]}>
+                                        {isActive ? 'Current Bike' : 'Set Active'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.actionBtn}
+                                    onPress={() => navigation.navigate('BikeDetails', { bikeId: item.id })}
+                                >
+                                    <Text style={styles.actionText}>Details</Text>
+                                    <Ionicons name="chevron-forward" size={15} color={Theme.Colors.primary} />
+                                </TouchableOpacity>
+                            </View>
+                        </GlassCard>
+                    );
+                }}
+                ListEmptyComponent={
+                    !loading ? (
+                        <GlassCard style={styles.emptyCard}>
+                            <Ionicons name="construct-outline" size={34} color={Theme.Colors.textSecondary} />
+                            <Text style={styles.emptyTitle}>No bikes yet</Text>
+                            <Text style={styles.emptyBody}>Add your bike to unlock fitment-aware tune recommendations.</Text>
+                            <TouchableOpacity style={styles.emptyAction} onPress={() => navigation.navigate('AddBike')}>
+                                <Ionicons name="add-circle-outline" size={16} color={Theme.Colors.text} />
+                                <Text style={styles.emptyActionText}>Add Bike</Text>
+                            </TouchableOpacity>
+                        </GlassCard>
+                    ) : null
+                }
+            />
+        </AppScreen>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingHorizontal: 24, paddingVertical: 16,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    addAction: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(234,16,60,0.2)',
+        borderWidth: 1,
+        borderColor: 'rgba(234,16,60,0.34)',
     },
-    headerTitle: { fontSize: 28, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
-    addBtn: {
-        width: 44, height: 44, borderRadius: 22,
-        backgroundColor: C.primary,
-        justifyContent: 'center', alignItems: 'center',
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4, shadowRadius: 12,
+    overviewCard: {
+        marginTop: 4,
+        marginBottom: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-    listContent: { padding: 16, paddingBottom: 100, gap: 12 },
-
+    overviewItem: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    overviewValue: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: Theme.Colors.text,
+    },
+    overviewLabel: {
+        marginTop: 2,
+        fontSize: 10,
+        letterSpacing: 0.8,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        color: Theme.Colors.textSecondary,
+    },
+    overviewDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: Theme.Colors.divider,
+    },
     bikeCard: {
-        backgroundColor: C.surface,
-        borderRadius: 20, overflow: 'hidden',
+        marginBottom: 10,
+        padding: 12,
     },
-    activeCard: {
-        borderWidth: 1.5,
-        borderColor: 'rgba(234,16,60,0.4)',
+    bikeCardActive: {
+        borderColor: 'rgba(234,16,60,0.38)',
+        backgroundColor: 'rgba(26,16,22,0.82)',
     },
-    cardRow: {
-        flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14,
+    cardTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
-    iconCircle: {
-        width: 48, height: 48, borderRadius: 14,
-        justifyContent: 'center', alignItems: 'center',
+    iconWrap: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.border,
     },
-    bikeTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-    bikeVin: { fontSize: 12, color: C.muted, marginTop: 2 },
-    activePill: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20,
-        backgroundColor: 'rgba(234,16,60,0.1)',
-        borderWidth: 1, borderColor: 'rgba(234,16,60,0.2)',
+    bikeTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: Theme.Colors.text,
     },
-    activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary },
-    activeText: { fontSize: 11, fontWeight: '700', color: C.primary },
-    cardDivider: { height: 1, backgroundColor: C.divider },
-    cardActions: {
-        flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 12,
-        backgroundColor: 'rgba(0,0,0,0.15)',
+    bikeMeta: {
+        marginTop: 2,
+        fontSize: 12,
+        color: Theme.Colors.textSecondary,
+    },
+    activeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        backgroundColor: 'rgba(234,16,60,0.16)',
+        borderWidth: 1,
+        borderColor: 'rgba(234,16,60,0.34)',
+    },
+    activeDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: Theme.Colors.primary,
+    },
+    activeBadgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 0.4,
+        color: '#FB7185',
+    },
+    actionsRow: {
+        marginTop: 11,
+        flexDirection: 'row',
+        gap: 8,
     },
     actionBtn: {
-        flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-        padding: 8, gap: 4,
-    },
-    actionText: { color: C.primary, fontWeight: '600', fontSize: 14 },
-
-    // Empty
-    emptyState: {
-        alignItems: 'center', justifyContent: 'center', padding: 48, paddingTop: 80,
-    },
-    emptyCircle: {
-        width: 88, height: 88, borderRadius: 44,
+        flex: 1,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Theme.Colors.border,
         backgroundColor: 'rgba(255,255,255,0.04)',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+        paddingVertical: 9,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
     },
-    emptyTitle: { fontSize: 20, fontWeight: '800', color: C.text },
-    emptySub: { fontSize: 14, color: C.muted, marginTop: 8, textAlign: 'center' },
-    emptyBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        marginTop: 24, paddingHorizontal: 24, paddingVertical: 14,
-        borderRadius: 26, backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 16,
+    actionBtnMuted: {
+        opacity: 0.5,
     },
-    emptyBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+    actionText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Theme.Colors.primary,
+    },
+    actionTextMuted: {
+        color: Theme.Colors.textSecondary,
+    },
+    emptyCard: {
+        marginTop: 14,
+        alignItems: 'center',
+        paddingVertical: 24,
+        gap: 8,
+    },
+    emptyTitle: {
+        marginTop: 2,
+        fontSize: 18,
+        fontWeight: '800',
+        color: Theme.Colors.text,
+    },
+    emptyBody: {
+        maxWidth: 270,
+        textAlign: 'center',
+        fontSize: 13,
+        lineHeight: 19,
+        color: Theme.Colors.textSecondary,
+    },
+    emptyAction: {
+        marginTop: 8,
+        borderRadius: 999,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderWidth: 1,
+        borderColor: 'rgba(234,16,60,0.3)',
+        backgroundColor: 'rgba(234,16,60,0.16)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+    },
+    emptyActionText: {
+        color: Theme.Colors.text,
+        fontSize: 12,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+    },
 });

@@ -80,9 +80,13 @@ export const TuneValidationScreen = ({ route, navigation }: any) => {
                         purchaseResult.owned ? 'Active entitlement confirmed' : 'No active entitlement');
                     if (!purchaseResult.owned) blockers++;
                 } else {
-                    updateCheck('entitlement', 'warn', 'Listing ID not available');
+                    updateCheck('entitlement', 'fail', 'Listing ID not available');
+                    blockers++;
                 }
-            } catch { updateCheck('entitlement', 'warn', 'Could not verify — check connection'); }
+            } catch {
+                updateCheck('entitlement', 'fail', 'Could not verify entitlement — check connection');
+                blockers++;
+            }
 
             updateCheck('versionStatus', 'checking');
             await delay(300);
@@ -96,9 +100,13 @@ export const TuneValidationScreen = ({ route, navigation }: any) => {
                         blockers++;
                     }
                 } else {
-                    updateCheck('versionStatus', 'warn', 'Version ID not available');
+                    updateCheck('versionStatus', 'fail', 'Version ID not available');
+                    blockers++;
                 }
-            } catch { updateCheck('versionStatus', 'warn', 'Could not check — offline mode'); }
+            } catch {
+                updateCheck('versionStatus', 'fail', 'Could not verify version status');
+                blockers++;
+            }
 
             updateCheck('packageExists', 'checking');
             await delay(200);
@@ -107,7 +115,10 @@ export const TuneValidationScreen = ({ route, navigation }: any) => {
                 updateCheck('packageExists', exists ? 'pass' : 'fail',
                     exists ? 'Verified package on device' : 'Package not downloaded');
                 if (!exists) blockers++;
-            } else { updateCheck('packageExists', 'warn', 'No version ID'); }
+            } else {
+                updateCheck('packageExists', 'fail', 'No version ID');
+                blockers++;
+            }
 
             updateCheck('signatureOk', 'checking');
             await delay(300);
@@ -121,7 +132,10 @@ export const TuneValidationScreen = ({ route, navigation }: any) => {
                 const pkgExists = await downloadService.hasVerifiedPackage(versionId);
                 updateCheck('hashesOk', pkgExists ? 'pass' : 'pending',
                     pkgExists ? 'Verified at download time' : 'Download package to verify');
-            } else { updateCheck('hashesOk', 'pending', 'Not applicable'); }
+            } else {
+                updateCheck('hashesOk', 'fail', 'Missing version metadata');
+                blockers++;
+            }
 
             updateCheck('ecuMatch', 'checking');
             await delay(300);
