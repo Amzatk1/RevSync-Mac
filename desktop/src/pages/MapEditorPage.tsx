@@ -1,206 +1,320 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import api from '../lib/api';
+import type { TuneListing } from '../lib/types';
 
-const RPM_LABELS = ['1000', '2000', '3000', '4000', '5000', '6000', '8000', '10000', '12000', '13500', '15000', '16000'];
-const TPS_LABELS = ['100', '90', '80', '70', '60', '50', '40', '30', '20', '10', '0'];
-
-// Realistic AFR fuel map data (RPM × TPS)
-const FUEL_MAP: number[][] = [
-    [13.2, 13.1, 13.0, 12.9, 12.8, 12.8, 12.7, 12.6, 12.5, 12.4, 12.3, 12.2],
-    [13.5, 13.4, 13.3, 13.2, 13.1, 13.0, 12.9, 12.8, 12.7, 12.6, 12.5, 12.4],
-    [13.8, 13.7, 13.6, 13.5, 13.4, 13.3, 13.2, 13.1, 13.0, 12.9, 12.8, 12.7],
-    [14.0, 13.9, 13.8, 13.7, 13.6, 13.5, 13.4, 13.3, 13.2, 13.1, 13.0, 12.9],
-    [14.2, 14.1, 14.0, 13.9, 13.8, 13.7, 13.6, 13.5, 13.4, 13.3, 13.2, 13.1],
-    [14.4, 14.3, 14.2, 14.1, 14.0, 13.9, 13.8, 13.7, 13.6, 13.5, 13.4, 13.3],
-    [14.5, 14.4, 14.3, 14.2, 14.1, 14.0, 13.9, 13.8, 13.7, 13.6, 13.5, 13.4],
-    [14.6, 14.5, 14.4, 14.3, 14.2, 14.1, 14.0, 13.9, 13.8, 13.7, 13.6, 13.5],
-    [14.7, 14.6, 14.5, 14.4, 14.3, 14.2, 14.1, 14.0, 13.9, 13.8, 13.7, 13.6],
-    [14.7, 14.7, 14.7, 14.7, 14.6, 14.5, 14.4, 14.3, 14.2, 14.1, 14.0, 13.9],
-    [14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7],
-];
-
-function getCellColor(val: number): string {
-    if (val <= 12.5) return 'bg-map-high/90';
-    if (val <= 13.0) return 'bg-map-high/60';
-    if (val <= 13.5) return 'bg-map-mid/80';
-    if (val <= 14.0) return 'bg-map-low/60';
-    if (val <= 14.4) return 'bg-map-low/30';
-    return 'bg-map-low/10';
+// Generate realistic fuel map data
+function generateMapData(): number[][] {
+    const rows = 16; // RPM (1000-9000)
+    const cols = 16; // TPS (0-100%)
+    const data: number[][] = [];
+    for (let r = 0; r < rows; r++) {
+        const row: number[] = [];
+        for (let c = 0; c < cols; c++) {
+            // Realistic fuel enrichment curve
+            const base = 10 + (r * 2.5) + (c * 1.8);
+            const variation = Math.sin(r * 0.5) * 3 + Math.cos(c * 0.4) * 2;
+            row.push(Math.round((base + variation) * 10) / 10);
+        }
+        data.push(row);
+    }
+    return data;
 }
 
+const RPM_LABELS = ['1000', '1500', '2000', '2500', '3000', '3500', '4000', '4500', '5000', '5500', '6000', '6500', '7000', '7500', '8000', '8500'];
+const TPS_LABELS = ['0', '6', '13', '19', '25', '31', '38', '44', '50', '56', '63', '69', '75', '81', '88', '100'];
+
+type UndoEntry = { data: number[][]; desc: string };
+
 export default function MapEditorPage() {
-    const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>({ row: 0, col: 4 });
-    const [mapData, setMapData] = useState(FUEL_MAP);
-    const [adjustVal, setAdjustVal] = useState('1.0');
+    const [listing, setListing] = useState<TuneListing | null>(null);
+    const [mapData, setMapData] = useState<number[][]>(generateMapData);
+    const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
+    const [editValue, setEditValue] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [view3D, setView3D] = useState(false);
+    const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+    const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
+    const [modified, setModified] = useState(false);
 
-    const applyAdjust = (pct: number) => {
+    useEffect(() => {
+        api.get<any>('/v1/marketplace/browse/')
+            .then(res => { const arr = Array.isArray(res) ? res : res?.results || []; if (arr.length) setListing(arr[0]); })
+            .catch(() => { });
+    }, []);
+
+    // Cell color based on value
+    const getCellColor = useCallback((val: number): string => {
+        const min = 8, max = 65;
+        const pct = Math.min(1, Math.max(0, (val - min) / (max - min)));
+        if (pct < 0.33) return `rgba(59, 130, 246, ${0.3 + pct * 1.5})`; // blue
+        if (pct < 0.66) return `rgba(34, 197, 94, ${0.3 + (pct - 0.33) * 1.5})`; // green
+        return `rgba(234, 16, 60, ${0.3 + (pct - 0.66) * 1.5})`; // red
+    }, []);
+
+    // Push to undo stack
+    const pushUndo = useCallback((desc: string) => {
+        setUndoStack(prev => [...prev.slice(-20), { data: mapData.map(r => [...r]), desc }]);
+        setRedoStack([]);
+        setModified(true);
+    }, [mapData]);
+
+    // Undo
+    const undo = useCallback(() => {
+        if (undoStack.length === 0) return;
+        const prev = undoStack[undoStack.length - 1];
+        setRedoStack(r => [...r, { data: mapData.map(row => [...row]), desc: 'redo' }]);
+        setMapData(prev.data);
+        setUndoStack(u => u.slice(0, -1));
+    }, [undoStack, mapData]);
+
+    // Redo
+    const redo = useCallback(() => {
+        if (redoStack.length === 0) return;
+        const next = redoStack[redoStack.length - 1];
+        setUndoStack(u => [...u, { data: mapData.map(row => [...row]), desc: 'undo' }]);
+        setMapData(next.data);
+        setRedoStack(r => r.slice(0, -1));
+    }, [redoStack, mapData]);
+
+    // Edit cell
+    const startEdit = useCallback((r: number, c: number) => {
+        setSelectedCell([r, c]);
+        setEditValue(String(mapData[r][c]));
+        setIsEditing(true);
+    }, [mapData]);
+
+    const commitEdit = useCallback(() => {
+        if (!selectedCell || !isEditing) return;
+        const [r, c] = selectedCell;
+        const val = parseFloat(editValue);
+        if (!isNaN(val)) {
+            pushUndo(`Edit [${r},${c}]`);
+            setMapData(prev => {
+                const next = prev.map(row => [...row]);
+                next[r][c] = Math.round(val * 10) / 10;
+                return next;
+            });
+        }
+        setIsEditing(false);
+    }, [selectedCell, isEditing, editValue, pushUndo]);
+
+    // Adjust selected cell
+    const adjustSelected = useCallback((delta: number) => {
         if (!selectedCell) return;
-        const copy = mapData.map(r => [...r]);
-        copy[selectedCell.row][selectedCell.col] = +(copy[selectedCell.row][selectedCell.col] * (1 + pct / 100)).toFixed(1);
-        setMapData(copy);
-    };
+        const [r, c] = selectedCell;
+        pushUndo(`Adjust [${r},${c}]`);
+        setMapData(prev => {
+            const next = prev.map(row => [...row]);
+            next[r][c] = Math.round((next[r][c] + delta) * 10) / 10;
+            return next;
+        });
+    }, [selectedCell, pushUndo]);
 
-    const sv = selectedCell ? mapData[selectedCell.row][selectedCell.col] : null;
+    // Interpolate row/col
+    const interpolateRow = useCallback(() => {
+        if (!selectedCell) return;
+        const [r] = selectedCell;
+        pushUndo('Interpolate row');
+        setMapData(prev => {
+            const next = prev.map(row => [...row]);
+            const first = next[r][0], last = next[r][15];
+            for (let c = 1; c < 15; c++) {
+                next[r][c] = Math.round((first + (last - first) * (c / 15)) * 10) / 10;
+            }
+            return next;
+        });
+    }, [selectedCell, pushUndo]);
+
+    // Reset to default
+    const resetMap = useCallback(() => {
+        pushUndo('Reset to default');
+        setMapData(generateMapData());
+        setModified(false);
+    }, [pushUndo]);
+
+    // Stats
+    const stats = useMemo(() => {
+        const flat = mapData.flat();
+        return {
+            min: Math.min(...flat).toFixed(1),
+            max: Math.max(...flat).toFixed(1),
+            avg: (flat.reduce((a, b) => a + b, 0) / flat.length).toFixed(1),
+        };
+    }, [mapData]);
 
     return (
-        <div className="flex flex-1 overflow-hidden">
-            {/* ── Main Editor Area ─────────────────────────── */}
-            <div className="flex-1 flex flex-col min-w-0 bg-bg-dark">
-                {/* Context Header */}
-                <div className="flex items-center justify-between border-b border-border-dark px-6 py-3 bg-panel-dark/50">
-                    <div>
-                        <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
-                            <span>Projects</span><span className="material-symbols-outlined" style={{ fontSize: 12 }}>chevron_right</span>
-                            <span>YZF-R1 2024 Stage 2</span><span className="material-symbols-outlined" style={{ fontSize: 12 }}>chevron_right</span>
-                            <span className="text-primary">Fuel Map 1</span>
-                        </div>
-                        <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                            Fuel Map: Main Injection
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-400 font-mono border border-blue-500/30">CYL 1-4</span>
-                        </h1>
-                    </div>
-                    <div className="flex items-center bg-bg-dark rounded-lg p-1 border border-border-dark">
-                        <button className="p-2 text-text-muted hover:text-white hover:bg-panel-dark rounded"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>undo</span></button>
-                        <button className="p-2 text-text-muted hover:text-white hover:bg-panel-dark rounded"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>redo</span></button>
-                        <div className="w-px h-5 bg-border-dark mx-1" />
-                        <button className="p-2 text-text-muted hover:text-white hover:bg-panel-dark rounded"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>zoom_out</span></button>
-                        <button className="p-2 text-text-muted hover:text-white hover:bg-panel-dark rounded"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>zoom_in</span></button>
-                        <div className="w-px h-5 bg-border-dark mx-1" />
-                        <button className="flex items-center gap-2 px-3 py-1.5 text-white bg-panel-dark rounded text-sm font-medium">
-                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>view_in_ar</span>3D View
-                        </button>
-                        <button className="p-2 text-primary hover:bg-primary/10 rounded"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>palette</span></button>
-                    </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Toolbar */}
+            <div className="h-12 bg-panel-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0">
+                <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>map</span>
+                    <h2 className="text-sm font-bold text-white">{listing?.title || 'Fuel Map'}</h2>
+                    {modified && <span className="w-2 h-2 rounded-full bg-amber-400" title="Unsaved changes" />}
                 </div>
-
-                {/* Split: 2D + 3D */}
-                <div className="flex-1 flex overflow-hidden">
-                    {/* 2D Heatmap */}
-                    <div className="flex-1 overflow-auto p-6 relative">
-                        <div className="absolute top-4 left-4 z-10 bg-panel-dark/90 backdrop-blur border border-border-dark p-2 rounded text-[11px] font-mono text-text-muted">
-                            <div className="flex items-center gap-2"><span className="w-3 h-3 bg-map-low rounded-sm" /> Lean / Low Load</div>
-                            <div className="flex items-center gap-2 mt-1"><span className="w-3 h-3 bg-map-high rounded-sm" /> Rich / High Load</div>
-                        </div>
-                        <div className="min-w-[700px] pl-10 pb-12">
-                            <div className="flex">
-                                {/* Y-axis labels */}
-                                <div className="flex flex-col justify-between pr-2 text-right text-[10px] font-mono text-amber-400 py-0.5" style={{ height: TPS_LABELS.length * 32 }}>
-                                    {TPS_LABELS.map(l => <div key={l}>{l}%</div>)}
-                                </div>
-                                {/* Grid */}
-                                <div className="grid gap-px bg-bg-dark border border-border-dark" style={{ gridTemplateColumns: `repeat(${RPM_LABELS.length}, 1fr)` }}>
-                                    {mapData.map((row, ri) => row.map((val, ci) => (
-                                        <div key={`${ri}-${ci}`}
-                                            onClick={() => setSelectedCell({ row: ri, col: ci })}
-                                            className={`${getCellColor(val)} heatmap-cell flex items-center justify-center text-[10px] font-mono h-8 min-w-[52px] cursor-pointer ${selectedCell?.row === ri && selectedCell?.col === ci ? 'ring-2 ring-white ring-inset z-10' : ''}`}>
-                                            <span className="text-white/90">{val.toFixed(1)}</span>
-                                        </div>
-                                    )))}
-                                </div>
-                            </div>
-                            {/* X-axis labels */}
-                            <div className="flex ml-8 mt-2" style={{ gap: 0 }}>
-                                {RPM_LABELS.map(l => (
-                                    <div key={l} className="flex-1 text-center text-[9px] font-mono text-primary -rotate-45 origin-top-left translate-y-2">{l}</div>
-                                ))}
-                            </div>
-                            <div className="text-center text-primary text-xs font-bold tracking-widest mt-10 ml-8">ENGINE SPEED (RPM)</div>
-                        </div>
-                    </div>
-
-                    {/* 3D Surface */}
-                    <div className="w-[40%] bg-panel-dark border-l border-border-dark flex flex-col relative overflow-hidden">
-                        <div className="flex-1 flex items-center justify-center grid-3d bg-gradient-to-b from-bg-dark to-panel-dark">
-                            <div className="grid-3d-plane relative w-[260px] h-[260px] bg-black/20 border border-slate-700 rounded">
-                                <svg className="absolute inset-0 w-full h-full opacity-60" xmlns="http://www.w3.org/2000/svg">
-                                    <defs>
-                                        <pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse">
-                                            <path d="M 26 0 L 0 0 0 26" fill="none" stroke="#555" strokeWidth="0.5" />
-                                        </pattern>
-                                        <linearGradient id="heatGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-                                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                                            <stop offset="50%" stopColor="#22c55e" stopOpacity="0.6" />
-                                            <stop offset="100%" stopColor="#ea103c" stopOpacity="0.8" />
-                                        </linearGradient>
-                                    </defs>
-                                    <rect width="100%" height="100%" fill="url(#grid)" />
-                                    <path d="M0,260 C50,220 100,240 150,130 S250,40 260,0 L260,260 Z" fill="url(#heatGrad)" fillOpacity="0.5" stroke="white" strokeWidth="1" />
-                                    <path d="M0,260 Q130,220 260,260" fill="none" stroke="#ea103c" strokeWidth="2" />
-                                    <path d="M50,260 Q150,180 260,220" fill="none" stroke="#ea103c" strokeWidth="1" opacity="0.5" />
-                                </svg>
-                                <div className="absolute -bottom-8 left-0 text-amber-400 text-[11px] font-bold">TPS →</div>
-                                <div className="absolute -bottom-8 right-0 text-primary text-[11px] font-bold">← RPM</div>
-                                <div className="absolute -top-6 left-0 text-white text-[11px] font-bold">AFR ↑</div>
-                            </div>
-                        </div>
-                        <div className="p-4 bg-panel-dark border-t border-border-dark flex justify-between items-center">
-                            <div>
-                                <p className="text-[10px] text-text-muted uppercase tracking-widest">Selected Cell</p>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-white">{sv?.toFixed(1) || '—'}</span>
-                                    <span className="text-xs text-text-muted">AFR</span>
-                                </div>
-                            </div>
-                            <div className="text-right text-xs">
-                                <div className="text-amber-400">TPS: <span className="text-white font-mono">{selectedCell ? TPS_LABELS[selectedCell.row] : '—'}%</span></div>
-                                <div className="text-primary">RPM: <span className="text-white font-mono">{selectedCell ? RPM_LABELS[selectedCell.col] : '—'}</span></div>
-                            </div>
-                        </div>
-                    </div>
+                <div className="flex items-center gap-1">
+                    <button onClick={undo} disabled={undoStack.length === 0}
+                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="Undo">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>undo</span>
+                    </button>
+                    <button onClick={redo} disabled={redoStack.length === 0}
+                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="Redo">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>redo</span>
+                    </button>
+                    <div className="w-px h-5 bg-border-dark mx-1" />
+                    <button onClick={() => adjustSelected(0.5)} disabled={!selectedCell}
+                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="+0.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
+                    </button>
+                    <button onClick={() => adjustSelected(-0.5)} disabled={!selectedCell}
+                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="-0.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>remove</span>
+                    </button>
+                    <button onClick={interpolateRow} disabled={!selectedCell}
+                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="Interpolate Row">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>straighten</span>
+                    </button>
+                    <div className="w-px h-5 bg-border-dark mx-1" />
+                    <button onClick={() => setView3D(v => !v)}
+                        className={`p-1.5 rounded transition-colors ${view3D ? 'text-primary bg-primary/10' : 'text-text-muted hover:text-white hover:bg-white/10'}`} title="Toggle 3D View">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>view_in_ar</span>
+                    </button>
+                    <button onClick={resetMap}
+                        className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors" title="Reset Map">
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span>
+                    </button>
                 </div>
             </div>
 
-            {/* ── Right Sidebar: Tools ──────────────────────── */}
-            <aside className="w-64 bg-panel-dark border-l border-border-dark flex flex-col shrink-0">
-                <div className="p-4 border-b border-border-dark">
-                    <h3 className="text-sm font-bold text-white mb-3">Map Selection</h3>
-                    <select className="w-full bg-bg-dark border border-border-dark text-slate-300 text-sm rounded-lg p-2.5 focus:ring-primary focus:border-primary">
-                        <option>Fuel Map (Cyl 1-4)</option><option>Ignition Map (Cyl 1-4)</option><option>Secondary Injection</option><option>ETV Base Map</option>
-                    </select>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                    {/* Quick Adjust */}
-                    <div>
-                        <h4 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3">Quick Adjust</h4>
-                        <div className="grid grid-cols-2 gap-2 mb-2">
-                            {[{ label: '+1%', val: 1, color: 'text-green-500' }, { label: '-1%', val: -1, color: 'text-red-500' }, { label: '+5%', val: 5, color: 'text-green-500' }, { label: '-5%', val: -5, color: 'text-red-500' }].map(b => (
-                                <button key={b.label} onClick={() => applyAdjust(b.val)}
-                                    className="flex flex-col items-center p-2.5 rounded bg-bg-dark hover:bg-primary/20 border border-border-dark hover:border-primary transition-colors">
-                                    <span className={`text-xs font-bold ${b.color}`}>{b.label}</span>
-                                </button>
+            <div className="flex-1 flex overflow-hidden">
+                {/* ─── 2D Heatmap ──────────────────── */}
+                <div className={`flex-1 overflow-auto p-4 ${view3D ? 'hidden' : ''}`}>
+                    <div className="inline-block">
+                        {/* TPS header */}
+                        <div className="flex ml-14 mb-1">
+                            {TPS_LABELS.map((label, i) => (
+                                <div key={i} className="w-12 text-center text-[9px] text-text-muted font-mono">{label}%</div>
                             ))}
                         </div>
-                        <div className="flex gap-2">
-                            <input value={adjustVal} onChange={e => setAdjustVal(e.target.value)} className="w-full bg-bg-dark border border-border-dark text-white text-sm rounded px-3 py-2 text-center" />
-                            <button className="bg-primary hover:bg-red-600 text-white px-4 rounded font-bold text-sm">=</button>
-                            <button className="bg-panel-dark border border-border-dark hover:bg-white/5 text-white px-4 rounded font-bold text-sm">×</button>
-                        </div>
-                    </div>
-                    {/* Interpolation */}
-                    <div>
-                        <h4 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3">Interpolation</h4>
-                        {[{ icon: 'linear_scale', label: 'Horizontal Smooth' }, { icon: 'linear_scale', label: 'Vertical Smooth', rotate: true }, { icon: 'blur_on', label: '2D Interpolate' }].map(i => (
-                            <button key={i.label} className="flex items-center gap-3 w-full p-2 text-sm text-slate-300 hover:text-white hover:bg-bg-dark rounded transition-colors">
-                                <span className={`material-symbols-outlined text-text-muted ${i.rotate ? 'rotate-90' : ''}`}>{i.icon}</span>{i.label}
-                            </button>
-                        ))}
-                    </div>
-                    {/* Live Data */}
-                    <div className="pt-4 border-t border-border-dark">
-                        <h4 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />Live Telemetry
-                        </h4>
-                        {[{ label: 'RPM', val: '12,450', pct: 75, color: 'bg-primary' }, { label: 'TPS', val: '88%', pct: 88, color: 'bg-amber-400' }, { label: 'Lambda', val: '0.88', pct: 60, color: 'bg-green-500' }].map(d => (
-                            <div key={d.label} className="mb-3">
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-text-muted">{d.label}</span><span className={`font-mono font-bold ${d.color === 'bg-primary' ? 'text-primary' : d.color === 'bg-amber-400' ? 'text-amber-400' : 'text-green-500'}`}>{d.val}</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-bg-dark rounded-full overflow-hidden"><div className={`h-full ${d.color}`} style={{ width: `${d.pct}%` }} /></div>
+                        {/* Rows */}
+                        {mapData.map((row, r) => (
+                            <div key={r} className="flex items-center">
+                                <div className="w-14 text-right pr-2 text-[10px] text-text-muted font-mono">{RPM_LABELS[r]}</div>
+                                {row.map((val, c) => (
+                                    <button key={c}
+                                        onClick={() => startEdit(r, c)}
+                                        onDoubleClick={() => startEdit(r, c)}
+                                        className={`w-12 h-7 text-[10px] font-mono font-medium border border-black/20 heatmap-cell ${selectedCell?.[0] === r && selectedCell?.[1] === c ? 'ring-2 ring-white z-10' : ''
+                                            }`}
+                                        style={{ background: getCellColor(val) }}>
+                                        {val.toFixed(1)}
+                                    </button>
+                                ))}
                             </div>
                         ))}
+                        <div className="flex ml-14 mt-2">
+                            <div className="text-[10px] text-text-muted text-center w-full">← TPS (Throttle Position %) →</div>
+                        </div>
                     </div>
                 </div>
-                <div className="p-3 border-t border-border-dark text-[10px] text-text-muted text-center">RevSync Pro v2.4.1</div>
-            </aside>
+
+                {/* ─── 3D View ─────────────────────── */}
+                {view3D && (
+                    <div className="flex-1 flex items-center justify-center p-4 grid-3d">
+                        <div className="grid-3d-plane">
+                            <svg viewBox="0 0 400 300" className="w-full max-w-lg">
+                                {mapData.map((row, r) =>
+                                    row.map((val, c) => {
+                                        const x = 20 + c * 22;
+                                        const y = 260 - r * 14 - val * 1.5;
+                                        const opacity = 0.3 + (val / 65) * 0.7;
+                                        const hue = val < 25 ? 220 : val < 40 ? 120 : 0;
+                                        return (
+                                            <rect key={`${r}-${c}`} x={x} y={y} width={20} height={val * 1.5}
+                                                fill={`hsla(${hue}, 70%, 50%, ${opacity})`}
+                                                stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"
+                                                className="hover:opacity-100 cursor-pointer transition-opacity"
+                                                onClick={() => { setSelectedCell([r, c]); setView3D(false); }} />
+                                        );
+                                    })
+                                )}
+                            </svg>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── Right sidebar ───────────────── */}
+                <aside className="w-64 bg-[#0e0e11] border-l border-border-dark p-4 flex flex-col gap-4 shrink-0 overflow-y-auto">
+                    {/* Cell Editor */}
+                    <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Cell Editor</h3>
+                        {selectedCell ? (
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div><span className="text-text-muted">RPM:</span> <span className="text-white font-bold">{RPM_LABELS[selectedCell[0]]}</span></div>
+                                    <div><span className="text-text-muted">TPS:</span> <span className="text-white font-bold">{TPS_LABELS[selectedCell[1]]}%</span></div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-text-muted uppercase">Value</label>
+                                    <div className="flex gap-1 mt-1">
+                                        <input value={isEditing ? editValue : mapData[selectedCell[0]][selectedCell[1]].toFixed(1)}
+                                            onChange={e => { setEditValue(e.target.value); setIsEditing(true); }}
+                                            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); }}
+                                            onBlur={commitEdit}
+                                            className="flex-1 h-8 px-2 bg-bg-dark border border-border-dark rounded text-sm text-white font-mono focus:outline-none focus:border-primary" />
+                                        <button onClick={() => adjustSelected(0.5)} className="w-8 h-8 bg-bg-dark border border-border-dark rounded text-text-muted hover:text-white text-sm">+</button>
+                                        <button onClick={() => adjustSelected(-0.5)} className="w-8 h-8 bg-bg-dark border border-border-dark rounded text-text-muted hover:text-white text-sm">−</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-text-muted italic">Click a cell to edit</p>
+                        )}
+                    </div>
+
+                    {/* Map Stats */}
+                    <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Map Statistics</h3>
+                        <div className="space-y-2 text-xs">
+                            {[
+                                { label: 'Min', value: stats.min, color: 'text-blue-400' },
+                                { label: 'Max', value: stats.max, color: 'text-red-400' },
+                                { label: 'Average', value: stats.avg, color: 'text-green-400' },
+                                { label: 'Cells', value: '256', color: 'text-white' },
+                                { label: 'Undo History', value: String(undoStack.length), color: 'text-amber-400' },
+                            ].map(s => (
+                                <div key={s.label} className="flex justify-between">
+                                    <span className="text-text-muted">{s.label}</span>
+                                    <span className={`font-bold ${s.color}`}>{s.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Map Info */}
+                    {listing && (
+                        <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
+                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Tune Info</h3>
+                            <div className="space-y-1 text-xs">
+                                <p className="text-white font-medium">{listing.title}</p>
+                                <p className="text-text-muted">v{listing.latest_version_number}</p>
+                                <p className="text-text-muted">{listing.vehicle_make} {listing.vehicle_model}</p>
+                                <p className="text-text-muted">{listing.tuner?.business_name}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Color Legend */}
+                    <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
+                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">Legend</h3>
+                        <div className="flex items-center gap-1">
+                            <div className="h-3 flex-1 rounded" style={{ background: 'linear-gradient(to right, rgba(59,130,246,0.8), rgba(34,197,94,0.8), rgba(234,16,60,0.8))' }} />
+                        </div>
+                        <div className="flex justify-between text-[9px] text-text-muted mt-1">
+                            <span>Lean</span><span>Stoich</span><span>Rich</span>
+                        </div>
+                    </div>
+                </aside>
+            </div>
         </div>
     );
 }
