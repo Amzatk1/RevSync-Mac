@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -68,7 +68,14 @@ export default function LoginPage() {
                     </button>
                 </div>
 
-                <p className="text-center text-text-muted text-[10px] mt-6">RevSync Pro v2.4.1 (Build 8902)</p>
+                <div className="mt-6 space-y-3">
+                    <p className="text-center text-text-muted text-[10px]">RevSync Pro v2.4.1 (Build 8902)</p>
+                    <div className="flex items-center justify-center gap-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                        <Link to="/legal/privacy" className="hover:text-white">Privacy</Link>
+                        <Link to="/legal/terms" className="hover:text-white">Terms</Link>
+                        <Link to="/legal/safety-disclaimer" className="hover:text-white">Safety</Link>
+                    </div>
+                </div>
             </form>
         </div>
     );

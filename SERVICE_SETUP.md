@@ -49,6 +49,12 @@ To move RevSync from "Prototype" to "Production", you need to sign up for the fo
 DEBUG=False
 SECRET_KEY=your_django_secret_key_here
 ALLOWED_HOSTS=api.revsync.com
+DJANGO_ALLOWED_HOSTS=api.revsync.com
+DJANGO_ALLOW_WILDCARD_HOSTS=False
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOWED_ORIGINS=https://app.revsync.com,https://www.revsync.com
+CSRF_TRUSTED_ORIGINS=https://app.revsync.com,https://www.revsync.com
+DRF_DEFAULT_PERMISSION_CLASS=rest_framework.permissions.IsAuthenticated
 
 # Database
 DATABASE_URL=postgres://user:pass@db.supabase.co:5432/postgres
@@ -69,3 +75,12 @@ EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
+
+## Security Defaults Checklist (Staging/Prod)
+- `DEBUG=False`
+- `DJANGO_ALLOW_WILDCARD_HOSTS=False`
+- `CORS_ALLOW_ALL_ORIGINS=False`
+- `DJANGO_ALLOWED_HOSTS` set to explicit API domains only
+- `CORS_ALLOWED_ORIGINS` set to explicit web domains only
+- `CSRF_TRUSTED_ORIGINS` set to explicit web domains only
+- `DRF_DEFAULT_PERMISSION_CLASS=rest_framework.permissions.IsAuthenticated`

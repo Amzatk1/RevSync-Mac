@@ -8,6 +8,86 @@ export interface LegalDoc {
 }
 
 export const LEGAL_DOCS: Record<LegalDocKey, LegalDoc> = {
+    privacy: {
+        key: 'privacy',
+        title: 'Privacy Policy',
+        lastUpdated: 'March 2026',
+        content: `Important: This document is a general template and should be reviewed for UK GDPR / EU GDPR and local law compliance before launch.
+
+1. Controller details
+RevSync is operated by: [Legal Entity Name], [Registered Address], [Company Number], [Jurisdiction].
+Privacy contact: privacy@revsync.com
+
+2. What we collect
+Account and identity data: name, email, user ID, authentication details, session identifiers.
+Bike and tuning data: bike make/model/year, ECU identifiers (where read), tune purchase/download status.
+Device and technical data: device model, OS version, app version, IP address, crash diagnostics (if enabled), and security event logs.
+Payment data: transaction IDs, order status, and billing metadata from payment processors. We do not store full card numbers.
+Support and communication data: support tickets, support emails, and attached logs or files you choose to submit.
+Usage and analytics data (optional): screens viewed, feature usage, diagnostics, and analytics where enabled.
+
+3. Why we collect it
+• to provide account, purchases, downloads, and support
+• to run safety and compatibility checks
+• to secure accounts and prevent fraud or abuse
+• to improve product reliability and performance
+• to comply with legal, tax, and regulatory obligations
+
+4. Legal bases (UK GDPR / EU GDPR)
+We process personal data under one or more of:
+• Contract (to provide services you request)
+• Legitimate interests (security, fraud prevention, product improvement, safety operations)
+• Consent (optional analytics/crash reporting and optional marketing, where applicable)
+• Legal obligations (tax, accounting, compliance, law enforcement requests)
+
+5. What we do not do
+• We do not sell personal data.
+• We do not require location access for flashing workflows.
+• We do not access your photos/files unless you explicitly upload/export logs or backups.
+
+6. Sharing and processors
+We may share limited data with:
+• cloud hosting and storage providers
+• payment processor(s) (for purchases and refunds)
+• email delivery provider(s) (service emails and support updates)
+• analytics and crash reporting providers (if enabled)
+• customer support tooling providers (if used)
+• Tuners, only the minimum needed for fulfilment/support (for example compatibility context)
+• legal/regulatory authorities where required by law
+
+7. International transfers
+If we use providers outside your country, data may be transferred internationally. Where required, we use appropriate safeguards such as standard contractual clauses.
+
+8. Cookies and tracking technologies
+Our web and app properties may use cookies, SDK identifiers, local storage, and similar technologies for authentication, security, analytics, and product performance. Where required, we collect consent before non-essential tracking.
+
+9. Automated checks and decisions
+We use automated systems for malware scanning, compatibility validation, abuse detection, and safety scoring. These checks may affect whether content is approved, suspended, or removed. You may request human review via support.
+
+10. Children
+RevSync is not intended for anyone under 18. We do not knowingly collect personal data from children.
+
+11. Data retention
+We retain data only as long as needed for the purposes above.
+Typical examples:
+• account data: while your account is active, then archived/deleted per policy
+• payment and tax records: retained for statutory/legal periods
+• operational/security logs: retained for limited periods (for example months) unless needed for investigations
+• quarantine uploads that fail validation: automatically deleted after policy-defined retention windows
+
+12. Your rights
+Depending on your location, you may have rights to access, correct, delete, restrict, object, or export your personal data, and to withdraw consent where processing relies on consent.
+You can manage some controls in-app, including notification and privacy preferences.
+
+13. How to exercise rights
+To request access, export, correction, or deletion, contact privacy@revsync.com.
+Where available, you may also use in-app Delete Account and Export Data features.
+We may verify identity before processing requests.
+
+14. Security and complaints
+We apply security controls including encryption in transit and at rest, signed tune packages, least-privilege storage access, and role-based operational access controls. No method is 100% secure, but we continuously improve protections.
+If concerns are unresolved, UK users can complain to the ICO; EU users can contact their local supervisory authority.`,
+    },
     terms: {
         key: 'terms',
         title: 'Terms & Conditions',
@@ -111,86 +191,6 @@ These Terms are governed by the laws of [England and Wales / your jurisdiction].
 
 21. Contact
 For support or legal inquiries, contact: support@revsync.com`,
-    },
-    privacy: {
-        key: 'privacy',
-        title: 'Privacy Policy',
-        lastUpdated: 'March 2026',
-        content: `Important: This document is a general template and should be reviewed for UK GDPR / EU GDPR and local law compliance before launch.
-
-1. Controller details
-RevSync is operated by: [Legal Entity Name], [Registered Address], [Company Number], [Jurisdiction].
-Privacy contact: privacy@revsync.com
-
-2. What we collect
-Account and identity data: name, email, user ID, authentication details, session identifiers.
-Bike and tuning data: bike make/model/year, ECU identifiers (where read), tune purchase/download status.
-Device and technical data: device model, OS version, app version, IP address, crash diagnostics (if enabled), and security event logs.
-Payment data: transaction IDs, order status, and billing metadata from payment processors. We do not store full card numbers.
-Support and communication data: support tickets, support emails, and attached logs or files you choose to submit.
-Usage and analytics data (optional): screens viewed, feature usage, diagnostics, and analytics where enabled.
-
-3. Why we collect it
-• to provide account, purchases, downloads, and support
-• to run safety and compatibility checks
-• to secure accounts and prevent fraud or abuse
-• to improve product reliability and performance
-• to comply with legal, tax, and regulatory obligations
-
-4. Legal bases (UK GDPR / EU GDPR)
-We process personal data under one or more of:
-• Contract (to provide services you request)
-• Legitimate interests (security, fraud prevention, product improvement, safety operations)
-• Consent (optional analytics/crash reporting and optional marketing, where applicable)
-• Legal obligations (tax, accounting, compliance, law enforcement requests)
-
-5. What we do not do
-• We do not sell personal data.
-• We do not require location access for flashing workflows.
-• We do not access your photos/files unless you explicitly upload/export logs or backups.
-
-6. Sharing and processors
-We may share limited data with:
-• cloud hosting and storage providers
-• payment processor(s) (for purchases and refunds)
-• email delivery provider(s) (service emails and support updates)
-• analytics and crash reporting providers (if enabled)
-• customer support tooling providers (if used)
-• Tuners, only the minimum needed for fulfilment/support (for example compatibility context)
-• legal/regulatory authorities where required by law
-
-7. International transfers
-If we use providers outside your country, data may be transferred internationally. Where required, we use appropriate safeguards such as standard contractual clauses.
-
-8. Cookies and tracking technologies
-Our web and app properties may use cookies, SDK identifiers, local storage, and similar technologies for authentication, security, analytics, and product performance. Where required, we collect consent before non-essential tracking.
-
-9. Automated checks and decisions
-We use automated systems for malware scanning, compatibility validation, abuse detection, and safety scoring. These checks may affect whether content is approved, suspended, or removed. You may request human review via support.
-
-10. Children
-RevSync is not intended for anyone under 18. We do not knowingly collect personal data from children.
-
-11. Data retention
-We retain data only as long as needed for the purposes above.
-Typical examples:
-• account data: while your account is active, then archived/deleted per policy
-• payment and tax records: retained for statutory/legal periods
-• operational/security logs: retained for limited periods (for example months) unless needed for investigations
-• quarantine uploads that fail validation: automatically deleted after policy-defined retention windows
-
-12. Your rights
-Depending on your location, you may have rights to access, correct, delete, restrict, object, or export your personal data, and to withdraw consent where processing relies on consent.
-You can manage some controls in-app, including notification and privacy preferences.
-
-13. How to exercise rights
-To request access, export, correction, or deletion, contact privacy@revsync.com.
-Where available, you may also use in-app Delete Account and Export Data features.
-We may verify identity before processing requests.
-
-14. Security and complaints
-We apply security controls including encryption in transit and at rest, signed tune packages, least-privilege storage access, and role-based operational access controls. No method is 100% secure, but we continuously improve protections.
-If concerns are unresolved, UK users can complain to the ICO; EU users can contact their local supervisory authority.`,
     },
     'safety-disclaimer': {
         key: 'safety-disclaimer',

@@ -39,6 +39,22 @@ export default function LoginPage() {
         };
     }, []);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const storedNotice = sessionStorage.getItem('revsync_auth_notice');
+        if (storedNotice) {
+            setError(storedNotice);
+            sessionStorage.removeItem('revsync_auth_notice');
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'session-expired') {
+            setError('Session expired. Please sign in again.');
+        }
+    }, []);
+
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');

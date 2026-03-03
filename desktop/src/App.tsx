@@ -9,6 +9,7 @@ import DiagnosticsPage from './pages/DiagnosticsPage';
 import ConnectionPage from './pages/ConnectionPage';
 import RecoveryPage from './pages/RecoveryPage';
 import BatchQueuePage from './pages/BatchQueuePage';
+import LegalPage from './pages/LegalPage';
 
 export default function App() {
     const { user, isLoading } = useAuth();
@@ -28,6 +29,8 @@ export default function App() {
         return (
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/legal" element={<Navigate to="/legal/privacy" replace />} />
+                <Route path="/legal/:docKey" element={<LegalPage />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         );
@@ -44,6 +47,8 @@ export default function App() {
                 <Route path="/connect" element={<ConnectionPage />} />
                 <Route path="/recovery" element={<RecoveryPage />} />
                 <Route path="/batch" element={<BatchQueuePage />} />
+                <Route path="/legal" element={<Navigate to="/legal/privacy" replace />} />
+                <Route path="/legal/:docKey" element={<LegalPage />} />
                 <Route path="*" element={<Navigate to="/workbench" replace />} />
             </Routes>
         </AppShell>

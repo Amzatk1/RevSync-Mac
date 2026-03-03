@@ -78,10 +78,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
                         </NavLink>
                     ))}
 
-                    <div className="mt-auto">
-                        <button className="text-text-muted hover:text-white transition-colors p-2 rounded-lg hover:bg-border-dark">
-                            <span className="material-symbols-outlined">settings</span>
-                        </button>
+                    <div className="mt-auto group relative">
+                        <NavLink
+                            to="/legal/privacy"
+                            className={({ isActive }) =>
+                                `p-2 rounded-lg transition-colors ${isActive
+                                    ? 'bg-primary/20 text-primary'
+                                    : 'text-text-muted hover:text-white hover:bg-border-dark'
+                                }`
+                            }
+                        >
+                            <span className="material-symbols-outlined">gavel</span>
+                        </NavLink>
+                        <div className="absolute left-14 top-2 bg-black text-xs px-2 py-1 rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            Legal
+                        </div>
                     </div>
                 </aside>
 

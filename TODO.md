@@ -9,6 +9,28 @@ This checklist fits your current RevSync architecture:
 - **Web:** Marketplace + uploader portal + moderation + support  
 - **Desktop (RevSync Pro):** Pro workbench for USB/Serial/CAN/JTAG flashing + map editing
 
+## Execution Started (2026-03-03)
+- [x] Backend production security defaults hardened by environment:
+  - explicit host/CORS/CSRF env parsing
+  - default DRF permission now `IsAuthenticated` when `DEBUG=False`
+- [x] Backend runtime health endpoint added: `GET /api/v1/health/`
+- [x] Web runtime health endpoint added: `GET /api/health`
+- [x] Auth hardening tests added:
+  - invalid login path
+  - invalid/missing refresh token paths
+  - refresh rotation path
+- [x] Preferences API validation + tests added:
+  - known key enforcement
+  - value type enforcement
+  - create/update/list coverage
+- [x] CI baseline added (`.github/workflows/ci.yml`):
+  - backend checks + migration/file drift checks + tests
+  - web build/typecheck via `next build`
+- [x] Ops tooling and docs upgraded:
+  - `backend/scripts/check_migrations.sh`
+  - `scripts/check_health.sh`
+  - `backend/RUNBOOK.md` and `SERVICE_SETUP.md` updated
+
 ---
 
 ## 0) Which “AI” to use (and what it should do)

@@ -114,7 +114,8 @@ class ApiClient {
                 // Refresh failed — force logout
                 this.clearTokens();
                 if (typeof window !== 'undefined') {
-                    window.location.href = '/login';
+                    sessionStorage.setItem('revsync_auth_notice', 'Session expired. Please sign in again.');
+                    window.location.href = '/login?reason=session-expired';
                 }
                 throw { code: 'AUTH_EXPIRED', message: 'Session expired', uiMessage: 'Please sign in again.' };
             }

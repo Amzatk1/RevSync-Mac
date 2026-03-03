@@ -99,10 +99,40 @@ class UserLegalAcceptanceSerializer(serializers.ModelSerializer):
         return UserLegalAcceptance.objects.create(user=user, ip_address=ip_address, **validated_data)
 
 class UserPreferenceSerializer(serializers.ModelSerializer):
+    KNOWN_PREFERENCE_TYPES = {
+        'notifications_recommendations': bool,
+        'notifications_flash_updates': bool,
+        'notifications_community': bool,
+        'analytics_enabled': bool,
+        'crash_reports_enabled': bool,
+        'recommendations_enabled': bool,
+    }
+
     class Meta:
         model = UserPreference
         fields = ['key', 'value', 'updated_at']
         read_only_fields = ['updated_at']
+
+    def validate_key(self, value):
+        if value not in self.KNOWN_PREFERENCE_TYPES:
+            allowed_keys = ', '.join(sorted(self.KNOWN_PREFERENCE_TYPES.keys()))
+            raise serializers.ValidationError(
+                f"Unknown preference key '{value}'. Allowed keys: {allowed_keys}"
+            )
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        key = attrs.get('key')
+        value = attrs.get('value')
+        expected_type = self.KNOWN_PREFERENCE_TYPES.get(key)
+
+        if expected_type is not None and not isinstance(value, expected_type):
+            raise serializers.ValidationError(
+                {'value': f"Preference '{key}' must be a {expected_type.__name__}."}
+            )
+
+        return attrs
 
     def create(self, validated_data):
         user = self.context['request'].user

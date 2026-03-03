@@ -1,38 +1,61 @@
 # RevSync Ops Runbook
 
-## 1. Deploying Updates
+## 1. Start / Stop Services (Local)
 ```bash
-# Apply Migrations
-python manage.py migrate
+# Backend
+cd backend
+python manage.py runserver 0.0.0.0:8000
 
-# App is ready
+# Web
+cd ../web
+npm run dev
 ```
 
-## 2. Key Rotation
-If the signing key is compromised:
-1.  Generate new key: `python manage.py generate_keys` (Need to impl command or use python shell)
-2.  Update `REVSYNC_SIGNING_PRIVATE_KEY` in Heroku/AWS.
-3.  Deploy new Mobile App build with new Public Key.
-4.  (Optional) Re-sign existing active tunes if strict check required.
+Stop with `Ctrl+C` in each terminal.
 
-## 3. Suspending a Tune ("Kill Switch")
-If a bad tune is discovered in the wild:
-1.  **Admin Panel**: Go to Tune Version.
-2.  **Action**: Set Status to `SUSPENDED`.
-3.  **Result**:
-    *   `DownloadLinkView` immediately starts returning 403.
-    *   New users cannot buy it.
-    *   Existing owners cannot download it.
+## 2. Pre-Deploy Validation
+```bash
+cd backend
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test users.tests.test_auth_flow users.tests.test_preferences_api core.tests.test_health
+```
 
-## 4. Manual Review
-1.  Go to `/admin/tuner/applications/`.
-2.  Review "Pending" apps.
-3.  Click "Approve" -> Triggers Profile Creation.
+## 3. Deploy / Migration Safety
+```bash
+cd backend
+python manage.py migrate --noinput
+./scripts/check_migrations.sh
+```
 
-## 5. Verification Checklist (Dev)
-*   [ ] `python manage.py test marketplace` -> All Pass
-*   [ ] Upload `test.zip` -> `quarantine/`
-*   [ ] Celery Log: "Validation Passed"
-*   [ ] DB: Version is `READY_FOR_REVIEW`
-*   [ ] Admin: Approve
-*   [ ] Download Link: Returns Signed URL (200 OK)
+If `check_migrations.sh` fails in staging/prod, stop rollout and apply missing migrations.
+
+## 4. Runtime Health + Auth Smoke
+```bash
+# From repo root
+./scripts/check_health.sh
+```
+
+Manual auth smoke:
+1. `POST /api/v1/auth/login/` with a known user.
+2. `POST /api/v1/auth/refresh/` with returned refresh token.
+3. `GET /api/v1/users/me/` with returned access token.
+4. `GET /api/v1/preferences/` and verify expected user preferences load.
+
+## 5. Key Rotation
+If signing keys are compromised:
+1. Generate new key pair (internal process/command).
+2. Rotate `REVSYNC_SIGNING_PRIVATE_KEY` and `REVSYNC_SIGNING_PUBLIC_KEY`.
+3. Deploy backend and clients that trust the new public key.
+4. Re-sign active artifacts if required by policy.
+
+## 6. Tune Kill Switch
+If a tune is unsafe in production:
+1. In admin, set tune/listing status to `SUSPENDED`.
+2. Confirm download endpoints return `403` for that version.
+3. Notify affected purchasers and process refunds/credits where required.
+
+## 7. Incident Notes
+- Prefer reversible actions first (suspend before delete).
+- Capture relevant logs and timestamps before restarting services.
+- Record root cause and follow-up tasks in `TODO.md`.

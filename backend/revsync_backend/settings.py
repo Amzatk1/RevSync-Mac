@@ -24,7 +24,27 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-revsync-dev-ke
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+
+def _env_list(name: str, default: str = '') -> list[str]:
+    raw = os.environ.get(name, default)
+    return [item.strip() for item in raw.split(',') if item.strip()]
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+configured_allowed_hosts = _env_list(
+    'DJANGO_ALLOWED_HOSTS',
+    os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1'),
+)
+allow_wildcard_hosts = _env_bool('DJANGO_ALLOW_WILDCARD_HOSTS', DEBUG)
+ALLOWED_HOSTS = ['*'] if DEBUG and allow_wildcard_hosts else configured_allowed_hosts
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Application definition
 
@@ -66,8 +86,16 @@ MIDDLEWARE = [
 ]
 
 # CORS Settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all in dev, restrict in production
+CORS_ALLOW_ALL_ORIGINS = _env_bool('CORS_ALLOW_ALL_ORIGINS', DEBUG)
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [] if CORS_ALLOW_ALL_ORIGINS else _env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:3000,http://127.0.0.1:3000',
+)
+CSRF_TRUSTED_ORIGINS = _env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:3000,http://127.0.0.1:3000',
+)
 
 
 ROOT_URLCONF = 'revsync_backend.urls'
@@ -148,14 +176,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 
 # REST Framework
+default_permission = (
+    'rest_framework.permissions.AllowAny'
+    if DEBUG
+    else 'rest_framework.permissions.IsAuthenticated'
+)
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        # AllowAny for dev — switch to IsAuthenticated for production
-        'rest_framework.permissions.AllowAny',
+        os.environ.get('DRF_DEFAULT_PERMISSION_CLASS', default_permission),
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -224,4 +256,3 @@ REVSYNC_SIGNING_KEY_ID = os.environ.get('REVSYNC_SIGNING_KEY_ID', 'rev-1')
 # Stripe
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
-
