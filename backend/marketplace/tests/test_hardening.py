@@ -466,6 +466,8 @@ class DownloadEntitlementTests(APITestCase):
         data = response.json()
         self.assertIn('download_url', data)
         self.assertIn('signature_url', data)
+        self.assertIn('manifest_url', data)
+        self.assertIn('tune_bin_url', data)
         self.assertIn('signature_b64', data)
         self.assertIn('tune_hash_sha256', data)
         self.assertEqual(data['version_id'], str(self.version.id))

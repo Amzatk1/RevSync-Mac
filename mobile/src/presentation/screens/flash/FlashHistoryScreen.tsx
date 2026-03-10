@@ -3,29 +3,37 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } f
 import { Ionicons } from '@expo/vector-icons';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { garageService } from '../../../services/garageService';
 
 const { Colors, Layout, Typography } = Theme;
 
 interface FlashJob {
     id: string;
-    tune_title: string;
-    tune_version: string;
-    status: 'COMPLETED' | 'FAILED' | 'VERIFY_FAILED' | 'IN_PROGRESS';
+    tune?: number;
+    vehicle?: number;
+    status: 'CREATED' | 'PRE_CHECK' | 'BACKING_UP' | 'FLASHING' | 'VERIFYING' | 'COMPLETED' | 'FAILED' | 'RECOVERING' | 'ABORTED';
     created_at: string;
-    verified_at?: string;
-    checksum_matched?: boolean;
+    progress?: number;
     error_message?: string;
-    bike_name?: string;
+    tune_detail?: { title?: string; name?: string };
+    version_detail?: { version_number?: string };
 }
 
 const STATUS_MAP: Record<FlashJob['status'], { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
+    CREATED: { icon: 'ellipse-outline', color: Colors.textTertiary, label: 'Created' },
+    PRE_CHECK: { icon: 'shield-checkmark', color: Colors.info, label: 'Pre-Check' },
+    BACKING_UP: { icon: 'save-outline', color: Colors.info, label: 'Backing Up' },
+    FLASHING: { icon: 'flash', color: Colors.warning, label: 'Flashing' },
+    VERIFYING: { icon: 'scan-circle', color: Colors.info, label: 'Verifying' },
     COMPLETED: { icon: 'checkmark-circle', color: Colors.success, label: 'Verified' },
     FAILED: { icon: 'close-circle', color: Colors.error, label: 'Failed' },
-    VERIFY_FAILED: { icon: 'alert-circle', color: Colors.warning, label: 'Verify Failed' },
-    IN_PROGRESS: { icon: 'hourglass', color: Colors.info, label: 'In Progress' },
+    RECOVERING: { icon: 'build-outline', color: Colors.warning, label: 'Recovering' },
+    ABORTED: { icon: 'remove-circle-outline', color: Colors.warning, label: 'Aborted' },
 };
 
-export const FlashHistoryScreen = ({ navigation }: any) => {
+export const FlashHistoryScreen = ({ navigation, route }: any) => {
+    const bikeId = route?.params?.bikeId;
+    const bikeLabel = route?.params?.bikeLabel;
     const [jobs, setJobs] = useState<FlashJob[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -33,9 +41,9 @@ export const FlashHistoryScreen = ({ navigation }: any) => {
     const loadHistory = useCallback(async () => {
         setLoading(true);
         try {
-            const { ApiClient } = await import('../../../data/http/ApiClient');
-            const resp: any = await ApiClient.getInstance().get('/v1/garage/flash-jobs/');
-            const results: FlashJob[] = resp?.results || resp || [];
+            const results: FlashJob[] = bikeId
+                ? (await garageService.getVehicleFlashJobs(bikeId) as any)
+                : ((await garageService.getFlashJobs()).results as any);
             setJobs(results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         } catch {
             setJobs([]);
@@ -43,7 +51,7 @@ export const FlashHistoryScreen = ({ navigation }: any) => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [bikeId]);
 
     useEffect(() => {
         loadHistory();
@@ -70,7 +78,7 @@ export const FlashHistoryScreen = ({ navigation }: any) => {
             <GlassCard style={styles.card}>
                 <View style={styles.cardHeader}>
                     <Text style={styles.tuneName} numberOfLines={1}>
-                        {item.tune_title || 'Untitled Tune'}
+                        {item.tune_detail?.title || item.tune_detail?.name || 'Untitled Tune'}
                     </Text>
                     <View style={[styles.statusPill, { backgroundColor: `${cfg.color}15`, borderColor: `${cfg.color}30` }]}>
                         <Ionicons name={cfg.icon} size={12} color={cfg.color} />
@@ -80,14 +88,16 @@ export const FlashHistoryScreen = ({ navigation }: any) => {
 
                 <View style={styles.metaWrap}>
                     <MetaRow icon="time-outline" text={formatDate(item.created_at)} />
-                    {!!item.tune_version && <MetaRow icon="git-branch-outline" text={`v${item.tune_version}`} />}
-                    {!!item.bike_name && <MetaRow icon="bicycle" text={item.bike_name} />}
+                    {!!item.version_detail?.version_number && <MetaRow icon="git-branch-outline" text={`v${item.version_detail.version_number}`} />}
+                    {typeof item.progress === 'number' && item.status !== 'COMPLETED' && (
+                        <MetaRow icon="speedometer-outline" text={`${item.progress}%`} />
+                    )}
                 </View>
 
-                {item.checksum_matched && (
+                {item.status === 'COMPLETED' && (
                     <View style={styles.checksumBadge}>
                         <Ionicons name="shield-checkmark" size={14} color={Colors.success} />
-                        <Text style={styles.checksumText}>SHA-256 verified</Text>
+                        <Text style={styles.checksumText}>Verification recorded</Text>
                     </View>
                 )}
 
@@ -105,7 +115,11 @@ export const FlashHistoryScreen = ({ navigation }: any) => {
 
     return (
         <AppScreen>
-            <TopBar title="Flash History" subtitle="Recorded tune write and verification sessions" onBack={() => navigation.goBack()} />
+            <TopBar
+                title="Flash History"
+                subtitle={bikeId ? `Sessions for ${bikeLabel || 'selected bike'}` : 'Recorded tune write and verification sessions'}
+                onBack={() => navigation.goBack()}
+            />
 
             <FlatList
                 data={jobs}

@@ -17,7 +17,7 @@ class EcuBackupSerializer(serializers.ModelSerializer):
     class Meta:
         model = EcuBackup
         fields = '__all__'
-        read_only_fields = ['user', 'file_size_kb', 'checksum']
+        read_only_fields = ['user']
 
 class FlashJobSerializer(serializers.ModelSerializer):
     tune_detail = TuneListingSerializer(source='tune', read_only=True)
@@ -27,9 +27,7 @@ class FlashJobSerializer(serializers.ModelSerializer):
         model = FlashJob
         fields = '__all__'
         read_only_fields = [
-            'user', 'status', 'progress', 'logs', 'error_message', 'error_code',
-            'flash_started_at', 'flash_completed_at', 'total_chunks', 'chunks_sent',
-            'ecu_read_data',
+            'user',
         ]
 
 

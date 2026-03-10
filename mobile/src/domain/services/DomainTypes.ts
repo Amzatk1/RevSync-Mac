@@ -49,6 +49,8 @@ export interface DownloadUrlResponse {
     download_url: string;
     signature_url: string;
     hashes_url: string;
+    manifest_url: string;
+    tune_bin_url: string;
     signature_b64: string;
     hashes: HashesJson;
     expires_at: string;

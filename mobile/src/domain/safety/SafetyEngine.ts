@@ -3,7 +3,6 @@ import { ValidationService } from '../services/ValidationService';
 import { SafetyReport } from '../entities/SafetyReport';
 
 export class SafetyEngine implements ValidationService {
-
     async validateTuneForBike(tune: Tune, bike: Bike | null): Promise<SafetyReport> {
         const errors: string[] = [];
         const warnings: string[] = [];
@@ -17,18 +16,35 @@ export class SafetyEngine implements ValidationService {
             return this.createReport(score, errors, warnings, actions);
         }
 
-        // 2. ID Match
-        if (tune.bikeId !== bike.id) {
-            errors.push(`Tune ID (${tune.bikeId}) does not match Bike ID (${bike.id}).`);
-            score -= 50;
+        // 2. Fitment Match (assistive only — authoritative gating remains server/device-side)
+        const compatibilityStrings = (tune.compatibilityRaw || []).map((item) => item.toLowerCase());
+        const bikeLabel = `${bike.make} ${bike.model}`.toLowerCase();
+        const bikeMatchDeclared = compatibilityStrings.some((item) => item.includes(bikeLabel));
+        if (!bikeMatchDeclared) {
+            errors.push(`Tune fitment does not include ${bike.make} ${bike.model}.`);
+            score -= 45;
+        }
+
+        const yearWindow = compatibilityStrings.find((item) => /^\d{4}-\d{4}$/.test(item));
+        if (yearWindow) {
+            const [yearFrom, yearTo] = yearWindow.split('-').map((value) => Number.parseInt(value, 10));
+            if (Number.isFinite(yearFrom) && Number.isFinite(yearTo)) {
+                if (bike.year < yearFrom || bike.year > yearTo) {
+                    errors.push(`Tune fitment covers ${yearFrom}-${yearTo}; active bike is ${bike.year}.`);
+                    score -= 35;
+                }
+            }
         }
 
         // 3. ECU Compatibility
         if (bike.ecuId) {
-            const isCompatible = tune.compatibilityRaw.includes(bike.ecuId);
-            if (!isCompatible) {
-                errors.push(`Tune not compatible with ECU HW ID: ${bike.ecuId}`);
-                score = 0;
+            const explicitlyListed = compatibilityStrings.some((item) => item === bike.ecuId!.toLowerCase());
+            if (explicitlyListed) {
+                actions.push('ECU_ID_MATCHED');
+            } else {
+                warnings.push('ECU hardware ID is not embedded in marketplace browse data. Final compatibility must be confirmed during identify.');
+                actions.push('IDENTIFY_ECU');
+                score -= 8;
             }
         } else {
             warnings.push('ECU not identified yet. Compatibility cannot be fully verified.');

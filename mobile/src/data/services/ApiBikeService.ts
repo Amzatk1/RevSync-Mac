@@ -66,6 +66,7 @@ export class ApiBikeService implements BikeService {
                 model: bike.model,
                 year: bike.year,
                 vin: bike.vin || '',
+                ecu_id: bike.ecuId || '',
                 vehicle_type: 'BIKE',
             });
 
@@ -106,6 +107,7 @@ export class ApiBikeService implements BikeService {
                 model: bike.model,
                 year: bike.year,
                 vin: bike.vin || '',
+                ecu_id: bike.ecuId || '',
             });
             console.log('ApiBikeService: Bike updated on backend', response);
         } catch (e) {

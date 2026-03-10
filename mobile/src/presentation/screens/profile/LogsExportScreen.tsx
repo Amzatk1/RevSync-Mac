@@ -3,6 +3,7 @@ import { Alert, FlatList, Share, StyleSheet, Text, TouchableOpacity, View } from
 import { Ionicons } from '@expo/vector-icons';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { garageService } from '../../../services/garageService';
 
 const { Colors, Layout, Typography } = Theme;
 
@@ -54,11 +55,30 @@ patchConsole();
 
 export const LogsExportScreen = ({ navigation }: any) => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [flashSessionCount, setFlashSessionCount] = useState(0);
+    const [backupCount, setBackupCount] = useState(0);
 
     useEffect(() => {
         setLogs([...logBuffer]);
         const interval = setInterval(() => setLogs([...logBuffer]), 2000);
         return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        const loadSupportContext = async () => {
+            try {
+                const [flashJobs, backups] = await Promise.all([
+                    garageService.getFlashJobs(),
+                    garageService.getBackups(),
+                ]);
+                setFlashSessionCount(flashJobs.results.length);
+                setBackupCount(backups.results.length);
+            } catch {
+                setFlashSessionCount(0);
+                setBackupCount(0);
+            }
+        };
+        loadSupportContext();
     }, []);
 
     const handleExport = async () => {
@@ -67,7 +87,34 @@ export const LogsExportScreen = ({ navigation }: any) => {
             return;
         }
 
-        const content = logs.map((log) => `[${log.timestamp}] [${log.level}] ${log.message}`).join('\n');
+        let supportSnapshot = '';
+        try {
+            const [flashJobs, backups] = await Promise.all([
+                garageService.getFlashJobs(),
+                garageService.getBackups(),
+            ]);
+
+            const flashLines = flashJobs.results.slice(0, 10).map((job) =>
+                `[${job.created_at}] ${job.status} ${job.progress ?? 0}% ${job.tune_detail?.title || job.tune_detail?.name || 'Untitled Tune'}`
+            );
+            const backupLines = backups.results.slice(0, 10).map((backup) =>
+                `[${backup.created_at}] backup#${backup.id} ${backup.file_size_kb}KB ${backup.checksum.slice(0, 12)}...`
+            );
+
+            supportSnapshot = [
+                '=== Backend Support Snapshot ===',
+                `Flash jobs: ${flashJobs.results.length}`,
+                ...flashLines,
+                `Backups: ${backups.results.length}`,
+                ...backupLines,
+                '',
+            ].join('\n');
+        } catch {
+            supportSnapshot = '=== Backend Support Snapshot ===\nUnavailable while offline.\n\n';
+        }
+
+        const consoleLogs = logs.map((log) => `[${log.timestamp}] [${log.level}] ${log.message}`).join('\n');
+        const content = `${supportSnapshot}=== Console Logs ===\n${consoleLogs}`;
         try {
             await Share.share({ message: content, title: 'RevSync App Logs' });
         } catch (e) {
@@ -124,7 +171,26 @@ export const LogsExportScreen = ({ navigation }: any) => {
 
             <GlassCard style={styles.infoCard}>
                 <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
-                <Text style={styles.infoText}>These are live session logs captured from console output and intended for support diagnostics.</Text>
+                <Text style={styles.infoText}>
+                    Support export includes live console logs plus persisted flash/backups context when the backend is reachable.
+                </Text>
+            </GlassCard>
+
+            <GlassCard style={styles.summaryCard}>
+                <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{logs.length}</Text>
+                    <Text style={styles.summaryLabel}>Console Logs</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{flashSessionCount}</Text>
+                    <Text style={styles.summaryLabel}>Flash Jobs</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{backupCount}</Text>
+                    <Text style={styles.summaryLabel}>Backups</Text>
+                </View>
             </GlassCard>
 
             <TouchableOpacity style={styles.exportButton} onPress={handleExport}>
@@ -217,6 +283,34 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 10,
         alignItems: 'flex-start',
+    },
+    summaryCard: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    summaryItem: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    summaryValue: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+    },
+    summaryLabel: {
+        marginTop: 2,
+        fontSize: 10,
+        letterSpacing: 0.8,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        color: Colors.textSecondary,
+    },
+    summaryDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: Colors.divider,
     },
     infoText: {
         flex: 1,

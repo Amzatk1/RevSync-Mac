@@ -18,7 +18,7 @@ const C = {
 };
 
 export const ECUIdentifyScreen = ({ navigation, route }: any) => {
-    const { tuneId } = route.params || {};
+    const { tuneId, versionId, deviceId, bikeId } = route.params || {};
     const { activeBike, loadActiveBike } = useAppStore();
 
     const [status, setStatus] = useState<'idle' | 'reading' | 'success' | 'failed'>('idle');
@@ -57,8 +57,24 @@ export const ECUIdentifyScreen = ({ navigation, route }: any) => {
             setEcuData(data);
             setStatus('success');
 
-            if (activeBike) {
-                console.log('Would save ECU info to bike:', activeBike.id, data);
+            const targetBikeId = bikeId || activeBike?.id;
+            if (targetBikeId) {
+                try {
+                    const bikeService = ServiceLocator.getBikeService();
+                    const allBikes = await bikeService.getBikes();
+                    const targetBike = allBikes.find((entry) => entry.id === targetBikeId);
+                    if (targetBike) {
+                        await bikeService.updateBike({
+                            ...targetBike,
+                            ecuId: data.ecuId,
+                        });
+                        if (targetBikeId === activeBike?.id) {
+                            await loadActiveBike();
+                        }
+                    }
+                } catch (saveError) {
+                    console.warn('Failed to persist ECU identification to bike', saveError);
+                }
             }
         } catch (e: any) {
             setError(e.message || 'Failed to identify ECU');
@@ -68,7 +84,7 @@ export const ECUIdentifyScreen = ({ navigation, route }: any) => {
 
     const handleContinue = () => {
         if (tuneId) {
-            navigation.navigate('Backup', { tuneId, ecuData });
+            navigation.navigate('Backup', { tuneId, versionId, deviceId, bikeId, ecuData });
         } else {
             navigation.popToTop();
         }

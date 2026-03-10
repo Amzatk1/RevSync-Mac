@@ -20,18 +20,20 @@ def quarantine_path(user_id: str, listing_id: str, version_id: str) -> str:
     return f"tuner/{user_id}/{listing_id}/{version_id}/upload.revsyncpkg"
 
 
-def validated_paths(listing_id: str, version_id: str) -> Tuple[str, str, str]:
+def validated_paths(listing_id: str, version_id: str) -> Tuple[str, str, str, str, str]:
     """
     Generate the standard validated bucket paths for a signed package.
 
     Returns:
-        Tuple of (package_path, signature_path, hashes_path).
+        Tuple of (package_path, signature_path, hashes_path, manifest_path, tune_bin_path).
     """
     base = f"listing/{listing_id}/{version_id}"
     return (
         f"{base}/package.revsyncpkg",
         f"{base}/signature.sig",
         f"{base}/hashes.json",
+        f"{base}/manifest.json",
+        f"{base}/tune.bin",
     )
 
 
@@ -44,9 +46,9 @@ def remove_validated_artifacts(listing_id: str, version_id: str) -> None:
     """
     from core.supabase_client import delete_file
 
-    pkg_path, sig_path, hashes_path = validated_paths(listing_id, version_id)
+    pkg_path, sig_path, hashes_path, manifest_path, tune_bin_path = validated_paths(listing_id, version_id)
 
-    for path in [pkg_path, sig_path, hashes_path]:
+    for path in [pkg_path, sig_path, hashes_path, manifest_path, tune_bin_path]:
         try:
             delete_file('validated', path)
             logger.info(f"Deleted validated artifact: {path}")

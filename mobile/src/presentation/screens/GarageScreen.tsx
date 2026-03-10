@@ -17,18 +17,28 @@ import { Bike } from '../../domain/services/DomainTypes';
 import { SkeletonBikeCard } from '../components/SkeletonCards';
 import { AppScreen, TopBar, GlassCard, SectionLabel } from '../components/AppUI';
 import { Theme } from '../theme';
+import { garageService } from '../../services/garageService';
 
 export const GarageScreen = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
     const { activeBike, loadActiveBike } = useAppStore();
     const [bikes, setBikes] = useState<Bike[]>([]);
     const [loading, setLoading] = useState(false);
+    const [flashJobCount, setFlashJobCount] = useState(0);
+    const [backupCount, setBackupCount] = useState(0);
 
     const loadBikes = useCallback(async () => {
         setLoading(true);
         try {
             const bikeService = ServiceLocator.getBikeService();
-            setBikes(await bikeService.getBikes());
+            const [loadedBikes, flashJobs, backups] = await Promise.all([
+                bikeService.getBikes(),
+                garageService.getFlashJobs().catch(() => ({ results: [] as any[] })),
+                garageService.getBackups().catch(() => ({ results: [] as any[] })),
+            ]);
+            setBikes(loadedBikes);
+            setFlashJobCount(flashJobs.results.length);
+            setBackupCount(backups.results.length);
         } catch (e) {
             console.warn('GarageScreen: load failed', e);
         } finally {
@@ -84,8 +94,13 @@ export const GarageScreen = ({ navigation }: any) => {
                             </View>
                             <View style={styles.overviewDivider} />
                             <View style={styles.overviewItem}>
-                                <Text style={styles.overviewValue}>{bikes.filter(b => !!b.vin).length}</Text>
-                                <Text style={styles.overviewLabel}>VIN Tagged</Text>
+                                <Text style={styles.overviewValue}>{flashJobCount}</Text>
+                                <Text style={styles.overviewLabel}>Flash Jobs</Text>
+                            </View>
+                            <View style={styles.overviewDivider} />
+                            <View style={styles.overviewItem}>
+                                <Text style={styles.overviewValue}>{backupCount}</Text>
+                                <Text style={styles.overviewLabel}>Backups</Text>
                             </View>
                         </GlassCard>
                         <SectionLabel label="Your Bikes" />

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LayoutAnimation, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { useAppStore } from '../../store/useAppStore';
+import { garageService } from '../../../services/garageService';
 
 const { Colors, Layout, Typography } = Theme;
 
@@ -26,6 +28,27 @@ const FAQ_DATA = [
 ];
 
 export const SupportScreen = ({ navigation }: any) => {
+    const { isConnected, connectedDeviceId } = useAppStore();
+    const [flashJobCount, setFlashJobCount] = useState(0);
+    const [backupCount, setBackupCount] = useState(0);
+
+    useEffect(() => {
+        const loadSupportContext = async () => {
+            try {
+                const [flashJobs, backups] = await Promise.all([
+                    garageService.getFlashJobs(),
+                    garageService.getBackups(),
+                ]);
+                setFlashJobCount(flashJobs.results.length);
+                setBackupCount(backups.results.length);
+            } catch {
+                setFlashJobCount(0);
+                setBackupCount(0);
+            }
+        };
+        loadSupportContext();
+    }, []);
+
     const handleContactSupport = () => {
         Linking.openURL('mailto:support@revsync.app?subject=RevSync Support Request');
     };
@@ -38,6 +61,46 @@ export const SupportScreen = ({ navigation }: any) => {
                 <Text style={styles.kicker}>Support Center</Text>
                 <Text style={styles.heroTitle}>Guidance for connection, verification, and recovery workflows.</Text>
                 <Text style={styles.heroBody}>This screen exists to resolve real operator issues quickly, not to act as a generic marketing FAQ.</Text>
+            </GlassCard>
+
+            <GlassCard style={styles.summaryCard}>
+                <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{isConnected ? 'Yes' : 'No'}</Text>
+                    <Text style={styles.summaryLabel}>Device</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{flashJobCount}</Text>
+                    <Text style={styles.summaryLabel}>Flash Jobs</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{backupCount}</Text>
+                    <Text style={styles.summaryLabel}>Backups</Text>
+                </View>
+            </GlassCard>
+
+            <GlassCard style={styles.statusCard}>
+                <Text style={styles.sectionTitle}>Current Support Context</Text>
+                <ContextRow label="Connected device" value={connectedDeviceId || 'No active ECU session'} />
+                <ContextRow label="Recommended first step" value={flashJobCount > 0 ? 'Review flash history and export logs' : 'Connect device and identify ECU'} />
+                <ContextRow label="Recovery readiness" value={backupCount > 0 ? 'At least one backup record exists' : 'No backup records on file'} />
+            </GlassCard>
+
+            <GlassCard>
+                <Text style={styles.sectionTitle}>Quick Actions</Text>
+                <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Flash', { screen: 'FlashHistory' })}>
+                    <Ionicons name="time-outline" size={18} color={Colors.textPrimary} />
+                    <Text style={styles.quickActionText}>Open flash history</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('LogsExport')}>
+                    <Ionicons name="document-text-outline" size={18} color={Colors.textPrimary} />
+                    <Text style={styles.quickActionText}>Export support logs</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('FlashingSafetySettings')}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textPrimary} />
+                    <Text style={styles.quickActionText}>Review flashing safety settings</Text>
+                </TouchableOpacity>
             </GlassCard>
 
             <View style={styles.stack}>
@@ -81,6 +144,13 @@ const FAQItem = ({ question, answer }: { question: string; answer: string }) => 
     );
 };
 
+const ContextRow = ({ label, value }: { label: string; value: string }) => (
+    <View style={styles.contextRow}>
+        <Text style={styles.contextLabel}>{label}</Text>
+        <Text style={styles.contextValue}>{value}</Text>
+    </View>
+);
+
 const styles = StyleSheet.create({
     content: {
         paddingBottom: 120,
@@ -88,6 +158,34 @@ const styles = StyleSheet.create({
     heroCard: {
         marginTop: 8,
         marginBottom: 12,
+    },
+    summaryCard: {
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    summaryItem: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    summaryValue: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+    },
+    summaryLabel: {
+        marginTop: 2,
+        fontSize: 10,
+        letterSpacing: 0.8,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        color: Colors.textSecondary,
+    },
+    summaryDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: Colors.divider,
     },
     kicker: {
         ...Typography.dataLabel,
@@ -104,6 +202,47 @@ const styles = StyleSheet.create({
     },
     stack: {
         gap: 10,
+        marginTop: 12,
+    },
+    statusCard: {
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        ...Typography.dataLabel,
+        marginBottom: 10,
+    },
+    contextRow: {
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
+    },
+    contextLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+        marginBottom: 4,
+    },
+    contextValue: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: Colors.textPrimary,
+    },
+    quickAction: {
+        minHeight: 48,
+        borderRadius: Layout.radiusSm,
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingHorizontal: 14,
+        marginTop: 10,
+    },
+    quickActionText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
     },
     faqCard: {},
     faqHeader: {

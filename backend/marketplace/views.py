@@ -311,6 +311,8 @@ class DownloadLinkView(APIView):
     Returns:
       - download_url: 5-minute signed URL to the .revsyncpkg
       - signature_url: 5-minute signed URL to the .sig file
+      - manifest_url: 5-minute signed URL to extracted manifest.json
+      - tune_bin_url: 5-minute signed URL to extracted tune.bin
       - hashes: inline hashes.json content
       - signature_b64: Ed25519 signature (also in .sig file)
       - expires_in: seconds until URLs expire
@@ -372,6 +374,12 @@ class DownloadLinkView(APIView):
             hashes_url = create_signed_url('validated', hashes_path, expires_in)
             hashes_payload = self._load_hashes_payload(version, hashes_path)
 
+            manifest_path = version.validated_path.replace('package.revsyncpkg', 'manifest.json')
+            manifest_url = create_signed_url('validated', manifest_path, expires_in)
+
+            tune_bin_path = version.validated_path.replace('package.revsyncpkg', 'tune.bin')
+            tune_bin_url = create_signed_url('validated', tune_bin_path, expires_in)
+
         except Exception as e:
             logger.error(f"Failed to generate signed URLs: {e}")
             return Response(
@@ -394,6 +402,8 @@ class DownloadLinkView(APIView):
             'download_url': pkg_url,
             'signature_url': sig_url,
             'hashes_url': hashes_url,
+            'manifest_url': manifest_url,
+            'tune_bin_url': tune_bin_url,
             'hashes': hashes_payload,
             'signature_b64': version.signature_base64,
             'tune_hash_sha256': version.file_hash_sha256,

@@ -66,7 +66,7 @@ const signalStyles = StyleSheet.create({
 // ════════════════════════════════════════════════════════════════════
 export const DeviceConnectScreen = ({ navigation, route }: any) => {
     const insets = useSafeAreaInsets();
-    const { tuneId } = route.params || {};
+    const { tuneId, versionId } = route.params || {};
     const { connect, isConnected, connectedDeviceId, disconnect } = useAppStore();
     const [devices, setDevices] = useState<ScannedDevice[]>([]);
     const [scanning, setScanning] = useState(false);
@@ -117,7 +117,7 @@ export const DeviceConnectScreen = ({ navigation, route }: any) => {
             await connect(deviceId);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             if (tuneId) {
-                navigation.navigate('ECUIdentify', { tuneId });
+                navigation.navigate('ECUIdentify', { tuneId, versionId, deviceId });
             } else {
                 Alert.alert('Connected', 'Device connected successfully.');
                 navigation.goBack();

@@ -117,8 +117,8 @@ class ValidationPipelineTest(TestCase):
 
         # Cross-bucket move should have been called
         mock_move.assert_called_once()
-        # Signature + hashes should have been uploaded
-        self.assertEqual(mock_upload.call_count, 2)
+        # Signature, hashes, extracted manifest, and extracted tune.bin should have been uploaded
+        self.assertEqual(mock_upload.call_count, 4)
 
     @patch('core.supabase_client.download_to_temp')
     def test_validation_failure_download(self, mock_download):

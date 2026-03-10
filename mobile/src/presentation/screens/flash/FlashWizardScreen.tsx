@@ -10,6 +10,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { garageService } from '../../../services/garageService';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -38,7 +39,8 @@ const C = {
 // ─── Component ─────────────────────────────────────────────────
 
 export const FlashWizardScreen = ({ navigation, route }: any) => {
-    const { tuneId, backupPath, versionId, deviceId } = route.params || {};
+    const { tuneId, backupPath, backupId, versionId, deviceId } = route.params || {};
+    const { activeBike } = useAppStore();
     const { safetyModeEnabled } = useSettingsStore();
 
     const [step, setStep] = useState<WizardStep>('pre-checks');
@@ -54,9 +56,11 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
     const [error, setError] = useState<string | null>(null);
     const [chunkInfo, setChunkInfo] = useState({ sent: 0, total: 0 });
     const [countdown, setCountdown] = useState(5);
+    const [flashJobId, setFlashJobId] = useState<number | null>(null);
 
     const progressPulse = useRef(new Animated.Value(1)).current;
     const scrollRef = useRef<ScrollView>(null);
+    const lastSyncedProgress = useRef(-1);
 
     // Lock back navigation during critical steps
     useEffect(() => {
@@ -122,16 +126,19 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
         setChecks({ ...result }); setCheckMessages({ ...msgs });
 
         // 2. Backup exists
-        result.backup = !!backupPath;
-        msgs.backup = backupPath ? 'Backup file present' : 'No backup — create one first';
+        result.backup = !!backupPath && !!backupId;
+        msgs.backup = result.backup
+            ? `Verified backup record #${backupId} is ready`
+            : 'No verified backup record — create one first';
         setChecks({ ...result }); setCheckMessages({ ...msgs });
 
         // 3. Verified package
         if (versionId) {
             const downloadSvc = ServiceLocator.getDownloadService();
-            const exists = await downloadSvc.hasVerifiedPackage(versionId);
-            result.package = exists;
-            msgs.package = exists ? 'Package verified on device' : 'Package not downloaded';
+            const pkg = await downloadSvc.getVerifiedPackage(versionId);
+            const verified = pkg ? await downloadSvc.reverify(pkg) : false;
+            result.package = verified;
+            msgs.package = verified ? 'Validated package, manifest, and tune binary verified on device' : 'Verified local package not available';
         } else {
             result.package = false;
             msgs.package = 'No version ID';
@@ -140,9 +147,10 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
 
         // 4. Ed25519 signature verification
         try {
-            const cryptoSvc = ServiceLocator.getCryptoService();
-            result.signature = cryptoSvc.isReady();
-            msgs.signature = result.signature ? 'Ed25519 public key loaded' : 'Signature key not available';
+            result.signature = result.package;
+            msgs.signature = result.signature
+                ? 'Signature still matches the verified tune binary'
+                : 'Package signature could not be re-verified locally';
         } catch {
             result.signature = false;
             msgs.signature = 'Crypto service error';
@@ -189,15 +197,40 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
         setError(null);
         setProgress(0);
         setLog([]);
+        lastSyncedProgress.current = -1;
         addLog('Initializing flash session...', 'info');
+        let currentFlashJobId: number | null = null;
         try {
+            if (!activeBike) throw new Error('Select an active bike before flashing.');
+            if (!backupPath || !backupId) throw new Error('Verified backup record is required before flashing.');
+            if (!deviceId) throw new Error('Connected device is required before flashing.');
+
             const tuneService = ServiceLocator.getTuneService();
             const tune = await tuneService.getTuneDetails(tuneId);
             if (!tune) throw new Error('Tune definition not found');
+
+            const flashJob = await garageService.createFlashJob({
+                vehicle: Number(activeBike.id),
+                tune: tune.listingId || tune.id,
+                version: versionId,
+                backup: backupId,
+                connection_type: 'BLE',
+                device_id: deviceId,
+            });
+            currentFlashJobId = flashJob.id;
+            setFlashJobId(flashJob.id);
+
             const ecuService = ServiceLocator.getECUService();
             if (deviceId && 'setConnectedDevice' in ecuService) {
                 (ecuService as any).setConnectedDevice(deviceId);
             }
+
+            await garageService.updateFlashJob(flashJob.id, {
+                status: 'PRE_CHECK',
+                progress: 0,
+                log_message: 'Flash session initialized from mobile wizard',
+            });
+
             addLog('Tune loaded: ' + tune.title, 'info');
             addLog('Entering bootloader mode...', 'info');
             setStep('flashing');
@@ -205,13 +238,33 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                 setProgress(pct);
                 if (msg) {
                     const chunkMatch = msg.match(/Chunk (\d+)\/(\d+)/);
+                    let chunkSent: number | undefined;
+                    let chunkTotal: number | undefined;
                     if (chunkMatch) {
-                        setChunkInfo({ sent: parseInt(chunkMatch[1]), total: parseInt(chunkMatch[2]) });
+                        chunkSent = parseInt(chunkMatch[1]);
+                        chunkTotal = parseInt(chunkMatch[2]);
+                        setChunkInfo({ sent: chunkSent, total: chunkTotal });
                     }
                     if (!chunkMatch || parseInt(chunkMatch[1]) % Math.ceil(parseInt(chunkMatch[2]) / 10) === 0) {
                         addLog(msg, 'info');
                     }
+                    const roundedProgress = Math.floor(pct);
+                    if (roundedProgress >= lastSyncedProgress.current + 5 || roundedProgress >= 100) {
+                        lastSyncedProgress.current = roundedProgress;
+                        garageService.updateFlashJob(flashJob.id, {
+                            status: pct >= 92 ? 'VERIFYING' : 'FLASHING',
+                            progress: roundedProgress,
+                            log_message: msg || `Flash progress ${roundedProgress}%`,
+                            chunks_sent: chunkSent,
+                            total_chunks: chunkTotal,
+                        }).catch((e) => console.warn('Flash progress sync failed', e));
+                    }
                 }
+            });
+            await garageService.updateFlashJob(flashJob.id, {
+                status: 'VERIFYING',
+                progress: 95,
+                log_message: 'Tune write complete. Handing off to verification sequence.',
             });
             addLog('Flash completed successfully!', 'success');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -220,11 +273,24 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
             setError(e.message || 'Flash sequence failed');
             setStep('failed');
             addLog(`FATAL: ${e.message}`, 'error');
+            if (currentFlashJobId) {
+                try {
+                    await garageService.updateFlashJob(currentFlashJobId, {
+                        status: 'FAILED',
+                        progress: Math.floor(progress),
+                        error_message: e.message || 'Flash sequence failed',
+                        error_code: 'FLASH_ERROR',
+                        log_message: `Flash failed: ${e.message || 'Unknown error'}`,
+                    });
+                } catch (syncError) {
+                    console.warn('Flash failure sync failed', syncError);
+                }
+            }
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
     };
 
-    const handleFinish = () => navigation.navigate('Verification', { tuneId });
+    const handleFinish = () => navigation.navigate('Verification', { tuneId, deviceId, flashJobId });
 
     // Auto-navigate to verification after success
     useEffect(() => {
@@ -456,7 +522,7 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                 <Text style={s.resultSubText}>Your original backup is available. Attempt Recovery?</Text>
                 <TouchableOpacity
                     style={s.primaryBtn}
-                    onPress={() => navigation.navigate('Recovery', { backupPath, deviceId })}
+                    onPress={() => navigation.navigate('Recovery', { backupPath, backupId, deviceId, flashJobId })}
                     activeOpacity={0.85}
                 >
                     <Ionicons name="medical" size={20} color="#FFF" />

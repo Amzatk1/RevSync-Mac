@@ -111,10 +111,11 @@ export const TuneValidationScreen = ({ route, navigation }: any) => {
             updateCheck('packageExists', 'checking');
             await delay(200);
             if (versionId) {
-                const exists = await downloadService.hasVerifiedPackage(versionId);
-                updateCheck('packageExists', exists ? 'pass' : 'fail',
-                    exists ? 'Verified package on device' : 'Package not downloaded');
-                if (!exists) blockers++;
+                const pkg = await downloadService.getVerifiedPackage(versionId);
+                const verified = pkg ? await downloadService.reverify(pkg) : false;
+                updateCheck('packageExists', verified ? 'pass' : 'fail',
+                    verified ? 'Validated package, manifest, and tune binary present' : 'Verified local package not available');
+                if (!verified) blockers++;
             } else {
                 updateCheck('packageExists', 'fail', 'No version ID');
                 blockers++;
@@ -122,16 +123,25 @@ export const TuneValidationScreen = ({ route, navigation }: any) => {
 
             updateCheck('signatureOk', 'checking');
             await delay(300);
-            const cryptoService = ServiceLocator.getCryptoService();
-            updateCheck('signatureOk', cryptoService.isReady() ? 'pass' : 'warn',
-                cryptoService.isReady() ? 'Ed25519 public key loaded' : 'No public key — skipped');
+            if (versionId) {
+                const pkg = await downloadService.getVerifiedPackage(versionId);
+                const verified = pkg ? await downloadService.reverify(pkg) : false;
+                updateCheck('signatureOk', verified ? 'pass' : 'fail',
+                    verified ? 'Local signature still matches the verified tune binary' : 'Signature could not be re-verified');
+                if (!verified) blockers++;
+            } else {
+                updateCheck('signatureOk', 'fail', 'Missing version metadata');
+                blockers++;
+            }
 
             updateCheck('hashesOk', 'checking');
             await delay(200);
             if (versionId) {
-                const pkgExists = await downloadService.hasVerifiedPackage(versionId);
-                updateCheck('hashesOk', pkgExists ? 'pass' : 'pending',
-                    pkgExists ? 'Verified at download time' : 'Download package to verify');
+                const pkg = await downloadService.getVerifiedPackage(versionId);
+                const verified = pkg ? await downloadService.reverify(pkg) : false;
+                updateCheck('hashesOk', verified ? 'pass' : 'fail',
+                    verified ? 'Package, manifest, and tune hashes still match' : 'Stored hashes no longer match local artifacts');
+                if (!verified) blockers++;
             } else {
                 updateCheck('hashesOk', 'fail', 'Missing version metadata');
                 blockers++;

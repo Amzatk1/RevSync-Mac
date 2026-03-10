@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { useAppStore } from '../../store/useAppStore';
 
 const { Colors, Layout, Typography } = Theme;
 
@@ -16,14 +17,19 @@ interface GaugeData {
 }
 
 export const TelemetryScreen = ({ navigation }: any) => {
+    const { isConnected, connectedDeviceId } = useAppStore();
     const [gauges, setGauges] = useState<GaugeData[]>([
         { label: 'RPM', value: 0, max: 14000, unit: 'rpm', color: Colors.primary, icon: 'speedometer-outline' },
         { label: 'Coolant', value: 0, max: 120, unit: '°C', color: Colors.info, icon: 'thermometer-outline' },
         { label: 'Battery', value: 0, max: 16, unit: 'V', color: Colors.success, icon: 'battery-half-outline' },
         { label: 'Throttle', value: 0, max: 100, unit: '%', color: Colors.warning, icon: 'radio-button-on-outline' },
     ]);
-    const [connected, setConnected] = useState(false);
     const pulse = useRef(new Animated.Value(0.4)).current;
+    const telemetryMode = !isConnected
+        ? 'offline'
+        : __DEV__
+            ? 'simulated'
+            : 'connected';
 
     useEffect(() => {
         Animated.loop(
@@ -35,8 +41,7 @@ export const TelemetryScreen = ({ navigation }: any) => {
     }, [pulse]);
 
     useEffect(() => {
-        if (__DEV__) {
-            setConnected(true);
+        if (telemetryMode === 'simulated') {
             const interval = setInterval(() => {
                 setGauges((prev) =>
                     prev.map((gauge) => ({
@@ -54,21 +59,58 @@ export const TelemetryScreen = ({ navigation }: any) => {
             }, 500);
             return () => clearInterval(interval);
         }
-    }, []);
+        setGauges((prev) => prev.map((gauge) => ({ ...gauge, value: 0 })));
+    }, [telemetryMode]);
+
+    const subtitle =
+        telemetryMode === 'simulated'
+            ? 'Simulated ECU readings for the connected development device'
+            : telemetryMode === 'connected'
+                ? 'Device connected. Live telemetry streaming is not available in this build.'
+                : 'Connect a device to start telemetry.';
+
+    const badgeLabel =
+        telemetryMode === 'simulated'
+            ? 'SIMULATED'
+            : telemetryMode === 'connected'
+                ? 'CONNECTED'
+                : 'OFFLINE';
+
+    const badgeColor =
+        telemetryMode === 'offline'
+            ? Colors.textTertiary
+            : telemetryMode === 'simulated'
+                ? Colors.warning
+                : Colors.info;
 
     return (
         <AppScreen scroll contentContainerStyle={styles.content}>
             <TopBar
                 title="Telemetry"
-                subtitle={connected ? 'Live ECU readings while connected' : 'Connect a device to start live monitoring'}
+                subtitle={subtitle}
                 onBack={() => navigation.goBack()}
                 right={
-                    <View style={[styles.liveBadge, { backgroundColor: connected ? 'rgba(46,211,154,0.14)' : 'rgba(255,255,255,0.04)' }]}>
-                        <Animated.View style={[styles.liveDot, { backgroundColor: connected ? Colors.success : Colors.textTertiary, opacity: pulse }]} />
-                        <Text style={[styles.liveText, { color: connected ? Colors.success : Colors.textTertiary }]}>{connected ? 'LIVE' : 'OFFLINE'}</Text>
+                    <View style={[styles.liveBadge, { backgroundColor: telemetryMode === 'offline' ? 'rgba(255,255,255,0.04)' : `${badgeColor}20` }]}>
+                        <Animated.View style={[styles.liveDot, { backgroundColor: badgeColor, opacity: pulse }]} />
+                        <Text style={[styles.liveText, { color: badgeColor }]}>{badgeLabel}</Text>
                     </View>
                 }
             />
+
+            {telemetryMode !== 'simulated' && (
+                <GlassCard style={styles.noticeCard}>
+                    <Ionicons
+                        name={telemetryMode === 'connected' ? 'information-circle-outline' : 'hardware-chip-outline'}
+                        size={18}
+                        color={telemetryMode === 'connected' ? Colors.info : Colors.warning}
+                    />
+                    <Text style={styles.noticeText}>
+                        {telemetryMode === 'connected'
+                            ? 'The ECU device is connected, but this build does not expose real sensor streaming yet. Use identification, backup, flash, and verification workflows for persisted operational state.'
+                            : 'No ECU device is connected. Telemetry remains unavailable until a RevSync device session is active.'}
+                    </Text>
+                </GlassCard>
+            )}
 
             <View style={styles.grid}>
                 {gauges.map((gauge) => {
@@ -95,12 +137,12 @@ export const TelemetryScreen = ({ navigation }: any) => {
 
             <GlassCard style={styles.statusCard}>
                 <Text style={styles.sectionLabel}>Connection State</Text>
-                <StatusRow label="ECU Mode" value={connected ? 'Application' : 'Disconnected'} />
-                <StatusRow label="Refresh Rate" value={connected ? '500ms' : 'Unavailable'} />
-                <StatusRow label="BLE Signal" value={connected ? 'Strong' : 'Not connected'} />
+                <StatusRow label="Session" value={connectedDeviceId ? connectedDeviceId : 'No device session'} />
+                <StatusRow label="ECU Mode" value={isConnected ? 'Connected' : 'Disconnected'} />
+                <StatusRow label="Telemetry Source" value={telemetryMode === 'simulated' ? 'Dev simulator' : telemetryMode === 'connected' ? 'Not implemented in this build' : 'Unavailable'} />
             </GlassCard>
 
-            {!connected && (
+            {!isConnected && (
                 <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('DeviceConnect')}>
                     <Text style={styles.primaryButtonText}>Connect ECU</Text>
                 </TouchableOpacity>
@@ -139,6 +181,18 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '800',
         letterSpacing: 0.8,
+    },
+    noticeCard: {
+        marginTop: 10,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'flex-start',
+    },
+    noticeText: {
+        flex: 1,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Colors.textSecondary,
     },
     grid: {
         flexDirection: 'row',

@@ -16,16 +16,14 @@ const deviceService: DeviceService = __DEV__
     ? new MockDeviceService()
     : new (require('../data/services/BleDeviceService').BleDeviceService)();
 
+const cryptoService = new CryptoService();
+const downloadService = new DownloadService(cryptoService);
 const tuneService = new ApiTuneService();
 const bikeService = new ApiBikeService();
 const validationService = new SafetyEngine();
-const ecuService = new StandardECUService(deviceService, validationService);
+const ecuService = new StandardECUService(deviceService, validationService, downloadService);
 const authService = new SupabaseAuthService();
 const analyticsService = new ConsoleAnalyticsService();
-
-// New Phase 2 services
-const cryptoService = new CryptoService();
-const downloadService = new DownloadService(cryptoService);
 
 export const ServiceLocator = {
     getDeviceService: () => deviceService,

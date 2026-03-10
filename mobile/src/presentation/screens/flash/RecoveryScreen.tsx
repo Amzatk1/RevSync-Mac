@@ -4,15 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { garageService } from '../../../services/garageService';
 
 const { Colors, Layout, Typography } = Theme;
 
 export const RecoveryScreen = ({ navigation, route }: any) => {
-    const { backupPath, deviceId } = route.params || {};
+    const { backupPath, backupId, deviceId, flashJobId } = route.params || {};
     const [status, setStatus] = useState<'idle' | 'restoring' | 'success' | 'failed'>('idle');
     const [progress, setProgress] = useState(0);
     const [log, setLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [backupRecord, setBackupRecord] = useState<any | null>(null);
     const scrollRef = useRef<ScrollView>(null);
 
     useEffect(() => {
@@ -32,11 +34,30 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }, [log]);
 
+    useEffect(() => {
+        const loadBackupRecord = async () => {
+            if (!backupId) {
+                setBackupRecord(null);
+                return;
+            }
+            const record = await garageService.getBackup(backupId);
+            setBackupRecord(record);
+            if (!record) {
+                setError('The selected verified backup record is no longer available.');
+            }
+        };
+        loadBackupRecord();
+    }, [backupId]);
+
     const addLog = (message: string) => setLog((prev) => [...prev, message]);
 
     const startRecovery = async () => {
         if (!backupPath) {
             setError('No backup file provided.');
+            return;
+        }
+        if (!backupId || !backupRecord) {
+            setError('Recovery is blocked until a verified backup record is available.');
             return;
         }
 
@@ -46,6 +67,7 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         setLog([]);
         addLog('Initializing recovery mode...');
         addLog(`Backup file detected: ${backupPath.split('/').pop()}`);
+        addLog(`Verified backup record #${backupRecord.id} loaded`);
 
         try {
             const ecuService = ServiceLocator.getECUService();
@@ -53,19 +75,50 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
                 (ecuService as any).setConnectedDevice(deviceId);
             }
 
+            if (flashJobId) {
+                await garageService.updateFlashJob(flashJobId, {
+                    status: 'RECOVERING',
+                    progress: 0,
+                    log_message: `Recovery started with backup #${backupRecord.id}`,
+                });
+            }
+
             addLog('Writing backup to ECU...');
             await ecuService.restoreBackup(backupPath, (pct: number, message?: string) => {
                 setProgress(pct);
                 if (message) addLog(message);
+                if (flashJobId && (pct === 100 || Math.floor(pct) % 10 === 0)) {
+                    garageService.updateFlashJob(flashJobId, {
+                        status: 'RECOVERING',
+                        progress: Math.floor(pct),
+                        log_message: message || `Recovery progress ${Math.floor(pct)}%`,
+                    }).catch((syncError) => console.warn('Recovery progress sync failed', syncError));
+                }
             });
             addLog('Restore complete. Verifying ECU response...');
             addLog('Recovery finished successfully.');
+            if (flashJobId) {
+                await garageService.updateFlashJob(flashJobId, {
+                    status: 'COMPLETED',
+                    progress: 100,
+                    log_message: `Recovery completed successfully using backup #${backupRecord.id}`,
+                });
+            }
             setStatus('success');
         } catch (e: any) {
             const message = e.message || 'Recovery failed';
             setError(message);
             setStatus('failed');
             addLog(`Critical error: ${message}`);
+            if (flashJobId) {
+                await garageService.updateFlashJob(flashJobId, {
+                    status: 'FAILED',
+                    progress: Math.floor(progress),
+                    error_message: message,
+                    error_code: 'RECOVERY_FAILED',
+                    log_message: `Recovery failed: ${message}`,
+                }).catch((syncError) => console.warn('Recovery failure sync failed', syncError));
+            }
         }
     };
 
@@ -183,18 +236,23 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
             </View>
 
             <GlassCard>
-                <Text style={styles.sectionLabel}>Backup File</Text>
+                <Text style={styles.sectionLabel}>Backup Authority</Text>
                 <Text style={styles.backupFileName}>{backupPath ? backupPath.split('/').pop() : 'No backup available'}</Text>
-                {!backupPath && (
+                {backupRecord && (
+                    <Text style={styles.backupMeta}>
+                        Record #{backupRecord.id} • {backupRecord.file_size_kb} KB • {backupRecord.checksum.slice(0, 12)}...
+                    </Text>
+                )}
+                {(!backupPath || !backupRecord) && (
                     <View style={styles.warningInline}>
                         <Ionicons name="alert-circle" size={16} color={Colors.error} />
-                        <Text style={styles.warningInlineText}>Recovery is blocked until a valid backup file is available.</Text>
+                        <Text style={styles.warningInlineText}>Recovery is blocked until a valid backup file and verified backup record are available.</Text>
                     </View>
                 )}
             </GlassCard>
 
             <View style={styles.actions}>
-                <TouchableOpacity style={[styles.primaryButton, !backupPath && styles.buttonDisabled]} onPress={startRecovery} disabled={!backupPath}>
+                <TouchableOpacity style={[styles.primaryButton, (!backupPath || !backupRecord) && styles.buttonDisabled]} onPress={startRecovery} disabled={!backupPath || !backupRecord}>
                     <Text style={styles.primaryButtonText}>Start Recovery</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
@@ -327,6 +385,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: Colors.textPrimary,
+    },
+    backupMeta: {
+        marginTop: 8,
+        fontSize: 12,
+        color: Colors.textSecondary,
     },
     warningCard: {
         marginTop: 8,

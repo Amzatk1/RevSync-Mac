@@ -380,6 +380,8 @@ def validate_tune_version(self, version_id: str):
         dest_pkg_path = f"{dest_base}/package.revsyncpkg"
         dest_sig_path = f"{dest_base}/signature.sig"
         dest_hashes_path = f"{dest_base}/hashes.json"
+        dest_manifest_path = f"{dest_base}/manifest.json"
+        dest_tune_bin_path = f"{dest_base}/tune.bin"
         
         # Move package: quarantine → validated
         move_cross_bucket(
@@ -395,7 +397,17 @@ def validate_tune_version(self, version_id: str):
         # Upload hashes.json
         upload_file('validated', dest_hashes_path, hashes_json, 'application/json')
         logger.info("  ✓ hashes.json uploaded")
-        
+
+        # Upload extracted manifest.json for client-side verification without unzip support
+        with open(manifest_path, 'rb') as f:
+            upload_file('validated', dest_manifest_path, f.read(), 'application/json')
+        logger.info("  ✓ manifest.json uploaded")
+
+        # Upload extracted tune.bin for client-side flashing without zip extraction
+        with open(tune_path, 'rb') as f:
+            upload_file('validated', dest_tune_bin_path, f.read(), 'application/octet-stream')
+        logger.info("  ✓ tune.bin uploaded")
+
         results['move'] = 'PASS'
         
         # 5d. Determine target state

@@ -3,6 +3,7 @@ import { FlashSession, FlashSessionStatus } from '../../domain/entities/FlashSes
 import { DeviceService } from '../../domain/services/DeviceService';
 import { Tune } from '../../domain/services/DomainTypes';
 import { ValidationService } from '../../domain/services/ValidationService';
+import { DownloadService } from './DownloadService';
 import { Buffer } from 'buffer';
 import { readAsStringAsync, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 
@@ -51,15 +52,21 @@ function parseResponse(base64: string): Uint8Array {
 export class StandardECUService implements ECUService {
     private deviceService: DeviceService;
     private validationService: ValidationService;
+    private downloadService: DownloadService;
     private currentSession: FlashSession | null = null;
     private isFlashing = false;
     private connectedDeviceId: string | null = null;
     private connectionMonitor: { remove: () => void } | null = null;
     private bleDisconnected = false;
 
-    constructor(deviceService: DeviceService, validationService: ValidationService) {
+    constructor(
+        deviceService: DeviceService,
+        validationService: ValidationService,
+        downloadService: DownloadService
+    ) {
         this.deviceService = deviceService;
         this.validationService = validationService;
+        this.downloadService = downloadService;
     }
 
     /** Set the connected device ID (called by DeviceConnectScreen after pairing) */
@@ -243,14 +250,22 @@ export class StandardECUService implements ECUService {
             this.updateSession('flashing');
             onProgress?.(2, 'Loading tune binary...');
 
-            const tuneBinPath = tune.checksum
-                ? `${require('expo-file-system/legacy').documentDirectory}tunes/verified/${tune.versionId}.revsyncpkg`
-                : backupPath;
+            const verifiedPackage = tune.versionId
+                ? await this.downloadService.getVerifiedPackage(tune.versionId)
+                : null;
+
+            if (!verifiedPackage) {
+                throw new Error('Verified tune binary not available. Re-download the package before flashing.');
+            }
+
+            const tuneBinPath = verifiedPackage.tuneBinPath;
+            this.currentSession.tuneBinPath = tuneBinPath;
 
             const tuneB64 = await readAsStringAsync(tuneBinPath, {
                 encoding: EncodingType.Base64,
             });
             const tuneBytes = new Uint8Array(Buffer.from(tuneB64, 'base64'));
+            tune.hashSha256 = verifiedPackage.tuneHashSha256;
 
             // 3. Calculate chunks
             const totalChunks = Math.ceil(tuneBytes.length / CHUNK_SIZE);

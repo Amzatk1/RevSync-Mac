@@ -31,7 +31,9 @@ interface PackageEntry {
     downloadedAt: number;
     signatureVerified: boolean;
     hashesMatch: boolean;
-    localPath: string;
+    localPkgPath: string;
+    tuneBinPath?: string;
+    manifestPath?: string;
     signatureBase64?: string;
     tuneHashSha256?: string;
     serverHashes?: TunePackage['serverHashes'];
@@ -144,7 +146,9 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
                 downloadedAt: result.package.downloadedAt,
                 signatureVerified: result.package.signatureVerified,
                 hashesMatch: result.package.hashesMatch,
-                localPath: result.package.localPkgPath,
+                localPkgPath: result.package.localPkgPath,
+                tuneBinPath: result.package.tuneBinPath,
+                manifestPath: result.package.manifestPath,
                 signatureBase64: result.package.signatureBase64,
                 tuneHashSha256: result.package.tuneHashSha256,
                 serverHashes: result.package.serverHashes,
@@ -180,7 +184,7 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
     };
 
     const handleReverify = async (entry: PackageEntry) => {
-        if (!entry.signatureBase64 || !entry.tuneHashSha256 || !entry.serverHashes) {
+        if (!entry.signatureBase64 || !entry.tuneHashSha256 || !entry.serverHashes || !entry.tuneBinPath || !entry.manifestPath) {
             Alert.alert(
                 'Re-verify unavailable',
                 'This package was downloaded before verification metadata was stored. Re-download it to re-verify.'
@@ -192,9 +196,9 @@ export const DownloadManagerScreen = ({ navigation, route }: any) => {
         const pkg: TunePackage = {
             versionId: entry.versionId,
             listingId: entry.listingId,
-            localPkgPath: entry.localPath,
-            tuneBinPath: entry.localPath,
-            manifestPath: '',
+            localPkgPath: entry.localPkgPath,
+            tuneBinPath: entry.tuneBinPath || '',
+            manifestPath: entry.manifestPath || '',
             signatureBase64: entry.signatureBase64,
             tuneHashSha256: entry.tuneHashSha256,
             serverHashes: entry.serverHashes,

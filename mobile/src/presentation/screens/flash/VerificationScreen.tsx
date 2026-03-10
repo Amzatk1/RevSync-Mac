@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { garageService } from '../../../services/garageService';
 
 const { Colors, Layout, Motion, Spacing, Typography } = Theme;
 
@@ -102,33 +103,34 @@ export const VerificationScreen = ({ navigation, route }: any) => {
             setOverall('pass');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-            try {
-                const { ApiClient } = await import('../../../data/http/ApiClient');
-                if (flashJobId) {
-                    await ApiClient.getInstance().patch(`/v1/garage/flash-jobs/${flashJobId}/`, {
+            if (flashJobId) {
+                try {
+                    await garageService.updateFlashJob(flashJobId, {
                         status: 'COMPLETED',
-                        verified_at: new Date().toISOString(),
-                        checksum_matched: true,
+                        progress: 100,
+                        log_message: 'Verification passed. Checksum matched and ECU responded normally.',
                     });
+                } catch {
+                    // Offline sync later.
                 }
-            } catch {
-                // Offline sync later.
             }
         } catch (e: any) {
             setError(e.message || 'Verification failed');
             setOverall('fail');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
-            try {
-                const { ApiClient } = await import('../../../data/http/ApiClient');
-                if (flashJobId) {
-                    await ApiClient.getInstance().patch(`/v1/garage/flash-jobs/${flashJobId}/`, {
-                        status: 'VERIFY_FAILED',
+            if (flashJobId) {
+                try {
+                    await garageService.updateFlashJob(flashJobId, {
+                        status: 'FAILED',
+                        progress: 96,
                         error_message: e.message,
+                        error_code: 'VERIFY_FAILED',
+                        log_message: `Verification failed: ${e.message}`,
                     });
+                } catch {
+                    // Offline sync later.
                 }
-            } catch {
-                // Offline sync later.
             }
         }
     };

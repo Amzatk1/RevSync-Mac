@@ -1,17 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, BackHandler, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getInfoAsync } from 'expo-file-system/legacy';
 import { ServiceLocator } from '../../../di/ServiceLocator';
+import { useAppStore } from '../../store/useAppStore';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
+import { garageService } from '../../../services/garageService';
 
 const { Colors, Layout, Typography } = Theme;
 
 export const BackupScreen = ({ navigation, route }: any) => {
-    const { tuneId } = route.params || {};
+    const { tuneId, versionId, deviceId, bikeId } = route.params || {};
+    const { activeBike } = useAppStore();
+    const [targetBike, setTargetBike] = useState<any | null>(null);
     const [status, setStatus] = useState<'idle' | 'reading' | 'uploading' | 'completed' | 'failed'>('idle');
     const [progress, setProgress] = useState(0);
     const [backupPath, setBackupPath] = useState<string | null>(null);
+    const [backupId, setBackupId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -39,17 +45,59 @@ export const BackupScreen = ({ navigation, route }: any) => {
         }
     }, [pulseAnim, status]);
 
+    useEffect(() => {
+        const resolveTargetBike = async () => {
+            const selectedBikeId = bikeId || activeBike?.id;
+            if (!selectedBikeId) {
+                setTargetBike(null);
+                return;
+            }
+            try {
+                const bikeService = ServiceLocator.getBikeService();
+                const bikes = await bikeService.getBikes();
+                setTargetBike(bikes.find((entry) => entry.id === selectedBikeId) || null);
+            } catch {
+                setTargetBike(null);
+            }
+        };
+        resolveTargetBike();
+    }, [bikeId, activeBike?.id]);
+
     const startBackup = async () => {
         setStatus('reading');
         setProgress(0);
         setError(null);
+        setBackupId(null);
 
         try {
+            const backupBike = targetBike || activeBike;
+            if (!backupBike) {
+                throw new Error('Select an active bike before creating a backup.');
+            }
+
             const ecuService = ServiceLocator.getECUService();
             const path = await ecuService.readECU((pct: number) => setProgress(pct));
             setBackupPath(path);
             setStatus('uploading');
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+
+            const [info, checksum] = await Promise.all([
+                getInfoAsync(path),
+                ServiceLocator.getCryptoService().hashFile(path),
+            ]);
+
+            const sizeBytes = typeof (info as any).size === 'number' ? (info as any).size : 0;
+            const fileSizeKb = Math.max(1, Math.ceil(sizeBytes / 1024));
+            const fileName = path.split('/').pop() || `backup_${Date.now()}.bin`;
+
+            const backup = await garageService.createBackup({
+                vehicle: Number(backupBike.id),
+                storage_key: `device-local/backups/${fileName}`,
+                checksum,
+                file_size_kb: fileSizeKb,
+                notes: 'Captured on mobile via ECU read',
+            });
+
+            setBackupId(backup.id);
             setStatus('completed');
         } catch (e: any) {
             setError(e.message || 'Backup failed');
@@ -57,13 +105,17 @@ export const BackupScreen = ({ navigation, route }: any) => {
         }
     };
 
-    const handleNext = () => navigation.navigate('FlashWizard', { tuneId, backupPath });
+    const handleNext = () => navigation.navigate('FlashWizard', { tuneId, versionId, deviceId, backupPath, backupId });
 
     return (
         <AppScreen contentContainerStyle={styles.content}>
             <TopBar
                 title="ECU Backup"
-                subtitle="Create a restore point before any write operation"
+                subtitle={
+                    targetBike
+                        ? `Create a restore point for ${targetBike.year} ${targetBike.make} ${targetBike.model}`
+                        : 'Create a restore point before any write operation'
+                }
                 onBack={() => {
                     if (status === 'reading' || status === 'uploading') {
                         Alert.alert('Backup in progress', 'Do not interrupt the ECU backup process.');
@@ -94,7 +146,7 @@ export const BackupScreen = ({ navigation, route }: any) => {
                 <>
                     <GlassCard style={styles.heroCard}>
                         <Text style={styles.kicker}>{status === 'reading' ? 'Reading ECU' : 'Syncing Backup'}</Text>
-                        <Text style={styles.heroTitle}>{status === 'reading' ? 'Reading the current ECU state...' : 'Uploading the restore point...'}</Text>
+                        <Text style={styles.heroTitle}>{status === 'reading' ? 'Reading the current ECU state...' : 'Registering the restore point...'}</Text>
                     </GlassCard>
 
                     <GlassCard>
@@ -118,7 +170,8 @@ export const BackupScreen = ({ navigation, route }: any) => {
                         </Animated.View>
                         <Text style={styles.completedTitle}>Backup secure</Text>
                         {!!backupPath && <Text style={styles.completedPath}>{backupPath}</Text>}
-                        <Text style={styles.completedBody}>The original ECU state is stored. You can now continue to the flash wizard with a restore path available.</Text>
+                        {!!backupId && <Text style={styles.completedBody}>Backup record #{backupId} is now available for flash and recovery gating.</Text>}
+                        {!backupId && <Text style={styles.completedBody}>The original ECU state is stored. You can now continue to the flash wizard with a restore path available.</Text>}
                     </GlassCard>
                 </>
             )}
