@@ -5,11 +5,12 @@ from .serializers import VehicleSerializer
 from core.mixins import LastModifiedSinceMixin
 
 class VehicleListCreateView(LastModifiedSinceMixin, generics.ListCreateAPIView):
+    queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return super().get_queryset().filter(user=self.request.user)
+        return super().get_queryset().filter(user=self.request.user).order_by('-updated_at', '-id')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -35,11 +36,12 @@ from rest_framework import status, serializers
 import uuid
 
 class EcuBackupListCreateView(LastModifiedSinceMixin, generics.ListCreateAPIView):
+    queryset = EcuBackup.objects.all()
     serializer_class = EcuBackupSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return super().get_queryset().filter(user=self.request.user)
+        return super().get_queryset().filter(user=self.request.user).order_by('-updated_at', '-id')
 
     def perform_create(self, serializer):
         # 1. Verify existence in Supabase (No Mocks)

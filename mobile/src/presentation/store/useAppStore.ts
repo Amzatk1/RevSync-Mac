@@ -4,8 +4,29 @@ import { Bike, Tune } from '../../domain/services/DomainTypes';
 import { FlashSession } from '../../domain/entities/FlashSession';
 import { User } from '../../domain/entities/User';
 import { StorageAdapter } from '../../data/services/StorageAdapter';
+import { userService } from '../../services/userService';
 
 const ONBOARDED_KEY = 'revsync_onboarded';
+
+async function resolveOnboardingState(): Promise<boolean> {
+    const profile = await userService.getProfile();
+    const localState = await StorageAdapter.get<boolean>(ONBOARDED_KEY);
+
+    if (profile?.has_completed_onboarding) {
+        await StorageAdapter.set(ONBOARDED_KEY, true);
+        return true;
+    }
+
+    // Migrate historic local-only state to backend truth when possible.
+    if (localState) {
+        const result = await userService.completeOnboarding();
+        if (!result.error) {
+            return true;
+        }
+    }
+
+    return Boolean(localState);
+}
 
 interface AppState {
     // Auth
@@ -44,7 +65,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     checkAuth: async () => {
         set({ isLoading: true });
         const user = await ServiceLocator.getAuthService().getCurrentUser();
-        const onboarded = await StorageAdapter.get<boolean>(ONBOARDED_KEY);
+        const onboarded = user ? await resolveOnboardingState() : false;
         set({
             currentUser: user,
             isAuthenticated: !!user,
@@ -57,7 +78,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ isLoading: true });
         const result = await ServiceLocator.getAuthService().signIn(email, pass);
         if (result.success && result.user) {
-            set({ currentUser: result.user, isAuthenticated: true, isLoading: false });
+            const onboarded = await resolveOnboardingState();
+            set({ currentUser: result.user, isAuthenticated: true, isOnboarded: onboarded, isLoading: false });
             return true;
         }
         set({ isLoading: false });
@@ -68,7 +90,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ isLoading: true });
         const result = await ServiceLocator.getAuthService().signUp(email, pass);
         if (result.success && result.user) {
-            set({ currentUser: result.user, isAuthenticated: true, isLoading: false });
+            const onboarded = await resolveOnboardingState();
+            set({ currentUser: result.user, isAuthenticated: true, isOnboarded: onboarded, isLoading: false });
             return true;
         }
         set({ isLoading: false });
@@ -79,7 +102,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     signOut: async () => {
         set({ isLoading: true });
         await ServiceLocator.getAuthService().signOut();
-        set({ currentUser: null, isAuthenticated: false, isLoading: false });
+        set({ currentUser: null, isAuthenticated: false, isOnboarded: false, isLoading: false });
     },
 
     // -----------------------------------------------------------------
@@ -127,6 +150,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     isOnboarded: false,
     completeOnboarding: async () => {
+        const result = await userService.completeOnboarding();
+        if (result.error) {
+            throw result.error;
+        }
         await StorageAdapter.set(ONBOARDED_KEY, true);
         set({ isOnboarded: true });
     },

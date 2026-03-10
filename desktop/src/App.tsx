@@ -16,10 +16,16 @@ export default function App() {
 
     if (isLoading) {
         return (
-            <div className="h-screen bg-bg-dark flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4 animate-fade-in">
-                    <span className="material-symbols-outlined text-primary text-5xl animate-pulse">memory</span>
-                    <p className="text-text-muted text-sm font-mono">Initializing RevSync Pro...</p>
+            <div className="rs-shell flex h-screen items-center justify-center px-6">
+                <div className="rs-panel-raised flex w-full max-w-md flex-col items-center gap-4 rounded-[24px] p-8 text-center animate-fade-in">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-[var(--rs-primary)]/25 bg-[var(--rs-primary)]/10">
+                        <span className="material-symbols-outlined text-4xl text-[var(--rs-primary)] animate-pulse">memory</span>
+                    </div>
+                    <div>
+                        <p className="rs-section-label m-0">RevSync Pro</p>
+                        <h1 className="mt-2 text-xl font-black text-[var(--rs-text-primary)]">Initializing workstation</h1>
+                        <p className="mt-2 text-sm text-[var(--rs-text-secondary)]">Loading authenticated shell, safety policy state, and command surfaces.</p>
+                    </div>
                 </div>
             </div>
         );

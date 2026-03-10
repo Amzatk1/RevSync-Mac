@@ -124,7 +124,7 @@ export class ApiClient {
 
     // ─── Core Request with Auto-Refresh ──────────────────────────
 
-    private async request<T>(path: string, config: ApiRequestConfig): Promise<T> {
+    private async request<T>(path: string, config: ApiRequestConfig, isRetry = false): Promise<T> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), config.timeout || 15000);
 
@@ -145,13 +145,14 @@ export class ApiClient {
             clearTimeout(timeoutId);
 
             // ── Handle 401 → attempt token refresh ──
-            if (response.status === 401 && this.refreshToken && !config.skipAuth) {
+            if (response.status === 401 && this.refreshToken && !config.skipAuth && !isRetry) {
                 const refreshed = await this.attemptTokenRefresh();
                 if (refreshed) {
                     // Retry the original request with new token
-                    return this.request<T>(path, { ...config, skipAuth: false });
+                    return this.request<T>(path, { ...config, skipAuth: false }, true);
                 }
                 // Refresh failed — throw auth error
+                await this.clearTokens();
                 throw {
                     code: 'AUTH_ERROR',
                     message: 'Session expired',
@@ -252,6 +253,7 @@ export class ApiClient {
             return false;
         } catch (e) {
             console.warn('ApiClient: Token refresh failed', e);
+            await this.clearTokens();
             return false;
         }
     }

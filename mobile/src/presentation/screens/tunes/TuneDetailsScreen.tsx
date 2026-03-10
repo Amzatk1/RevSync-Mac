@@ -1,676 +1,536 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity,
-    StatusBar, Animated, Easing,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppScreen, GlassCard, SectionLabel, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 import { ServiceLocator } from '../../../di/ServiceLocator';
-import { Tune } from '../../../domain/services/DomainTypes';
+import type { Tune } from '../../../domain/services/DomainTypes';
 import { useAppStore } from '../../store/useAppStore';
-import { LoadingOverlay } from '../../components/SharedComponents';
 
-// ── Design tokens ──
-const C = {
-    primary: '#ea103c',
-    primaryBadgeBg: 'rgba(225,29,72,0.15)',
-    primaryBadgeText: '#FB7185',
-    bg: '#1a1a1a',
-    surface: '#2d2d2d',
-    surfaceDark: '#262626',
-    border: '#404040',
-    neutral400: '#a3a3a3',
-    neutral500: '#a3a3a3',
-    neutral600: '#737373',
-    neutral700: '#525252',
-    white: '#ffffff',
-    warning: '#FBBF24',
-    warningBg: 'rgba(234,179,8,0.15)',
-    success: '#22C55E',
-    blue400: '#60A5FA',
-};
+function getSafetyTone(rating: number) {
+    if (rating >= 92) return { label: 'Low risk', color: Theme.Colors.success, bg: 'rgba(46,211,154,0.14)' };
+    if (rating >= 82) return { label: 'Moderate risk', color: Theme.Colors.warning, bg: 'rgba(255,184,92,0.14)' };
+    return { label: 'High caution', color: Theme.Colors.error, bg: 'rgba(255,107,121,0.14)' };
+}
 
-const getSafetyInfo = (rating: number) => {
-    if (rating > 90) return { label: 'Safe', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' };
-    if (rating > 80) return { label: 'Moderate', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' };
-    return { label: 'Risky', color: '#EF4444', bg: 'rgba(239,68,68,0.1)' };
-};
-
-const getStageColor = (stage: number) => {
-    if (stage === 1) return { bg: 'rgba(59,130,246,0.15)', text: '#60A5FA' };
-    if (stage === 2) return { bg: C.primaryBadgeBg, text: C.primaryBadgeText };
-    return { bg: 'rgba(168,85,247,0.15)', text: '#C084FC' };
-};
+function getStageTone(stage: number) {
+    if (stage <= 1) return { color: Theme.Colors.accent, bg: 'rgba(99,199,255,0.14)' };
+    if (stage === 2) return { color: Theme.Colors.primary, bg: 'rgba(234,16,60,0.14)' };
+    return { color: '#C084FC', bg: 'rgba(192,132,252,0.16)' };
+}
 
 export const TuneDetailsScreen = ({ route, navigation }: any) => {
-    const insets = useSafeAreaInsets();
     const { tuneId } = route.params;
+    const insets = useSafeAreaInsets();
     const { activeBike } = useAppStore();
     const [tune, setTune] = useState<Tune | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideAnim = useRef(new Animated.Value(30)).current;
-
     useEffect(() => {
+        const loadTune = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const tuneService = ServiceLocator.getTuneService();
+                const data = await tuneService.getTuneDetails(tuneId);
+                if (!data) {
+                    setError('Tune details are unavailable.');
+                } else {
+                    setTune(data);
+                    ServiceLocator.getAnalyticsService().logEvent('tune_details_viewed', {
+                        tuneId: data.id,
+                        title: data.title,
+                        price: data.price,
+                    });
+                }
+            } catch (err: any) {
+                setError(err?.message || 'Failed to load tune details.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
         loadTune();
     }, [tuneId]);
 
-    const loadTune = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const tuneService = ServiceLocator.getTuneService();
-            const data = await tuneService.getTuneDetails(tuneId);
-            setTune(data);
-            if (data) {
-                ServiceLocator.getAnalyticsService().logEvent('tune_details_viewed', {
-                    tuneId: data.id, title: data.title, price: data.price,
-                });
-                Animated.parallel([
-                    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-                    Animated.timing(slideAnim, { toValue: 0, duration: 400, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }),
-                ]).start();
-            }
-        } catch (e: any) {
-            setError(e.message || 'Failed to load tune details');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const isCompatible = (() => {
+    const isCompatible = useMemo(() => {
         if (!tune || !activeBike) return false;
-        const compat = (tune.compatibilityRaw || []).join(' ').toLowerCase();
-        const makeOk = compat.includes(activeBike.make.toLowerCase());
-        const modelOk = compat.includes(activeBike.model.toLowerCase());
-        const yearOk = compat.includes(String(activeBike.year));
-        return makeOk && modelOk && (yearOk || compat.includes('-'));
-    })();
+        const compatibility = (tune.compatibilityRaw || []).join(' ').toLowerCase();
+        return compatibility.includes(activeBike.make.toLowerCase()) && compatibility.includes(activeBike.model.toLowerCase());
+    }, [tune, activeBike]);
 
-    if (loading) return <LoadingOverlay visible={true} message="Loading tune..." />;
-    if (error) return (
-        <View style={[styles.root, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
-            <Ionicons name="alert-circle" size={48} color="#EF4444" />
-            <Text style={{ color: '#FCA5A5', marginTop: 12, fontSize: 16 }}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={loadTune}>
-                <Text style={styles.retryBtnText}>Retry</Text>
-            </TouchableOpacity>
-        </View>
-    );
-    if (!tune) return null;
+    const safety = tune ? getSafetyTone(tune.safetyRating) : null;
+    const stage = tune ? getStageTone(tune.stage) : null;
 
-    const safety = getSafetyInfo(tune.safetyRating);
-    const stageStyle = getStageColor(tune.stage);
+    const summaryMetrics = useMemo(() => {
+        if (!tune) return [];
+        return [
+            { label: 'Safety Score', value: `${tune.safetyRating}/100`, helper: safety?.label || 'Unknown' },
+            { label: 'Version', value: tune.version, helper: tune.versionState || 'Published' },
+            { label: 'Fuel', value: `${tune.octaneRequired || 91}+ RON`, helper: 'Minimum fuel quality' },
+            { label: 'Checksum', value: tune.checksum ? 'Present' : 'Pending', helper: tune.checksum || 'No checksum' },
+        ];
+    }, [tune, safety]);
+
+    if (loading) {
+        return (
+            <AppScreen contentContainerStyle={styles.centered}>
+                <ActivityIndicator size="large" color={Theme.Colors.primary} />
+                <Text style={styles.loadingText}>Loading tune details...</Text>
+            </AppScreen>
+        );
+    }
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="light-content" />
-
-            {/* ─── Header ─── */}
-            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity
-                    style={styles.headerBtn}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="arrow-back" size={24} color={C.neutral500} />
-                </TouchableOpacity>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.headerBtn}>
-                        <Ionicons name="share-outline" size={24} color={C.neutral500} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.headerBtn}>
-                        <Ionicons name="heart" size={24} color={C.neutral500} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            <Animated.ScrollView
-                style={{ flex: 1, opacity: fadeAnim }}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* ─── Title + Price ─── */}
-                <View style={styles.titleSection}>
-                    <View style={styles.titleLeft}>
-                        <View style={[styles.stageBadge, { backgroundColor: stageStyle.bg }]}>
-                            <Text style={[styles.stageBadgeText, { color: stageStyle.text }]}>
-                                Stage {tune.stage}
-                            </Text>
+            <AppScreen scroll contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
+                <TopBar
+                    title="Tune Details"
+                    subtitle="Verified listing and purchase readiness"
+                    onBack={() => navigation.goBack()}
+                    right={
+                        <View style={styles.topActions}>
+                            <TouchableOpacity style={styles.iconButton} activeOpacity={0.75}>
+                                <Ionicons name="share-outline" size={18} color={Theme.Colors.textPrimary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconButton} activeOpacity={0.75}>
+                                <Ionicons name="heart-outline" size={18} color={Theme.Colors.textPrimary} />
+                            </TouchableOpacity>
                         </View>
-                        <Text style={styles.tuneTitle}>{tune.title}</Text>
-                    </View>
-                    <View style={styles.priceBlock}>
-                        <Text style={styles.priceValue}>${tune.price.toFixed(0)}</Text>
-                        <Text style={styles.priceCurrency}>USD</Text>
-                    </View>
-                </View>
+                    }
+                />
 
-                {/* ─── Tuner Info Bar ─── */}
-                <View style={styles.tunerBar}>
-                    <View style={styles.tunerRow}>
-                        <View style={styles.tunerAvatar}>
-                            <Text style={styles.tunerAvatarText}>RL</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <View style={styles.tunerNameRow}>
-                                <Text style={styles.tunerName}>Race Logic</Text>
-                                <Ionicons name="checkmark-circle" size={16} color={C.blue400} />
-                            </View>
-                            <View style={styles.ratingRow}>
-                                <Ionicons name="star" size={14} color="#EAB308" />
-                                <Text style={styles.ratingText}>4.9 (1.2k)</Text>
-                            </View>
-                        </View>
-                        <TouchableOpacity>
-                            <Text style={styles.viewProfileText}>View Profile</Text>
+                {error || !tune ? (
+                    <GlassCard style={styles.errorCard}>
+                        <Ionicons name="alert-circle-outline" size={28} color={Theme.Colors.error} />
+                        <Text style={styles.errorTitle}>Unable to load tune</Text>
+                        <Text style={styles.errorBody}>{error || 'The selected listing could not be loaded.'}</Text>
+                        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+                            <Text style={styles.retryText}>Return</Text>
                         </TouchableOpacity>
-                    </View>
-                </View>
+                    </GlassCard>
+                ) : (
+                    <>
+                        <GlassCard style={styles.heroCard}>
+                            <View style={styles.heroHeader}>
+                                <View style={styles.heroTextWrap}>
+                                    <View style={[styles.stageBadge, { backgroundColor: stage?.bg }]}>
+                                        <Text style={[styles.stageBadgeText, { color: stage?.color }]}>Stage {tune.stage}</Text>
+                                    </View>
+                                    <Text style={styles.heroTitle}>{tune.title}</Text>
+                                    <Text style={styles.heroBody}>
+                                        {tune.description || 'Validated tune package with safety-aware delivery and entitlement checks.'}
+                                    </Text>
+                                </View>
+                                <View style={styles.priceWrap}>
+                                    <Text style={styles.priceValue}>${tune.price.toFixed(2)}</Text>
+                                    <Text style={styles.priceLabel}>USD</Text>
+                                </View>
+                            </View>
 
-                {/* ─── Description ─── */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Description</Text>
-                    <Text style={styles.bodyText}>{tune.description}</Text>
-                    <TouchableOpacity>
-                        <Text style={styles.readMore}>Read more</Text>
+                            <View style={styles.heroMetaRow}>
+                                <View style={[styles.metaChip, { backgroundColor: safety?.bg }]}>
+                                    <Ionicons name="shield-checkmark-outline" size={14} color={safety?.color} />
+                                    <Text style={[styles.metaChipText, { color: safety?.color }]}>{safety?.label}</Text>
+                                </View>
+                                <View style={[styles.metaChip, { backgroundColor: isCompatible ? 'rgba(46,211,154,0.14)' : 'rgba(255,184,92,0.14)' }]}>
+                                    <Ionicons name={isCompatible ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={14} color={isCompatible ? Theme.Colors.success : Theme.Colors.warning} />
+                                    <Text style={[styles.metaChipText, { color: isCompatible ? Theme.Colors.success : Theme.Colors.warning }]}>
+                                        {isCompatible ? 'Compatible bike active' : 'Bike check required'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </GlassCard>
+
+                        <SectionLabel label="Package Summary" />
+                        <View style={styles.summaryGrid}>
+                            {summaryMetrics.map((item) => (
+                                <GlassCard key={item.label} style={styles.summaryCard}>
+                                    <Text style={styles.summaryLabel}>{item.label}</Text>
+                                    <Text style={styles.summaryValue}>{item.value}</Text>
+                                    <Text style={styles.summaryHelper}>{item.helper}</Text>
+                                </GlassCard>
+                            ))}
+                        </View>
+
+                        <SectionLabel label="Fitment and Trust" />
+                        <GlassCard style={styles.sectionCard}>
+                            <View style={styles.infoRow}>
+                                <InfoBlock label="Active Bike" value={activeBike ? `${activeBike.year} ${activeBike.make} ${activeBike.model}` : 'No active bike selected'} />
+                                <InfoBlock label="Version State" value={tune.versionState || 'PUBLISHED'} />
+                            </View>
+                            <View style={styles.infoRow}>
+                                <InfoBlock label="Compatibility" value={isCompatible ? 'Matched to active bike' : 'Select matching bike before purchase'} />
+                                <InfoBlock label="Signature" value={tune.signatureBase64 ? 'Attached' : 'Backend verified at download'} />
+                            </View>
+                        </GlassCard>
+
+                        <SectionLabel label="Requirements" />
+                        <GlassCard style={styles.sectionCard}>
+                            <InfoBlock label="Fuel requirement" value={`${tune.octaneRequired || 91}+ RON`} />
+                            <View style={styles.requirementsWrap}>
+                                {(tune.modificationsRequired?.length ? tune.modificationsRequired : ['Stock intake/exhaust supported']).map((item) => (
+                                    <View key={item} style={styles.requirementChip}>
+                                        <Ionicons name="build-outline" size={14} color={Theme.Colors.accent} />
+                                        <Text style={styles.requirementChipText}>{item}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </GlassCard>
+
+                        <SectionLabel label="Actions" />
+                        <GlassCard style={styles.sectionCard}>
+                            <TouchableOpacity
+                                style={styles.secondaryAction}
+                                onPress={() => navigation.navigate('TuneCompare', { tuneId: tune.id })}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="git-compare-outline" size={18} color={Theme.Colors.accent} />
+                                <View style={styles.actionTextWrap}>
+                                    <Text style={styles.secondaryActionTitle}>Compare package intent</Text>
+                                    <Text style={styles.secondaryActionBody}>Review derived deltas before purchase or flash.</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </GlassCard>
+
+                        {tune.safetyRating < 90 && (
+                            <GlassCard style={styles.warningCard}>
+                                <Ionicons name="warning-outline" size={18} color={Theme.Colors.warning} />
+                                <View style={styles.warningTextWrap}>
+                                    <Text style={styles.warningTitle}>Additional caution required</Text>
+                                    <Text style={styles.warningBody}>
+                                        This package reduces safety margin. Verify compatibility, create a backup, and review the full validation flow before purchase or flash.
+                                    </Text>
+                                </View>
+                            </GlassCard>
+                        )}
+                    </>
+                )}
+            </AppScreen>
+
+            {tune && !error && (
+                <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+                    <View>
+                        <Text style={styles.bottomLabel}>Purchase Total</Text>
+                        <Text style={styles.bottomValue}>${tune.price.toFixed(2)}</Text>
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.purchaseButton, !isCompatible && styles.purchaseButtonDisabled]}
+                        activeOpacity={0.85}
+                        disabled={!isCompatible}
+                        onPress={() => {
+                            ServiceLocator.getAnalyticsService().logEvent('tune_validate_initiated', { tuneId: tune.id });
+                            navigation.navigate('TuneValidation', {
+                                tuneId: tune.id,
+                                versionId: tune.versionId,
+                                listingId: tune.listingId || tune.id,
+                            });
+                        }}
+                    >
+                        <Text style={styles.purchaseText}>{isCompatible ? 'Continue to validation' : 'Bike mismatch'}</Text>
+                        <Ionicons name="arrow-forward" size={18} color={Theme.Colors.white} />
                     </TouchableOpacity>
                 </View>
-
-                {/* ─── Dyno Chart placeholder ─── */}
-                <View style={styles.dynoCard}>
-                    <View style={styles.dynoOverlay}>
-                        <View style={styles.dynoLabel}>
-                            <Ionicons name="expand" size={18} color={C.white} />
-                            <Text style={styles.dynoLabelText}>VIEW DYNO CHART</Text>
-                        </View>
-                    </View>
-                    {/* Simple SVG-like gradient lines */}
-                    <View style={styles.dynoLines}>
-                        <View style={[styles.dynoLine, { height: '20%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '35%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '50%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '65%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '75%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '85%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '90%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '88%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '92%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                        <View style={[styles.dynoLine, { height: '95%', backgroundColor: 'rgba(234,16,60,0.3)' }]} />
-                    </View>
-                </View>
-
-                {/* Compare Button */}
-                <TouchableOpacity
-                    style={{
-                        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        backgroundColor: '#252525', borderRadius: 12, paddingVertical: 12,
-                        borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 20
-                    }}
-                    onPress={() => navigation.navigate('TuneCompare', { tuneId: tune.id })}
-                    activeOpacity={0.7}
-                >
-                    <Ionicons name="git-compare-outline" size={18} color="#ea103c" />
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#ea103c' }}>Compare vs Stock</Text>
-                </TouchableOpacity>
-
-                {/* ─── Specs Grid ─── */}
-                <View style={styles.specsGrid}>
-                    <View style={styles.specCard}>
-                        <View style={styles.specHeader}>
-                            <Ionicons name="flame-outline" size={18} color={C.neutral400} />
-                            <Text style={styles.specLabel}>FUEL</Text>
-                        </View>
-                        <Text style={styles.specValue}>{tune.octaneRequired}+ Octane</Text>
-                        <Text style={styles.specSub}>Premium Required</Text>
-                    </View>
-                    <View style={styles.specCard}>
-                        <View style={styles.specHeader}>
-                            <Ionicons name="build-outline" size={18} color={C.neutral400} />
-                            <Text style={styles.specLabel}>MODS</Text>
-                        </View>
-                        <Text style={styles.specValue}>
-                            {tune.modificationsRequired?.[0] || 'Stock'}
-                        </Text>
-                        <Text style={styles.specSub}>
-                            {tune.modificationsRequired?.[1] || 'No mods needed'}
-                        </Text>
-                    </View>
-                </View>
-
-                {/* ─── Fitment ─── */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Fitment</Text>
-                    <View style={styles.fitmentCard}>
-                        <View style={styles.fitmentIcon}>
-                            <Ionicons name="bicycle" size={24} color={C.neutral500} />
-                        </View>
-                        <View>
-                            <Text style={styles.fitmentTitle}>
-                                {activeBike ? `${activeBike.make} ${activeBike.model}` : 'Compatible Bikes'}
-                            </Text>
-                            <Text style={styles.fitmentSub}>
-                                {activeBike ? `${activeBike.year} Model` : 'Select a bike to check'}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* ─── Safety Warning ─── */}
-                {tune.safetyRating < 90 && (
-                    <View style={styles.warningCard}>
-                        <Ionicons name="warning" size={20} color={C.warning} />
-                        <View style={styles.warningContent}>
-                            <Text style={styles.warningTitle}>Safety Warning</Text>
-                            <Text style={styles.warningBody}>
-                                This tune disables factory safeguards. For off-road competition use only. Not legal for sale or use on pollution controlled vehicles.
-                            </Text>
-                        </View>
-                    </View>
-                )}
-
-            </Animated.ScrollView>
-
-            {/* ─── Bottom Bar ─── */}
-            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-                <View style={styles.bottomPriceRow}>
-                    <View>
-                        <Text style={styles.bottomPriceLabel}>TOTAL</Text>
-                        <Text style={styles.bottomPriceValue}>${tune.price.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.instantDelivery}>
-                        <Ionicons name="flash" size={14} color={C.success} />
-                        <Text style={styles.instantText}>Instant Delivery</Text>
-                    </View>
-                </View>
-                <TouchableOpacity
-                    style={[styles.purchaseBtn, !isCompatible && { opacity: 0.5 }]}
-                    activeOpacity={0.85}
-                    disabled={!isCompatible}
-                    onPress={() => {
-                        ServiceLocator.getAnalyticsService().logEvent('tune_validate_initiated', { tuneId: tune.id });
-                        navigation.navigate('TuneValidation', {
-                            tuneId: tune.id,
-                            versionId: tune.versionId,
-                            listingId: tune.listingId || tune.id,
-                        });
-                    }}
-                >
-                    <Text style={styles.purchaseBtnText}>
-                        {isCompatible ? 'Purchase Tune' : 'Not Compatible'}
-                    </Text>
-                    <Ionicons name="arrow-forward" size={20} color={C.white} />
-                </TouchableOpacity>
-            </View>
+            )}
         </View>
     );
 };
 
-// ════════════════════════════════════════════════════════════════════
+const InfoBlock = ({ label, value }: { label: string; value: string }) => (
+    <View style={styles.infoBlock}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{value}</Text>
+    </View>
+);
+
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: C.bg,
+        backgroundColor: Theme.Colors.shell,
     },
-
-    // ── Header ──
-    header: {
-        paddingBottom: 8,
-        paddingHorizontal: 24,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(26,26,26,0.95)',
+    content: {
+        paddingBottom: 120,
     },
-    headerBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+    centered: {
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 12,
     },
-    headerRight: {
+    loadingText: {
+        color: Theme.Colors.textSecondary,
+        fontSize: 14,
+    },
+    topActions: {
         flexDirection: 'row',
-        gap: 16,
+        gap: 8,
     },
-
-    scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
+    iconButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.strokeSoft,
     },
-
-    // ── Title ──
-    titleSection: {
+    heroCard: {
+        marginTop: 4,
+    },
+    heroHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 16,
+        justifyContent: 'space-between',
+        gap: 12,
     },
-    titleLeft: {
+    heroTextWrap: {
         flex: 1,
-        marginRight: 16,
     },
     stageBadge: {
         alignSelf: 'flex-start',
+        borderRadius: 999,
         paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 50,
-        marginBottom: 12,
+        paddingVertical: 6,
     },
     stageBadgeText: {
         fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 0.5,
+        fontWeight: '800',
+        letterSpacing: 0.4,
         textTransform: 'uppercase',
     },
-    tuneTitle: {
-        fontSize: 28,
+    heroTitle: {
+        marginTop: 10,
+        fontSize: 26,
         fontWeight: '800',
-        color: C.white,
-        lineHeight: 31,
-        letterSpacing: -0.3,
+        letterSpacing: -0.5,
+        color: Theme.Colors.textPrimary,
     },
-    priceBlock: {
+    heroBody: {
+        marginTop: 8,
+        fontSize: 14,
+        lineHeight: 21,
+        color: Theme.Colors.textSecondary,
+    },
+    priceWrap: {
         alignItems: 'flex-end',
     },
     priceValue: {
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: '800',
-        color: C.primary,
+        color: Theme.Colors.textPrimary,
     },
-    priceCurrency: {
-        fontSize: 12,
-        color: C.neutral500,
-    },
-
-    // ── Tuner Bar ──
-    tunerBar: {
-        backgroundColor: C.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: C.border,
-        padding: 12,
-        marginBottom: 20,
-    },
-    tunerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    tunerAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: C.neutral700,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    tunerAvatarText: {
-        fontSize: 14,
+    priceLabel: {
+        marginTop: 2,
+        fontSize: 11,
         fontWeight: '700',
-        color: C.white,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        color: Theme.Colors.textTertiary,
     },
-    tunerNameRow: {
+    heroMetaRow: {
+        marginTop: 14,
+        flexDirection: 'row',
+        gap: 8,
+        flexWrap: 'wrap',
+    },
+    metaChip: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-    },
-    tunerName: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: C.white,
-    },
-    ratingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginTop: 2,
-    },
-    ratingText: {
-        fontSize: 12,
-        color: C.neutral400,
-    },
-    viewProfileText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: C.neutral400,
-    },
-
-    // ── Section ──
-    section: {
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: C.white,
-        marginBottom: 8,
-    },
-    bodyText: {
-        fontSize: 14,
-        color: C.neutral400,
-        lineHeight: 21,
-    },
-    readMore: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: C.primary,
-        marginTop: 6,
-    },
-
-    // ── Dyno Chart ──
-    dynoCard: {
-        height: 192,
-        borderRadius: 16,
-        backgroundColor: C.surface,
-        borderWidth: 1,
-        borderColor: C.border,
-        overflow: 'hidden',
-        marginBottom: 20,
-        justifyContent: 'flex-end',
-    },
-    dynoOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    dynoLabel: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: 'rgba(0,0,0,0.50)',
-        paddingHorizontal: 16,
+        borderRadius: 999,
+        paddingHorizontal: 12,
         paddingVertical: 8,
-        borderRadius: 50,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
     },
-    dynoLabelText: {
+    metaChipText: {
         fontSize: 12,
         fontWeight: '700',
-        color: C.white,
-        letterSpacing: 0.5,
     },
-    dynoLines: {
+    summaryGrid: {
         flexDirection: 'row',
-        alignItems: 'flex-end',
-        justifyContent: 'space-evenly',
-        height: '60%',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
+        flexWrap: 'wrap',
+        gap: 10,
     },
-    dynoLine: {
-        width: 16,
-        borderRadius: 4,
+    summaryCard: {
+        width: '47%',
     },
-
-    // ── Specs Grid ──
-    specsGrid: {
-        flexDirection: 'row',
-        gap: 16,
-        marginBottom: 20,
+    summaryLabel: {
+        ...Theme.Typography.dataLabel,
     },
-    specCard: {
-        flex: 1,
-        backgroundColor: C.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: C.border,
-        padding: 16,
-    },
-    specHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8,
-    },
-    specLabel: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: C.neutral400,
-        letterSpacing: 0.5,
-    },
-    specValue: {
+    summaryValue: {
+        marginTop: 8,
         fontSize: 18,
-        fontWeight: '700',
-        color: C.white,
+        fontWeight: '800',
+        color: Theme.Colors.textPrimary,
     },
-    specSub: {
-        fontSize: 12,
-        color: C.neutral500,
-        marginTop: 2,
-    },
-
-    // ── Fitment ──
-    fitmentCard: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 16,
-        backgroundColor: C.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: C.border,
-        padding: 16,
-    },
-    fitmentIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        backgroundColor: C.neutral700,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    fitmentTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: C.white,
-    },
-    fitmentSub: {
-        fontSize: 14,
-        color: C.neutral500,
-        marginTop: 2,
-    },
-
-    // ── Warning ──
-    warningCard: {
-        flexDirection: 'row',
-        gap: 12,
-        backgroundColor: C.warningBg,
-        borderWidth: 1,
-        borderColor: 'rgba(234,179,8,0.20)',
-        borderRadius: 16,
-        padding: 16,
+    summaryHelper: {
         marginTop: 4,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Theme.Colors.textSecondary,
     },
-    warningContent: {
+    sectionCard: {
+        marginBottom: 4,
+        gap: 12,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    infoBlock: {
+        flex: 1,
+        borderRadius: 14,
+        padding: 12,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.strokeSoft,
+    },
+    infoLabel: {
+        ...Theme.Typography.dataLabel,
+    },
+    infoValue: {
+        marginTop: 8,
+        fontSize: 13,
+        lineHeight: 19,
+        color: Theme.Colors.textPrimary,
+        fontWeight: '600',
+    },
+    requirementsWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    requirementChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.strokeSoft,
+    },
+    requirementChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Theme.Colors.textSecondary,
+    },
+    secondaryAction: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        borderRadius: 16,
+        padding: 14,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: Theme.Colors.strokeSoft,
+    },
+    actionTextWrap: {
+        flex: 1,
+    },
+    secondaryActionTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Theme.Colors.textPrimary,
+    },
+    secondaryActionBody: {
+        marginTop: 2,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Theme.Colors.textSecondary,
+    },
+    warningCard: {
+        marginTop: 4,
+        flexDirection: 'row',
+        gap: 10,
+        borderColor: 'rgba(255,184,92,0.24)',
+        backgroundColor: 'rgba(255,184,92,0.08)',
+    },
+    warningTextWrap: {
         flex: 1,
     },
     warningTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: C.warning,
-        marginBottom: 4,
+        color: Theme.Colors.warning,
     },
     warningBody: {
+        marginTop: 6,
         fontSize: 12,
-        color: 'rgba(251,191,36,0.8)',
         lineHeight: 18,
+        color: Theme.Colors.textSecondary,
     },
-
-    // ── Bottom Bar ──
     bottomBar: {
         position: 'absolute',
-        bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(26,26,26,0.95)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.10)',
-        padding: 24,
-    },
-    bottomPriceRow: {
+        bottom: 0,
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        marginBottom: 16,
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        backgroundColor: 'rgba(10,14,20,0.92)',
+        borderTopWidth: 1,
+        borderTopColor: Theme.Colors.strokeSoft,
     },
-    bottomPriceLabel: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: C.neutral400,
-        letterSpacing: 0.8,
+    bottomLabel: {
+        ...Theme.Typography.dataLabel,
     },
-    bottomPriceValue: {
-        fontSize: 24,
+    bottomValue: {
+        marginTop: 4,
+        fontSize: 20,
         fontWeight: '800',
-        color: C.white,
-        marginTop: 2,
+        color: Theme.Colors.textPrimary,
     },
-    instantDelivery: {
+    purchaseButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-    },
-    instantText: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: C.success,
-    },
-    purchaseBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
         gap: 8,
-        backgroundColor: C.primary,
-        paddingVertical: 16,
-        borderRadius: 50,
-        // glow
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 15,
-        elevation: 6,
+        borderRadius: 16,
+        backgroundColor: Theme.Colors.primary,
+        paddingHorizontal: 18,
+        paddingVertical: 14,
     },
-    purchaseBtnText: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: C.white,
+    purchaseButtonDisabled: {
+        backgroundColor: Theme.Colors.surface3,
+        opacity: 0.75,
     },
-
-    // ── Retry ──
-    retryBtn: {
-        marginTop: 16,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: C.primary,
-    },
-    retryBtnText: {
+    purchaseText: {
+        color: Theme.Colors.white,
         fontSize: 14,
         fontWeight: '700',
-        color: C.primary,
+    },
+    errorCard: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    errorTitle: {
+        marginTop: 10,
+        fontSize: 16,
+        fontWeight: '700',
+        color: Theme.Colors.textPrimary,
+    },
+    errorBody: {
+        marginTop: 6,
+        fontSize: 13,
+        lineHeight: 19,
+        textAlign: 'center',
+        color: Theme.Colors.textSecondary,
+    },
+    retryButton: {
+        marginTop: 14,
+        borderRadius: 14,
+        backgroundColor: Theme.Colors.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+    },
+    retryText: {
+        color: Theme.Colors.white,
+        fontWeight: '700',
     },
 });

@@ -1,337 +1,291 @@
 import React, { useEffect, useRef } from 'react';
-import {
-    View, Text, StyleSheet, Animated, Easing,
-    Image, StatusBar, Dimensions,
-    TouchableOpacity,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AppScreen, GlassCard } from '../components/AppUI';
+import { Theme } from '../theme';
 
-const { width, height } = Dimensions.get('window');
-const HERO_HEIGHT = height * 0.38;
-
-// Brand colors matching the HTML design
-const C = {
-    primary: '#ea103c',
-    primaryGlow: 'rgba(234, 16, 60, 0.60)',
-    bg: '#0f0f0f',
-    surface: '#18181b',
-    card: '#232326',
-    neutral300: '#d4d4d8',
-    neutral400: '#a1a1aa',
-    neutral500: '#71717a',
-    white: '#ffffff',
-    border: 'rgba(255,255,255,0.05)',
-};
-
-const heroImage = require('../../../assets/welcome-hero.png');
+const { Colors, Layout, Motion, Spacing, Typography } = Theme;
 
 const FEATURES = [
-    { icon: 'speedometer-outline' as const, label: 'Performance' },
-    { icon: 'shield-checkmark-outline' as const, label: 'Safety' },
-    { icon: 'analytics-outline' as const, label: 'Analytics' },
+    { icon: 'shield-checkmark-outline' as const, label: 'Signed releases' },
+    { icon: 'speedometer-outline' as const, label: 'Guided flashing' },
+    { icon: 'refresh-circle-outline' as const, label: 'Recovery ready' },
 ];
 
 export const WelcomeScreen = ({ navigation }: any) => {
-    const insets = useSafeAreaInsets();
-    // --- Animations ---
     const heroOpacity = useRef(new Animated.Value(0)).current;
-    const heroScale = useRef(new Animated.Value(1.08)).current;
-    const iconScale = useRef(new Animated.Value(0)).current;
-    const iconGlow = useRef(new Animated.Value(0.3)).current;
-    const titleOpacity = useRef(new Animated.Value(0)).current;
-    const titleTranslateY = useRef(new Animated.Value(20)).current;
-    const subtitleOpacity = useRef(new Animated.Value(0)).current;
-    const cardAnims = FEATURES.map(() => ({
-        opacity: useRef(new Animated.Value(0)).current,
-        scale: useRef(new Animated.Value(0.85)).current,
-    }));
-    const buttonsOpacity = useRef(new Animated.Value(0)).current;
-    const buttonsTranslateY = useRef(new Animated.Value(24)).current;
-    const termsOpacity = useRef(new Animated.Value(0)).current;
+    const heroTranslate = useRef(new Animated.Value(24)).current;
+    const cardsOpacity = useRef(new Animated.Value(0)).current;
+    const cardsTranslate = useRef(new Animated.Value(18)).current;
+    const actionsOpacity = useRef(new Animated.Value(0)).current;
+    const actionsTranslate = useRef(new Animated.Value(18)).current;
 
     useEffect(() => {
         Animated.sequence([
-            // Hero fade in with subtle zoom
             Animated.parallel([
-                Animated.timing(heroOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-                Animated.timing(heroScale, { toValue: 1, duration: 1100, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+                Animated.timing(heroOpacity, {
+                    toValue: 1,
+                    duration: Motion.hero,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(heroTranslate, {
+                    toValue: 0,
+                    duration: Motion.hero,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                }),
             ]),
-            // Icon spring
-            Animated.spring(iconScale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }),
-            // Title
             Animated.parallel([
-                Animated.timing(titleOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-                Animated.timing(titleTranslateY, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+                Animated.timing(cardsOpacity, {
+                    toValue: 1,
+                    duration: Motion.panel,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(cardsTranslate, {
+                    toValue: 0,
+                    duration: Motion.panel,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                }),
             ]),
-            // Subtitle
-            Animated.timing(subtitleOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-            // Cards stagger
-            Animated.stagger(100, cardAnims.map(a =>
-                Animated.parallel([
-                    Animated.timing(a.opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-                    Animated.spring(a.scale, { toValue: 1, friction: 6, tension: 60, useNativeDriver: true }),
-                ])
-            )),
-            // Buttons
             Animated.parallel([
-                Animated.timing(buttonsOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-                Animated.timing(buttonsTranslateY, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+                Animated.timing(actionsOpacity, {
+                    toValue: 1,
+                    duration: Motion.panel,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(actionsTranslate, {
+                    toValue: 0,
+                    duration: Motion.panel,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                }),
             ]),
-            // Terms
-            Animated.timing(termsOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
         ]).start();
-
-        // Continuous glow pulse on icon
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(iconGlow, { toValue: 0.7, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-                Animated.timing(iconGlow, { toValue: 0.3, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-            ])
-        ).start();
-    }, []);
+    }, [actionsOpacity, actionsTranslate, cardsOpacity, cardsTranslate, heroOpacity, heroTranslate]);
 
     return (
-        <View style={styles.root}>
-            <StatusBar barStyle="light-content" />
+        <AppScreen scroll contentContainerStyle={styles.content}>
+            <Animated.View style={[styles.hero, { opacity: heroOpacity, transform: [{ translateY: heroTranslate }] }]}>
+                <View style={styles.badge}>
+                    <Ionicons name="sparkles-outline" size={14} color={Colors.info} />
+                    <Text style={styles.badgeText}>RevSync Mobile</Text>
+                </View>
 
-            {/* ─── Hero Image ─── */}
-            <Animated.View style={[styles.heroContainer, { opacity: heroOpacity, transform: [{ scale: heroScale }] }]}>
-                <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
-                <LinearGradient
-                    colors={['transparent', 'rgba(15,15,15,0.4)', 'rgba(15,15,15,1)', C.bg]}
-                    locations={[0, 0.5, 0.9, 1]}
-                    style={StyleSheet.absoluteFillObject}
-                />
+                <View style={styles.markWrap}>
+                    <View style={styles.logoCircle}>
+                        <Ionicons name="speedometer" size={34} color={Colors.primary} />
+                    </View>
+                </View>
+
+                <Text style={styles.title}>A guided control layer for safe ECU flashing.</Text>
+                <Text style={styles.subtitle}>
+                    Browse verified tunes, confirm compatibility, create backups, and move through flashing with explicit gates instead of guesswork.
+                </Text>
             </Animated.View>
 
-            {/* ─── Centered Icon with Glow ─── */}
-            <View style={styles.iconAnchor}>
-                <Animated.View style={[styles.glowOrb, { opacity: iconGlow }]} />
-                <Animated.View style={[styles.iconCircle, { transform: [{ scale: iconScale }] }]}>
-                    <Ionicons name="speedometer" size={40} color={C.primary} />
-                </Animated.View>
-            </View>
+            <Animated.View style={{ opacity: cardsOpacity, transform: [{ translateY: cardsTranslate }] }}>
+                <GlassCard style={styles.heroCard}>
+                    <View style={styles.heroCardHeader}>
+                        <Text style={styles.heroCardKicker}>Operator Confidence</Text>
+                        <Text style={styles.heroCardState}>Ready</Text>
+                    </View>
+                    <View style={styles.heroCardGrid}>
+                        <View style={styles.heroMetric}>
+                            <Text style={styles.heroMetricLabel}>Stage</Text>
+                            <Text style={styles.heroMetricValue}>Verification first</Text>
+                        </View>
+                        <View style={styles.heroMetric}>
+                            <Text style={styles.heroMetricLabel}>Policy</Text>
+                            <Text style={styles.heroMetricValue}>Backup required</Text>
+                        </View>
+                        <View style={styles.heroMetric}>
+                            <Text style={styles.heroMetricLabel}>Release</Text>
+                            <Text style={styles.heroMetricValue}>Signed package</Text>
+                        </View>
+                    </View>
+                </GlassCard>
 
-            {/* ─── Content ─── */}
-            <View style={[styles.content, { paddingBottom: insets.bottom + 16 }]}>
-                {/* Title + Subtitle */}
-                <View style={styles.titleBlock}>
-                    <Animated.Text style={[styles.title, { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }]}>
-                        RevSync
-                    </Animated.Text>
-                    <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
-                        Unlock your ride's true potential
-                    </Animated.Text>
-                </View>
-
-                {/* ─── Feature Cards Grid ─── */}
-                <View style={styles.grid}>
-                    {FEATURES.map((feat, i) => (
-                        <Animated.View
-                            key={feat.label}
-                            style={[
-                                styles.featureCard,
-                                { opacity: cardAnims[i].opacity, transform: [{ scale: cardAnims[i].scale }] },
-                            ]}
-                        >
-                            <View style={styles.featureIconCircle}>
-                                <Ionicons name={feat.icon} size={24} color={C.primary} />
+                <View style={styles.features}>
+                    {FEATURES.map((feature) => (
+                        <GlassCard key={feature.label} style={styles.featureCard}>
+                            <View style={styles.featureIcon}>
+                                <Ionicons name={feature.icon} size={20} color={Colors.info} />
                             </View>
-                            <Text style={styles.featureLabel}>{feat.label}</Text>
-                        </Animated.View>
+                            <Text style={styles.featureLabel}>{feature.label}</Text>
+                        </GlassCard>
                     ))}
                 </View>
+            </Animated.View>
 
-                {/* ─── Buttons ─── */}
-                <Animated.View style={[styles.buttonGroup, { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslateY }] }]}>
-                    <TouchableOpacity
-                        style={styles.primaryBtn}
-                        activeOpacity={0.85}
-                        onPress={() => navigation.navigate('SignIn')}
-                    >
-                        <Text style={styles.primaryBtnText}>Get Started</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.secondaryBtn}
-                        activeOpacity={0.7}
-                        onPress={() => navigation.navigate('SignUp')}
-                    >
-                        <Text style={styles.secondaryBtnText}>Create Account</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-
-                {/* Terms */}
-                <Animated.Text style={[styles.terms, { opacity: termsOpacity }]}>
-                    By continuing you agree to our Terms of Service
-                </Animated.Text>
-            </View>
-        </View>
+            <Animated.View style={[styles.actions, { opacity: actionsOpacity, transform: [{ translateY: actionsTranslate }] }]}>
+                <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('SignIn')}>
+                    <Text style={styles.primaryButtonText}>Get Started</Text>
+                </Pressable>
+                <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate('SignUp')}>
+                    <Text style={styles.secondaryButtonText}>Create Account</Text>
+                </Pressable>
+                <Text style={styles.terms}>By continuing, you accept the legal and safety steps required before any flash operation.</Text>
+            </Animated.View>
+        </AppScreen>
     );
 };
 
-const CARD_SIZE = (width - 48 - 24) / 3; // 24px padding each side + 12px gaps
-
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: C.bg,
+    content: {
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.xxl,
+        paddingBottom: 40,
     },
-
-    // ── Hero ──
-    heroContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: HERO_HEIGHT,
-    },
-    heroImage: {
-        width: '100%',
-        height: '100%',
-    },
-
-    // ── Centered Icon ──
-    iconAnchor: {
-        position: 'absolute',
-        top: HERO_HEIGHT - 40,
-        left: 0,
-        right: 0,
+    hero: {
         alignItems: 'center',
-        zIndex: 20,
+        paddingTop: Spacing.xl,
     },
-    glowOrb: {
-        position: 'absolute',
-        width: 128,
-        height: 128,
-        borderRadius: 64,
-        backgroundColor: C.primary,
-        // blur is simulated via shadow on iOS
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 50,
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
     },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: C.surface,
-        borderWidth: 2,
-        borderColor: 'rgba(234,16,60,0.30)',
+    badgeText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+    },
+    markWrap: {
+        marginTop: 22,
+        marginBottom: 18,
+    },
+    logoCircle: {
+        width: 92,
+        height: 92,
+        borderRadius: 46,
+        backgroundColor: 'rgba(18,25,37,0.92)',
+        borderWidth: 1,
+        borderColor: Colors.strokeStrong,
         alignItems: 'center',
         justifyContent: 'center',
-        // glow shadow
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 12,
-    },
-
-    // ── Content ──
-    content: {
-        flex: 1,
-        paddingTop: HERO_HEIGHT + 24,
-        paddingHorizontal: 24,
-        justifyContent: 'flex-start',
-    },
-    titleBlock: {
-        alignItems: 'center',
-        marginBottom: 32,
     },
     title: {
-        fontSize: 36,
-        fontWeight: '800',
-        color: C.white,
-        letterSpacing: -0.5,
+        ...Typography.display,
+        textAlign: 'center',
+        maxWidth: 320,
     },
     subtitle: {
-        fontSize: 18,
-        fontWeight: '500',
-        color: C.neutral400,
-        marginTop: 6,
+        ...Typography.body,
+        textAlign: 'center',
+        maxWidth: 330,
+        marginTop: 12,
     },
-
-    // ── Feature Grid ──
-    grid: {
+    heroCard: {
+        marginTop: Spacing.xxl,
+        padding: Spacing.xl,
+    },
+    heroCardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 'auto' as any,
-    },
-    featureCard: {
-        width: CARD_SIZE,
-        aspectRatio: 1,
-        backgroundColor: C.card,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: C.border,
         alignItems: 'center',
-        justifyContent: 'center',
+        marginBottom: 14,
+    },
+    heroCardKicker: {
+        ...Typography.dataLabel,
+        color: Colors.accent,
+    },
+    heroCardState: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        color: Colors.success,
+    },
+    heroCardGrid: {
         gap: 10,
     },
-    featureIconCircle: {
+    heroMetric: {
+        borderRadius: Layout.radiusMd,
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        padding: 14,
+    },
+    heroMetricLabel: {
+        ...Typography.dataLabel,
+    },
+    heroMetricValue: {
+        marginTop: 6,
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    features: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 12,
+    },
+    featureCard: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 10,
+    },
+    featureIcon: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Colors.accentSoft,
         alignItems: 'center',
         justifyContent: 'center',
+        marginBottom: 10,
     },
     featureLabel: {
         fontSize: 12,
-        fontWeight: '600',
-        color: C.neutral300,
-    },
-
-    // ── Buttons ──
-    buttonGroup: {
-        gap: 12,
-        marginTop: 32,
-    },
-    primaryBtn: {
-        width: '100%',
-        paddingVertical: 16,
-        borderRadius: 14,
-        backgroundColor: C.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        // subtle glow
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 6,
-    },
-    primaryBtnText: {
-        fontSize: 18,
         fontWeight: '700',
-        color: C.white,
+        textAlign: 'center',
+        color: Colors.textSecondary,
     },
-    secondaryBtn: {
-        width: '100%',
-        paddingVertical: 16,
-        borderRadius: 14,
-        backgroundColor: C.card,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
+    actions: {
+        marginTop: Spacing.xxl,
+        gap: 12,
+    },
+    primaryButton: {
+        minHeight: 52,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,122,147,0.18)',
     },
-    secondaryBtnText: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: C.white,
+    primaryButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
     },
-
-    // ── Terms ──
+    secondaryButton: {
+        minHeight: 52,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+    },
+    secondaryButtonText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
     terms: {
+        ...Typography.small,
         textAlign: 'center',
-        fontSize: 11,
-        color: C.neutral500,
-        marginTop: 20,
+        lineHeight: 18,
+        color: Colors.textTertiary,
+        marginTop: 6,
     },
 });

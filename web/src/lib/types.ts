@@ -23,6 +23,7 @@ export interface TokenRefreshRequest {
 
 export interface TokenRefreshResponse {
     access: string;
+    refresh?: string;
 }
 
 export interface RegisterRequest {

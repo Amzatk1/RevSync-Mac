@@ -11,6 +11,13 @@ export interface UserProfile {
     has_completed_onboarding: boolean;
 }
 
+interface PreferencesResponse {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Array<{ key: string; value: unknown }>;
+}
+
 /**
  * User profile service — connects to Django backend /api/v1/profile/me/.
  * Replaces the old Supabase-based service.
@@ -22,7 +29,17 @@ export const userService = {
      */
     async getProfile(): Promise<UserProfile | null> {
         try {
-            return await ApiClient.getInstance().get<UserProfile>('/v1/profile/me/');
+            const profile = await ApiClient.getInstance().get<Partial<UserProfile>>('/v1/profile/me/');
+            return {
+                id: profile.id ?? 0,
+                bio: profile.bio ?? '',
+                country: profile.country ?? '',
+                experience_level: profile.experience_level ?? '',
+                riding_style: profile.riding_style ?? '',
+                risk_tolerance: profile.risk_tolerance ?? '',
+                photo_url: profile.photo_url ?? null,
+                has_completed_onboarding: profile.has_completed_onboarding ?? false,
+            };
         } catch (e) {
             console.warn('userService: Profile fetch failed', e);
             return null;
@@ -43,11 +60,17 @@ export const userService = {
     },
 
     /**
-     * Mark onboarding as completed.
-     * Backend: PATCH /api/v1/profile/me/
+     * Onboarding completion is tracked locally in the mobile app store.
      */
     async completeOnboarding(): Promise<{ error: any }> {
-        return this.updateProfile({ has_completed_onboarding: true } as any);
+        try {
+            await ApiClient.getInstance().patch('/v1/profile/me/', {
+                has_completed_onboarding: true,
+            });
+            return { error: null };
+        } catch (e) {
+            return { error: e };
+        }
     },
 
     /**
@@ -66,8 +89,8 @@ export const userService = {
      * Follow/unfollow a user.
      * Backend: POST /api/v1/users/<username>/follow/
      */
-    async toggleFollow(username: string): Promise<any> {
-        return ApiClient.getInstance().post(`/v1/users/${username}/follow/`);
+    async toggleFollow(username: string, action: 'follow' | 'unfollow'): Promise<any> {
+        return ApiClient.getInstance().post(`/v1/users/${username}/follow/`, { action });
     },
 
     /**
@@ -76,13 +99,20 @@ export const userService = {
      */
     async getPreferences(): Promise<any> {
         try {
-            return await ApiClient.getInstance().get<any>('/v1/preferences/');
+            const response = await ApiClient.getInstance().get<PreferencesResponse>('/v1/preferences/');
+            return Object.fromEntries(response.results.map((item) => [item.key, item.value]));
         } catch {
             return {};
         }
     },
 
     async updatePreferences(updates: Record<string, any>): Promise<any> {
-        return ApiClient.getInstance().patch('/v1/preferences/', updates);
+        const entries = Object.entries(updates);
+        const results = await Promise.all(
+            entries.map(([key, value]) =>
+                ApiClient.getInstance().post('/v1/preferences/', { key, value })
+            )
+        );
+        return Object.fromEntries(entries.map(([key], index) => [key, results[index]]));
     },
 };

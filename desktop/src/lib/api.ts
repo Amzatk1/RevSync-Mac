@@ -1,4 +1,9 @@
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+interface TokenRefreshPayload {
+    access?: string;
+    refresh?: string;
+}
 
 interface ApiRequestConfig extends RequestInit {
     params?: Record<string, string | number | boolean | undefined>;
@@ -51,11 +56,11 @@ class ApiClient {
     }
 
     async post<T>(path: string, body?: unknown, config?: ApiRequestConfig): Promise<T> {
-        return this.request<T>(path, { ...config, method: 'POST', body: body ? JSON.stringify(body) : undefined });
+        return this.request<T>(path, { ...config, method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
     }
 
     async patch<T>(path: string, body?: unknown, config?: ApiRequestConfig): Promise<T> {
-        return this.request<T>(path, { ...config, method: 'PATCH', body: body ? JSON.stringify(body) : undefined });
+        return this.request<T>(path, { ...config, method: 'PATCH', body: body === undefined ? undefined : JSON.stringify(body) });
     }
 
     async delete<T>(path: string, config?: ApiRequestConfig): Promise<T> {
@@ -108,10 +113,18 @@ class ApiClient {
                     body: JSON.stringify({ refresh: this.refreshToken }),
                 });
                 if (!res.ok) return null;
-                const data = await res.json();
+                const data = (await res.json()) as TokenRefreshPayload;
+                if (!data.access) return null;
+
                 this.accessToken = data.access;
+                if (data.refresh) {
+                    this.refreshToken = data.refresh;
+                }
                 localStorage.setItem('revsync_access', data.access);
-                return data.access as string;
+                if (data.refresh) {
+                    localStorage.setItem('revsync_refresh', data.refresh);
+                }
+                return data.access;
             } catch { return null; }
             finally { this.refreshPromise = null; }
         })();

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from './Card';
 import { theme } from '../../styles/theme';
 
@@ -20,7 +21,10 @@ export const BikeCard: React.FC<BikeCardProps> = ({ name, model, vin, imageUrl, 
                         <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
                     ) : (
                         <View style={styles.placeholderImage}>
-                            <Text style={styles.placeholderIcon}>🏍️</Text>
+                            <View style={styles.placeholderBadge}>
+                                <Ionicons name="speedometer-outline" size={24} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.placeholderLabel}>Vehicle image unavailable</Text>
                         </View>
                     )}
                     <View style={styles.statusBadge}>
@@ -57,9 +61,22 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        gap: 10,
     },
-    placeholderIcon: {
-        fontSize: 48,
+    placeholderBadge: {
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+    },
+    placeholderLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: theme.colors.textSecondary,
     },
     statusBadge: {
         position: 'absolute',

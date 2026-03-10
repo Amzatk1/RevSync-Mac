@@ -90,7 +90,7 @@ function OptionGroup({
                             onClick={() => onSelect(option.value)}
                             className={`rounded-xl border px-3.5 py-2.5 text-left text-sm font-semibold transition-all ${
                                 isActive
-                                    ? 'border-primary/45 bg-primary/16 text-white shadow-[0_0_24px_rgba(234,16,60,0.18)]'
+                                    ? 'border-sky-400/35 bg-sky-400/10 text-white shadow-[0_0_24px_rgba(99,199,255,0.12)]'
                                     : 'border-white/12 bg-white/[0.02] text-text-muted hover:border-white/25 hover:text-white'
                             }`}
                         >
@@ -180,7 +180,7 @@ export default function SettingsPage() {
         <AppLayout title="Settings" subtitle="Manage profile, safety preferences, and notification controls">
             <form onSubmit={handleSave} className="grid grid-cols-1 gap-5 2xl:grid-cols-12">
                 <section className="space-y-5 2xl:col-span-8">
-                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up">
+                    <article className="app-panel-raised rounded-[30px] p-5 sm:p-6 animate-fade-up">
                         <div className="mb-6 flex items-center gap-4">
                             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-text-muted">
                                 {user?.profile?.photo_url ? (
@@ -194,7 +194,7 @@ export default function SettingsPage() {
                                     {user?.first_name || user?.username || 'User'} {user?.last_name || ''}
                                 </h2>
                                 <p className="text-sm text-text-muted">{user?.email}</p>
-                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">{user?.role}</p>
+                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">{user?.role}</p>
                             </div>
                         </div>
 
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                                         onChange={(e) => setField('bio', e.target.value)}
                                         placeholder="Share your build goals and riding profile"
                                         rows={3}
-                                        className="w-full resize-none rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
+                                        className="w-full resize-none rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
                                     />
                                 </div>
 
@@ -267,7 +267,7 @@ export default function SettingsPage() {
                                                     onClick={() => setField('risk_tolerance', option.value)}
                                                     className={`rounded-xl border px-3.5 py-3 text-left transition-all ${
                                                         isActive
-                                                            ? 'border-primary/45 bg-primary/16 text-white shadow-[0_0_24px_rgba(234,16,60,0.18)]'
+                                                            ? 'border-sky-400/35 bg-sky-400/10 text-white shadow-[0_0_24px_rgba(99,199,255,0.12)]'
                                                             : 'border-white/12 bg-white/[0.02] text-text-muted hover:border-white/25 hover:text-white'
                                                     }`}
                                                 >
@@ -283,7 +283,7 @@ export default function SettingsPage() {
                         )}
                     </article>
 
-                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '70ms' }}>
+                    <article className="app-panel rounded-[30px] p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '70ms' }}>
                         <h3 className="mb-4 text-xl font-black text-white">Notifications</h3>
                         <div className="space-y-3">
                             {[
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                                             }
                                             className="peer sr-only"
                                         />
-                                        <div className="h-5 w-10 rounded-full bg-white/20 after:absolute after:start-[2px] after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:bg-primary/70 peer-checked:after:translate-x-5" />
+                                        <div className="h-5 w-10 rounded-full bg-white/20 after:absolute after:start-[2px] after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:bg-sky-400/70 peer-checked:after:translate-x-5" />
                                     </label>
                                 </div>
                             ))}
@@ -329,15 +329,15 @@ export default function SettingsPage() {
                 </section>
 
                 <aside className="space-y-5 2xl:col-span-4">
-                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '120ms' }}>
-                        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Save Status</p>
+                    <article className="app-panel rounded-[30px] p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '120ms' }}>
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Save Status</p>
                         <h3 className="text-xl font-black text-white">Apply Changes</h3>
                         <p className="mt-2 text-sm text-text-muted">Saves profile fields and notification preferences to backend.</p>
 
                         <button
                             type="submit"
                             disabled={saving || loading}
-                            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-primary to-red-600 px-6 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rs-button-primary mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl px-6 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {saving ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : 'Save All Changes'}
                         </button>
@@ -350,8 +350,8 @@ export default function SettingsPage() {
                         )}
                     </article>
 
-                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '170ms' }}>
-                        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Account Security</p>
+                    <article className="app-panel rounded-[30px] p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '170ms' }}>
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Account Security</p>
                         <h3 className="text-xl font-black text-white">Danger Zone</h3>
                         <p className="mt-2 text-sm text-text-muted">High-impact account actions. Continue with caution.</p>
                         <button

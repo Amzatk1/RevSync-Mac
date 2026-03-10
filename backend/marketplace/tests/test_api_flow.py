@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -7,9 +7,21 @@ from tuners.models import TunerProfile
 
 User = get_user_model()
 
+@override_settings(
+    CELERY_TASK_ALWAYS_EAGER=True,
+    CELERY_TASK_EAGER_PROPAGATES=True,
+    CELERY_BROKER_URL='memory://',
+    CELERY_RESULT_BACKEND='cache+memory://',
+)
 class MarketplaceFlowTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='tuner', password='password')
+        self.user = User.objects.create_user(
+            username='tuner',
+            email='tuner@example.com',
+            password='password',
+            is_tuner=True,
+            role=User.Role.TUNER,
+        )
         self.tuner = TunerProfile.objects.create(
             user=self.user, 
             business_name="FastTune", 

@@ -10,8 +10,9 @@ import { Tune } from '../../../domain/services/DomainTypes';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { initPaymentSheet, initStripe, presentPaymentSheet } from '@stripe/stripe-react-native';
 
-type CheckoutState = 'review' | 'processing' | 'success' | 'failed';
+type CheckoutState = 'review' | 'processing' | 'pending' | 'success' | 'failed';
 
 const C = {
     bg: '#1a1a1a',
@@ -58,6 +59,20 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
         }
     };
 
+    const waitForEntitlement = async (listingId: string) => {
+        const tuneService = ServiceLocator.getTuneService();
+        for (let attempt = 0; attempt < 8; attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            try {
+                const { owned } = await tuneService.checkPurchase(listingId);
+                if (owned) return true;
+            } catch {
+                // Ignore transient network failures while polling webhook completion.
+            }
+        }
+        return false;
+    };
+
     const handlePay = async () => {
         if (!tune) return;
         setState('processing');
@@ -65,11 +80,42 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
         try {
             const tuneService = ServiceLocator.getTuneService();
             const listingId = tune.listingId || tune.id;
-            setStatusMessage('Connecting to Stripe...');
-            await tuneService.createPaymentIntent(listingId);
-            setStatusMessage('Processing payment...');
-            // Real confirmation — await the payment intent result
-            await new Promise(r => setTimeout(r, 1500));
+            setStatusMessage('Preparing secure checkout...');
+            const { clientSecret, publishableKey } = await tuneService.createPaymentIntent(listingId);
+
+            if (!publishableKey) {
+                throw new Error('Stripe publishable key is not configured for this build.');
+            }
+
+            await initStripe({ publishableKey });
+
+            const initResult = await initPaymentSheet({
+                merchantDisplayName: 'RevSync',
+                paymentIntentClientSecret: clientSecret,
+            });
+            if (initResult.error) {
+                throw new Error(initResult.error.message);
+            }
+
+            setStatusMessage('Waiting for payment confirmation...');
+            const paymentResult = await presentPaymentSheet();
+            if (paymentResult.error) {
+                if (paymentResult.error.code === 'Canceled') {
+                    setStatusMessage('');
+                    setState('review');
+                    return;
+                }
+                throw new Error(paymentResult.error.message);
+            }
+
+            setStatusMessage('Waiting for entitlement sync...');
+            const owned = await waitForEntitlement(listingId);
+            if (!owned) {
+                setState('pending');
+                setStatusMessage('Payment submitted. Entitlement sync can take a few moments.');
+                return;
+            }
+
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             ServiceLocator.getAnalyticsService().logEvent('purchase_completed', { tuneId, listingId, price: tune.price });
             setState('success');
@@ -154,6 +200,43 @@ export const CheckoutScreen = ({ route, navigation }: any) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.popToTop()} activeOpacity={0.7}>
                     <Text style={s.secondaryBtnText}>Back to Tunes</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (state === 'pending') {
+        return (
+            <View style={[s.root, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+                <View style={s.pendingCircle}>
+                    <Ionicons name="time-outline" size={48} color="#FFF" />
+                </View>
+                <Text style={s.successTitle}>Payment Submitted</Text>
+                <Text style={s.successDesc}>
+                    {statusMessage || 'We are waiting for payment confirmation to create your entitlement.'}
+                </Text>
+                <TouchableOpacity
+                    style={s.payBtn}
+                    onPress={async () => {
+                        if (!tune) return;
+                        const listingId = tune.listingId || tune.id;
+                        setState('processing');
+                        setStatusMessage('Checking entitlement...');
+                        const owned = await waitForEntitlement(listingId);
+                        if (owned) {
+                            setState('success');
+                            return;
+                        }
+                        setState('pending');
+                        setStatusMessage('Entitlement still pending. Try again shortly.');
+                    }}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="refresh-outline" size={20} color="#FFF" />
+                    <Text style={s.payBtnText}>Check Again</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+                    <Text style={s.secondaryBtnText}>Back to Tune</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -431,6 +514,12 @@ const s = StyleSheet.create({
         backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center',
         shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.4, shadowRadius: 20, marginBottom: 24,
+    },
+    pendingCircle: {
+        width: 100, height: 100, borderRadius: 50,
+        backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center',
+        shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35, shadowRadius: 20, marginBottom: 24,
     },
     successTitle: {
         fontSize: 24, fontWeight: '800', color: C.white, marginTop: 24, textAlign: 'center',

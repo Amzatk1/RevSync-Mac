@@ -46,13 +46,11 @@ export default function Sidebar({ role = 'rider' }: { role?: 'rider' | 'tuner' |
     return (
         <>
             <aside className="relative hidden h-screen w-[306px] shrink-0 lg:flex">
-                <div className="relative z-10 m-4 flex w-full flex-col rounded-3xl border border-white/10 bg-[linear-gradient(165deg,rgba(23,23,33,0.94),rgba(11,11,16,0.9))] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.45)]">
-                    <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(90%_70%_at_80%_0%,rgba(234,16,60,0.16),transparent_65%)]" />
+                <div className="app-panel relative z-10 m-4 flex w-full flex-col rounded-3xl p-4">
+                    <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(90%_70%_at_80%_0%,rgba(99,199,255,0.12),transparent_65%)]" />
 
                     <Link href="/" className="group relative z-10 mb-6 flex items-center gap-3 rounded-2xl border border-transparent p-2 hover:border-white/10 hover:bg-white/[0.02]">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-red-500 to-orange-400 text-xl font-black text-white shadow-[0_0_26px_rgba(234,16,60,0.35)]">
-                            R
-                        </div>
+                        <div className="app-panel-raised flex h-11 w-11 items-center justify-center rounded-2xl text-xl font-black text-white">R</div>
                         <div>
                             <p className="text-xl font-extrabold text-white">RevSync</p>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">{subtitle}</p>
@@ -66,7 +64,7 @@ export default function Sidebar({ role = 'rider' }: { role?: 'rider' | 'tuner' |
                             <span className="font-bold text-emerald-300">Active</span>
                         </div>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                            <div className="h-full w-[93%] rounded-full bg-gradient-to-r from-primary to-orange-400" />
+                            <div className="h-full w-[93%] rounded-full bg-gradient-to-r from-sky-400 to-primary" />
                         </div>
                     </div>
 
@@ -79,18 +77,18 @@ export default function Sidebar({ role = 'rider' }: { role?: 'rider' | 'tuner' |
                                     key={item.href}
                                     href={item.href}
                                     className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-sm font-semibold transition-all ${
-                                        active ? 'bg-primary/15 text-white ring-1 ring-primary/35' : 'text-text-muted hover:bg-white/[0.03] hover:text-white'
+                                        active ? 'bg-sky-400/10 text-white ring-1 ring-sky-400/30' : 'text-text-muted hover:bg-white/[0.03] hover:text-white'
                                     }`}
                                 >
                                     <span
                                         className={`material-symbols-outlined text-[20px] transition-colors ${
-                                            active ? 'text-primary' : 'text-text-muted group-hover:text-white'
+                                            active ? 'text-sky-300' : 'text-text-muted group-hover:text-white'
                                         }`}
                                     >
                                         {item.icon}
                                     </span>
                                     <span>{item.label}</span>
-                                    {active && <span className="ml-auto h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(234,16,60,0.8)]" />}
+                                    {active && <span className="ml-auto h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(99,199,255,0.45)]" />}
                                 </Link>
                             );
                         })}
@@ -113,7 +111,7 @@ export default function Sidebar({ role = 'rider' }: { role?: 'rider' | 'tuner' |
                                 onClick={logout}
                                 title="Sign out"
                                 aria-label="Sign out"
-                                className="rounded-lg p-2 text-text-muted hover:bg-red-500/10 hover:text-red-300"
+                                className="rounded-lg p-2 text-text-muted hover:bg-primary/10 hover:text-white"
                             >
                                 <span className="material-symbols-outlined text-[18px]">logout</span>
                             </button>
@@ -123,7 +121,7 @@ export default function Sidebar({ role = 'rider' }: { role?: 'rider' | 'tuner' |
             </aside>
 
             <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 pt-2 lg:hidden">
-                <div className="glass-heavy mx-auto flex max-w-xl items-center justify-between rounded-2xl border border-white/10 px-2 py-2">
+                <div className="glass mx-auto flex max-w-xl items-center justify-between rounded-2xl border border-white/10 px-2 py-2">
                     {navItems.slice(0, 4).map((item) => {
                         const active = isItemActive(pathname, item.href);
                         return (
@@ -131,10 +129,10 @@ export default function Sidebar({ role = 'rider' }: { role?: 'rider' | 'tuner' |
                                 key={`mobile-${item.href}`}
                                 href={item.href}
                                 className={`flex min-w-[72px] flex-col items-center justify-center rounded-xl px-2 py-2 text-[11px] font-semibold ${
-                                    active ? 'bg-primary/20 text-white' : 'text-text-muted'
+                                    active ? 'bg-sky-400/12 text-white' : 'text-text-muted'
                                 }`}
                             >
-                                <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : 'text-text-muted'}`}>{item.icon}</span>
+                                <span className={`material-symbols-outlined text-[20px] ${active ? 'text-sky-300' : 'text-text-muted'}`}>{item.icon}</span>
                                 <span className="mt-1 leading-none">{item.label}</span>
                             </Link>
                         );

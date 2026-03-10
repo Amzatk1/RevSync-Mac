@@ -11,7 +11,7 @@ import type { Vehicle, FlashJob, Purchase, PaginatedResponse } from '@/lib/types
 function statusView(status: string) {
     if (status === 'COMPLETED') return { bg: 'bg-emerald-500/15', text: 'text-emerald-300', icon: 'check_circle' };
     if (status === 'FAILED') return { bg: 'bg-red-500/15', text: 'text-red-300', icon: 'error' };
-    if (status === 'FLASHING') return { bg: 'bg-blue-500/15', text: 'text-blue-300', icon: 'autorenew' };
+    if (status === 'FLASHING') return { bg: 'bg-sky-500/15', text: 'text-sky-300', icon: 'autorenew' };
     return { bg: 'bg-amber-500/15', text: 'text-amber-300', icon: 'schedule' };
 }
 
@@ -49,11 +49,7 @@ export default function DashboardPage() {
         [purchases],
     );
 
-    const completedCount = useMemo(
-        () => flashJobs.filter((job) => job.status === 'COMPLETED').length,
-        [flashJobs],
-    );
-
+    const completedCount = useMemo(() => flashJobs.filter((job) => job.status === 'COMPLETED').length, [flashJobs]);
     const completionRate = flashJobs.length ? Math.round((completedCount / flashJobs.length) * 100) : 0;
 
     const dashboardStats = [
@@ -69,7 +65,7 @@ export default function DashboardPage() {
             value: vehicles.length,
             icon: 'two_wheeler',
             helper: activeBike ? `Active: ${activeBike.make} ${activeBike.model}` : 'No active bike',
-            tone: 'text-blue-300 bg-blue-500/15',
+            tone: 'text-sky-300 bg-sky-500/15',
         },
         {
             title: 'Tune Library',
@@ -114,14 +110,14 @@ export default function DashboardPage() {
     return (
         <AppLayout
             title={`Welcome back, ${user?.first_name || user?.username || 'Rider'}`}
-            subtitle="Real-time command center for flash operations, bike profile, and tune library"
+            subtitle="Operational view of flash activity, bike readiness, and tune entitlements"
         >
             {loading ? (
                 <LoadingSkeleton type="stat" />
             ) : (
                 <section className="mb-7 grid grid-cols-2 gap-3 xl:grid-cols-4">
                     {dashboardStats.map((stat, idx) => (
-                        <article key={stat.title} className="surface-card rounded-2xl p-4 sm:p-5 animate-fade-up" style={{ animationDelay: `${idx * 70}ms` }}>
+                        <article key={stat.title} className="app-panel rounded-[24px] p-4 sm:p-5 animate-fade-up" style={{ animationDelay: `${idx * 70}ms` }}>
                             <div className="mb-4 flex items-center justify-between">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">{stat.title}</span>
                                 <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${stat.tone}`}>
@@ -136,18 +132,18 @@ export default function DashboardPage() {
             )}
 
             <section className="mb-7 grid grid-cols-1 gap-5 xl:grid-cols-12">
-                <article className="surface-card relative overflow-hidden rounded-3xl p-5 sm:p-6 xl:col-span-8 animate-fade-up">
-                    <div className="pointer-events-none absolute right-[-70px] top-[-80px] h-56 w-56 rounded-full bg-primary/20 blur-3xl" />
-                    <div className="pointer-events-none absolute bottom-[-90px] left-[-80px] h-56 w-56 rounded-full bg-orange-500/15 blur-3xl" />
+                <article className="app-panel-raised relative overflow-hidden rounded-[30px] p-5 sm:p-6 xl:col-span-8 animate-fade-up">
+                    <div className="pointer-events-none absolute right-[-70px] top-[-80px] h-56 w-56 rounded-full bg-sky-400/10 blur-3xl" />
+                    <div className="pointer-events-none absolute bottom-[-90px] left-[-80px] h-56 w-56 rounded-full bg-primary/12 blur-3xl" />
 
                     <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Flash Control</p>
+                            <p className="section-kicker">Flash Control</p>
                             <h3 className="mt-1 text-2xl font-black text-white">Operational Snapshot</h3>
                         </div>
                         {latestFlash && (
-                            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-3 py-1 text-[11px] font-semibold text-text-body">
-                                <span className="material-symbols-outlined text-[14px] text-primary">schedule</span>
+                            <span className="rs-status-chip inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold text-text-body">
+                                <span className="material-symbols-outlined text-[14px] text-sky-300">schedule</span>
                                 Last job {new Date(latestFlash.created_at).toLocaleDateString()}
                             </span>
                         )}
@@ -175,35 +171,26 @@ export default function DashboardPage() {
                 </article>
 
                 <aside className="space-y-5 xl:col-span-4">
-                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '60ms' }}>
+                    <article className="app-panel rounded-[28px] p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '60ms' }}>
                         <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">Quick Actions</p>
                         <div className="space-y-3">
-                            <Link
-                                href="/marketplace"
-                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-red-600 text-sm font-bold text-white"
-                            >
+                            <Link href="/marketplace" className="rs-button-primary inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold">
                                 <span className="material-symbols-outlined text-[18px]">bolt</span>
                                 Flash New Tune
                             </Link>
-                            <Link
-                                href="/downloads"
-                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] text-sm font-semibold text-white"
-                            >
+                            <Link href="/downloads" className="rs-button-secondary inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold">
                                 <span className="material-symbols-outlined text-[18px]">download</span>
                                 Open Downloads
                             </Link>
-                            <Link
-                                href="/settings"
-                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] text-sm font-semibold text-white"
-                            >
+                            <Link href="/settings" className="rs-button-secondary inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold">
                                 <span className="material-symbols-outlined text-[18px]">tune</span>
                                 Review Settings
                             </Link>
                         </div>
                     </article>
 
-                    <article className="surface-card rounded-3xl p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '110ms' }}>
-                        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Bike Details</p>
+                    <article className="app-panel rounded-[28px] p-5 sm:p-6 animate-fade-up" style={{ animationDelay: '110ms' }}>
+                        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Bike Details</p>
                         {activeBike ? (
                             <div className="space-y-2">
                                 {[
@@ -225,7 +212,7 @@ export default function DashboardPage() {
             </section>
 
             <section className="mb-7 grid grid-cols-1 gap-5 xl:grid-cols-12">
-                <article className="surface-card overflow-hidden rounded-3xl xl:col-span-8 animate-fade-up">
+                <article className="app-panel overflow-hidden rounded-[30px] xl:col-span-8 animate-fade-up">
                     <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
                         <h3 className="text-lg font-black text-white">Flash History</h3>
                         <p className="text-xs font-medium text-text-muted">{flashJobs.length} total entries</p>
@@ -272,8 +259,8 @@ export default function DashboardPage() {
                                                                     job.status === 'COMPLETED'
                                                                         ? 'bg-emerald-400'
                                                                         : job.status === 'FAILED'
-                                                                        ? 'bg-red-400'
-                                                                        : 'bg-primary'
+                                                                          ? 'bg-red-400'
+                                                                          : 'bg-sky-300'
                                                                 }`}
                                                                 style={{ width: `${job.progress}%` }}
                                                             />
@@ -290,12 +277,10 @@ export default function DashboardPage() {
                     )}
                 </article>
 
-                <aside className="surface-card rounded-3xl p-5 sm:p-6 xl:col-span-4 animate-fade-up" style={{ animationDelay: '90ms' }}>
+                <aside className="app-panel rounded-[30px] p-5 sm:p-6 xl:col-span-4 animate-fade-up" style={{ animationDelay: '90ms' }}>
                     <div className="mb-4 flex items-center justify-between">
                         <h3 className="text-lg font-black text-white">Recent Activity</h3>
-                        <span className="rounded-full border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
-                            Live
-                        </span>
+                        <span className="rs-status-chip rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">Live</span>
                     </div>
                     {activityFeed.length === 0 ? (
                         <p className="text-sm text-text-muted">No activity captured yet.</p>

@@ -1,18 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-// ─── Simulated gauge data ────────────────────────────────────────────
 const GAUGES = [
     { id: 'rpm', label: 'RPM', unit: '', min: 0, max: 12000, color: '#ea103c', decimals: 0 },
-    { id: 'afr', label: 'AFR', unit: 'λ', min: 10, max: 18, color: '#22c55e', decimals: 1 },
-    { id: 'boost', label: 'Boost', unit: 'PSI', min: -15, max: 25, color: '#3b82f6', decimals: 1 },
-    { id: 'ect', label: 'ECT', unit: '°C', min: 0, max: 120, color: '#f59e0b', decimals: 0 },
+    { id: 'afr', label: 'AFR', unit: 'lambda', min: 10, max: 18, color: '#22c55e', decimals: 1 },
+    { id: 'boost', label: 'Boost', unit: 'PSI', min: -15, max: 25, color: '#63c7ff', decimals: 1 },
+    { id: 'ect', label: 'ECT', unit: 'deg C', min: 0, max: 120, color: '#f59e0b', decimals: 0 },
 ];
 
 const SPARKLINE_PIDS = [
-    { id: 'iat', label: 'Intake Air Temp', unit: '°C', range: [25, 55], color: '#f59e0b' },
-    { id: 'map', label: 'MAP Sensor', unit: 'kPa', range: [30, 120], color: '#3b82f6' },
+    { id: 'iat', label: 'Intake Air Temp', unit: 'deg C', range: [25, 55], color: '#f59e0b' },
+    { id: 'map', label: 'MAP Sensor', unit: 'kPa', range: [30, 120], color: '#63c7ff' },
     { id: 'tps', label: 'Throttle Pos.', unit: '%', range: [0, 100], color: '#22c55e' },
-    { id: 'timing', label: 'Ignition Timing', unit: '°BTDC', range: [5, 40], color: '#ea103c' },
+    { id: 'timing', label: 'Ignition Timing', unit: 'deg BTDC', range: [5, 40], color: '#ea103c' },
     { id: 'fuel', label: 'Fuel Pressure', unit: 'bar', range: [2.5, 4.5], color: '#8b5cf6' },
     { id: 'o2', label: 'O2 Voltage', unit: 'V', range: [0, 1], color: '#06b6d4' },
 ];
@@ -24,28 +23,33 @@ function randomInRange(min: number, max: number): number {
 export default function DiagnosticsPage() {
     const [isLive, setIsLive] = useState(false);
     const [gaugeValues, setGaugeValues] = useState<Record<string, number>>({
-        rpm: 850, afr: 14.7, boost: -2.0, ect: 78,
+        rpm: 850,
+        afr: 14.7,
+        boost: -2.0,
+        ect: 78,
     });
     const [sparklineData, setSparklineData] = useState<Record<string, number[]>>(() => {
         const init: Record<string, number[]> = {};
-        SPARKLINE_PIDS.forEach(p => { init[p.id] = Array(40).fill(0).map(() => randomInRange(p.range[0], p.range[1])); });
+        SPARKLINE_PIDS.forEach((pid) => {
+            init[pid.id] = Array(40)
+                .fill(0)
+                .map(() => randomInRange(pid.range[0], pid.range[1]));
+        });
         return init;
     });
-    const [logEntries, setLogEntries] = useState<string[]>([
-        '[SYS] Diagnostics module initialized',
-        '[INFO] Waiting for live data connection...',
-    ]);
+    const [logEntries, setLogEntries] = useState<string[]>(['[SYS] Diagnostics module initialized', '[INFO] Waiting for live data connection...']);
     const [enabledPids, setEnabledPids] = useState<Record<string, boolean>>(() => {
         const init: Record<string, boolean> = {};
-        SPARKLINE_PIDS.forEach(p => { init[p.id] = true; });
+        SPARKLINE_PIDS.forEach((pid) => {
+            init[pid.id] = true;
+        });
         return init;
     });
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Live data simulation
     useEffect(() => {
         if (isLive) {
-            setLogEntries(prev => [...prev, `[SYS] Live data stream started at ${new Date().toLocaleTimeString()}`]);
+            setLogEntries((prev) => [...prev, `[SYS] Live data stream started at ${new Date().toLocaleTimeString()}`]);
             intervalRef.current = setInterval(() => {
                 setGaugeValues({
                     rpm: Math.round(randomInRange(800, 9000)),
@@ -53,187 +57,186 @@ export default function DiagnosticsPage() {
                     boost: Math.round(randomInRange(-5, 18) * 10) / 10,
                     ect: Math.round(randomInRange(70, 105)),
                 });
-                setSparklineData(prev => {
+                setSparklineData((prev) => {
                     const next: Record<string, number[]> = {};
-                    SPARKLINE_PIDS.forEach(p => {
-                        const arr = [...(prev[p.id] || [])];
-                        arr.push(randomInRange(p.range[0], p.range[1]));
+                    SPARKLINE_PIDS.forEach((pid) => {
+                        const arr = [...(prev[pid.id] || [])];
+                        arr.push(randomInRange(pid.range[0], pid.range[1]));
                         if (arr.length > 40) arr.shift();
-                        next[p.id] = arr;
+                        next[pid.id] = arr;
                     });
                     return next;
                 });
             }, 500);
-        } else {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-                setLogEntries(prev => [...prev, `[SYS] Live data stream stopped`]);
-            }
+        } else if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+            setLogEntries((prev) => [...prev, '[SYS] Live data stream stopped']);
         }
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+        };
     }, [isLive]);
 
     const togglePid = useCallback((pid: string) => {
-        setEnabledPids(prev => ({ ...prev, [pid]: !prev[pid] }));
+        setEnabledPids((prev) => ({ ...prev, [pid]: !prev[pid] }));
     }, []);
 
-    const clearLog = useCallback(() => { setLogEntries(['[SYS] Log cleared']); }, []);
+    const clearLog = useCallback(() => {
+        setLogEntries(['[SYS] Log cleared']);
+    }, []);
 
-    // SVG Gauge Component
-    const renderGauge = (gauge: typeof GAUGES[0], value: number) => {
+    const renderGauge = (gauge: (typeof GAUGES)[0], value: number) => {
         const pct = Math.min(1, Math.max(0, (value - gauge.min) / (gauge.max - gauge.min)));
         const radius = 52;
-        const circumference = Math.PI * radius; // half circle
+        const circumference = Math.PI * radius;
         const offset = circumference - pct * circumference;
 
         return (
-            <div key={gauge.id} className="bg-surface-dark border border-border-dark rounded-xl p-4 flex flex-col items-center">
-                <svg viewBox="0 0 120 70" className="w-full h-auto gauge-ring" style={{ '--gauge-color': gauge.color + '80' } as any}>
-                    <path d="M 10 65 A 52 52 0 0 1 110 65" fill="none" stroke="#1a1a20" strokeWidth="8" strokeLinecap="round" />
-                    <path d="M 10 65 A 52 52 0 0 1 110 65" fill="none" stroke={gauge.color} strokeWidth="8" strokeLinecap="round"
-                        strokeDasharray={circumference} strokeDashoffset={offset}
-                        className="transition-all duration-300" />
+            <div key={gauge.id} className="rs-panel rounded-[18px] p-4">
+                <div className="mb-3 flex items-center justify-between">
+                    <span className="rs-section-label m-0 text-[10px]">{gauge.label}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--rs-text-tertiary)]">{gauge.unit || 'raw'}</span>
+                </div>
+                <svg viewBox="0 0 120 70" className="h-auto w-full">
+                    <path d="M 10 65 A 52 52 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" strokeLinecap="round" />
+                    <path
+                        d="M 10 65 A 52 52 0 0 1 110 65"
+                        fill="none"
+                        stroke={gauge.color}
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        className="transition-all duration-300"
+                    />
                 </svg>
                 <div className="-mt-4 text-center">
-                    <span className="text-2xl font-black text-white">{value.toFixed(gauge.decimals)}</span>
-                    <span className="text-xs text-text-muted ml-1">{gauge.unit}</span>
+                    <span className="text-2xl font-black text-[var(--rs-text-primary)]">{value.toFixed(gauge.decimals)}</span>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted mt-1">{gauge.label}</span>
             </div>
         );
     };
 
-    // SVG Sparkline
-    const renderSparkline = (pid: typeof SPARKLINE_PIDS[0]) => {
+    const renderSparkline = (pid: (typeof SPARKLINE_PIDS)[0]) => {
         const data = sparklineData[pid.id] || [];
-        const min = pid.range[0], max = pid.range[1];
+        const min = pid.range[0];
+        const max = pid.range[1];
         const currentVal = data[data.length - 1] ?? 0;
-        const points = data.map((v, i) => {
-            const x = (i / (data.length - 1)) * 100;
-            const y = 30 - ((v - min) / (max - min)) * 28;
-            return `${x},${y}`;
-        }).join(' ');
+        const points = data
+            .map((value, index) => {
+                const x = (index / Math.max(data.length - 1, 1)) * 100;
+                const y = 30 - ((value - min) / (max - min)) * 28;
+                return `${x},${y}`;
+            })
+            .join(' ');
 
         if (!enabledPids[pid.id]) return null;
 
         return (
-            <div key={pid.id} className="bg-surface-dark border border-border-dark rounded-lg p-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-white truncate">{pid.label}</span>
-                        <span className="text-xs font-mono font-bold" style={{ color: pid.color }}>{currentVal.toFixed(1)} {pid.unit}</span>
-                    </div>
-                    <svg viewBox="0 0 100 32" className="w-full h-6">
-                        <polyline points={points} fill="none" stroke={pid.color} strokeWidth="1.5" strokeLinejoin="round" className="transition-all duration-300" />
-                    </svg>
+            <div key={pid.id} className="rs-panel rounded-[16px] p-3">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                    <span className="truncate text-xs font-semibold text-[var(--rs-text-primary)]">{pid.label}</span>
+                    <span className="text-xs font-bold" style={{ color: pid.color }}>
+                        {currentVal.toFixed(1)} {pid.unit}
+                    </span>
                 </div>
+                <svg viewBox="0 0 100 32" className="h-6 w-full">
+                    <polyline points={points} fill="none" stroke={pid.color} strokeWidth="1.5" strokeLinejoin="round" className="transition-all duration-300" />
+                </svg>
             </div>
         );
     };
 
     return (
-        <div className="flex-1 flex overflow-hidden">
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-y-auto p-6 gap-6">
-                {/* Header */}
+        <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-black text-white flex items-center gap-3">
-                            <span className="material-symbols-outlined text-3xl text-primary">monitoring</span>
-                            Live Diagnostics
-                        </h1>
-                        <p className="text-text-muted text-sm ml-10">Real-time ECU sensor monitoring and data logging</p>
+                        <p className="rs-section-label m-0">Live Diagnostics</p>
+                        <h1 className="mt-2 text-2xl font-black text-[var(--rs-text-primary)]">Real-time ECU sensor monitoring and data logging</h1>
                     </div>
-                    <button onClick={() => setIsLive(!isLive)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all ${isLive ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_0_20px_rgba(234,16,60,0.3)]'
-                                : 'bg-green-600 hover:bg-green-700 text-white shadow-[0_0_20px_rgba(34,197,94,0.3)]'
-                            }`}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{isLive ? 'stop' : 'play_arrow'}</span>
-                        {isLive ? 'Stop Live' : 'Start Live'}
+                    <button onClick={() => setIsLive(!isLive)} className={isLive ? 'rs-button-primary px-5 py-2.5 text-sm font-bold' : 'rs-button-secondary px-5 py-2.5 text-sm font-bold'}>
+                        {isLive ? 'Stop Live Stream' : 'Start Live Stream'}
                     </button>
                 </div>
 
-                {/* Gauges */}
-                <div className="grid grid-cols-4 gap-4">
-                    {GAUGES.map(g => renderGauge(g, gaugeValues[g.id] ?? 0))}
-                </div>
+                <div className="grid grid-cols-4 gap-4">{GAUGES.map((gauge) => renderGauge(gauge, gaugeValues[gauge.id] ?? 0))}</div>
 
-                {/* Sparklines */}
-                <div className="grid grid-cols-3 gap-3">
-                    {SPARKLINE_PIDS.map(p => renderSparkline(p))}
-                </div>
+                <div className="grid grid-cols-3 gap-3">{SPARKLINE_PIDS.map((pid) => renderSparkline(pid))}</div>
 
-                {/* Time-series Chart Area */}
-                <div className="bg-surface-dark border border-border-dark rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-bold text-white">Combined Time-Series</h3>
-                        <div className="flex items-center gap-1">
-                            {isLive && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                            <span className="text-[10px] text-text-muted">{isLive ? 'Recording' : 'Paused'}</span>
+                <div className="rs-panel-raised rounded-[20px] p-5">
+                    <div className="mb-3 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-[var(--rs-text-primary)]">Combined Time-Series</h3>
+                        <div className="flex items-center gap-2">
+                            {isLive && <div className="h-2 w-2 animate-pulse rounded-full bg-[var(--rs-accent)]" />}
+                            <span className="text-[10px] text-[var(--rs-text-tertiary)]">{isLive ? 'Recording' : 'Paused'}</span>
                         </div>
                     </div>
-                    <svg viewBox="0 0 600 120" className="w-full h-32">
-                        {/* Grid lines */}
-                        {[0, 30, 60, 90, 120].map(y => (
-                            <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="#2a2a30" strokeWidth="0.5" />
+                    <svg viewBox="0 0 600 120" className="h-32 w-full">
+                        {[0, 30, 60, 90, 120].map((y) => (
+                            <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
                         ))}
-                        {SPARKLINE_PIDS.filter(p => enabledPids[p.id]).map(pid => {
+                        {SPARKLINE_PIDS.filter((pid) => enabledPids[pid.id]).map((pid) => {
                             const data = sparklineData[pid.id] || [];
-                            const points = data.map((v, i) => {
-                                const x = (i / (data.length - 1)) * 600;
-                                const y = 110 - ((v - pid.range[0]) / (pid.range[1] - pid.range[0])) * 100;
-                                return `${x},${y}`;
-                            }).join(' ');
-                            return <polyline key={pid.id} points={points} fill="none" stroke={pid.color} strokeWidth="1.5" opacity="0.7" />;
+                            const points = data
+                                .map((value, index) => {
+                                    const x = (index / Math.max(data.length - 1, 1)) * 600;
+                                    const y = 110 - ((value - pid.range[0]) / (pid.range[1] - pid.range[0])) * 100;
+                                    return `${x},${y}`;
+                                })
+                                .join(' ');
+                            return <polyline key={pid.id} points={points} fill="none" stroke={pid.color} strokeWidth="1.5" opacity="0.8" />;
                         })}
                     </svg>
                 </div>
             </div>
 
-            {/* ─── Right Sidebar ──────────────────────── */}
-            <aside className="w-64 bg-[#0a0a0d] border-l border-border-dark flex flex-col shrink-0">
-                {/* Logger Controls */}
-                <div className="p-4 border-b border-border-dark">
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Logger Controls</h3>
+            <aside className="flex w-72 shrink-0 flex-col border-l border-[var(--rs-stroke-soft)] bg-[rgba(9,13,18,0.88)]">
+                <div className="border-b border-[var(--rs-stroke-soft)] p-4">
+                    <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--rs-text-tertiary)]">Logger Controls</h3>
                     <div className="flex gap-2">
-                        <button onClick={() => setIsLive(true)}
-                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-green-600/20 text-green-400 text-xs font-bold hover:bg-green-600/30 transition-colors">
-                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>play_arrow</span> Start
+                        <button onClick={() => setIsLive(true)} className="rs-button-secondary flex-1 px-3 py-2 text-xs font-bold">
+                            Start
                         </button>
-                        <button onClick={() => setIsLive(false)}
-                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-red-600/20 text-red-400 text-xs font-bold hover:bg-red-600/30 transition-colors">
-                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>stop</span> Stop
+                        <button onClick={() => setIsLive(false)} className="rs-button-secondary flex-1 px-3 py-2 text-xs font-bold">
+                            Stop
                         </button>
-                        <button onClick={clearLog}
-                            className="flex items-center justify-center px-2 py-1.5 rounded bg-white/5 text-text-muted text-xs font-bold hover:bg-white/10 transition-colors">
-                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span>
+                        <button onClick={clearLog} className="rs-button-secondary px-3 py-2 text-xs font-bold">
+                            Clear
                         </button>
                     </div>
                 </div>
 
-                {/* PID Toggle List */}
-                <div className="p-4 border-b border-border-dark">
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">PID Channels</h3>
+                <div className="border-b border-[var(--rs-stroke-soft)] p-4">
+                    <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--rs-text-tertiary)]">PID Channels</h3>
                     <div className="space-y-1.5">
-                        {SPARKLINE_PIDS.map(pid => (
-                            <button key={pid.id} onClick={() => togglePid(pid.id)}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors hover:bg-white/5">
-                                <div className={`w-3 h-3 rounded-sm border ${enabledPids[pid.id] ? 'border-transparent' : 'border-border-dark'}`}
-                                    style={enabledPids[pid.id] ? { background: pid.color } : {}} />
-                                <span className={enabledPids[pid.id] ? 'text-white' : 'text-text-muted'}>{pid.label}</span>
+                        {SPARKLINE_PIDS.map((pid) => (
+                            <button key={pid.id} onClick={() => togglePid(pid.id)} className="flex w-full items-center gap-2 rounded-[12px] px-2 py-2 text-xs transition-colors hover:bg-white/5">
+                                <div className={`h-3 w-3 rounded-sm border ${enabledPids[pid.id] ? 'border-transparent' : 'border-[var(--rs-stroke-soft)]'}`} style={enabledPids[pid.id] ? { background: pid.color } : {}} />
+                                <span className={enabledPids[pid.id] ? 'text-[var(--rs-text-primary)]' : 'text-[var(--rs-text-secondary)]'}>{pid.label}</span>
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Log */}
-                <div className="flex-1 flex flex-col min-h-0">
-                    <div className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-text-muted shrink-0">Event Log</div>
+                <div className="flex min-h-0 flex-1 flex-col">
+                    <div className="shrink-0 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--rs-text-tertiary)]">Event Log</div>
                     <div className="flex-1 overflow-y-auto px-4 pb-4 font-mono text-[10px]">
-                        {logEntries.map((line, i) => (
-                            <div key={i} className={`leading-relaxed ${line.includes('[SYS]') ? 'text-blue-400' : line.includes('[WARN]') ? 'text-amber-400' : 'text-emerald-400/70'
-                                }`}>{line}</div>
+                        {logEntries.map((line, index) => (
+                            <div
+                                key={`${line}-${index}`}
+                                className={`leading-relaxed ${
+                                    line.includes('[SYS]')
+                                        ? 'text-sky-300'
+                                        : line.includes('[WARN]')
+                                          ? 'text-amber-300'
+                                          : 'text-emerald-300/80'
+                                }`}
+                            >
+                                {line}
+                            </div>
                         ))}
                     </div>
                 </div>

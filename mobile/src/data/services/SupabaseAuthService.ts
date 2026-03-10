@@ -77,9 +77,18 @@ export class SupabaseAuthService implements AuthService {
         }
     }
 
-    async resetPassword(_email: string): Promise<boolean> {
-        // TODO: Implement password reset via backend
-        return false;
+    async resetPassword(email: string): Promise<boolean> {
+        try {
+            await ApiClient.getInstance().post(
+                '/v1/auth/password-reset/',
+                { email },
+                { skipAuth: true }
+            );
+            return true;
+        } catch (e) {
+            console.warn('AuthService: Password reset request failed', e);
+            return false;
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────────

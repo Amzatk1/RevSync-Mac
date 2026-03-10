@@ -52,6 +52,10 @@ class UserProfile(TimeStampedModel):
     experience_level = models.CharField(max_length=50, blank=True) # e.g., Beginner, Intermediate, Pro
     riding_style = models.CharField(max_length=50, blank=True) # e.g., Street, Track, Off-road
     risk_tolerance = models.CharField(max_length=50, blank=True) # e.g., Conservative, Balanced, Aggressive
+    has_completed_onboarding = models.BooleanField(
+        default=False,
+        help_text="Whether the user has completed required onboarding and setup."
+    )
     
     is_garage_public = models.BooleanField(default=True, help_text="Allow others to see your garage.")
     

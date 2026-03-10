@@ -66,7 +66,7 @@ export default function TuneUploadPage() {
                             onClick={() => index < step && setStep(index)}
                             className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${
                                 index === step
-                                    ? 'bg-primary text-white'
+                                    ? 'bg-sky-400 text-[#081018]'
                                     : index < step
                                     ? 'bg-emerald-500/15 text-emerald-300'
                                     : 'border border-white/12 bg-white/[0.02] text-text-muted'
@@ -87,18 +87,19 @@ export default function TuneUploadPage() {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="surface-card rounded-3xl p-5 sm:p-6">
+            <form onSubmit={handleSubmit} className="app-panel-raised rounded-[30px] p-5 sm:p-6">
                 {step === 0 && (
                     <div>
-                        <h3 className="text-xl font-black text-white">Upload Tune File</h3>
-                        <p className="mt-1 text-sm text-text-muted">Supported formats: .bin, .hex, .srec</p>
+                        <p className="section-kicker">Package Source</p>
+                        <h3 className="mt-2 text-xl font-black text-white">Upload Tune File</h3>
+                        <p className="mt-1 text-sm text-text-muted">Supported formats: `.bin`, `.hex`, `.srec`</p>
 
                         <button
                             type="button"
                             onClick={() => document.getElementById('tune-file')?.click()}
-                            className="mt-5 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center hover:border-primary/35"
+                            className="mt-5 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center hover:border-sky-400/35"
                         >
-                            <span className="material-symbols-outlined text-4xl text-primary">cloud_upload</span>
+                            <span className="material-symbols-outlined text-4xl text-sky-300">cloud_upload</span>
                             <p className="mt-3 text-sm font-semibold text-white">{file ? file.name : 'Click to select a tune file'}</p>
                             <p className="mt-1 text-xs text-text-muted">{file ? `${(file.size / 1024).toFixed(1)} KB` : 'Max 10MB file size'}</p>
                             <input
@@ -115,7 +116,7 @@ export default function TuneUploadPage() {
                                 type="button"
                                 onClick={() => setStep(1)}
                                 disabled={!file}
-                                className="rounded-xl border border-primary/30 bg-primary/12 px-6 py-2.5 text-sm font-bold text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                className="rs-button-primary rounded-xl px-6 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 Next →
                             </button>
@@ -125,7 +126,8 @@ export default function TuneUploadPage() {
 
                 {step === 1 && (
                     <div className="space-y-4">
-                        <h3 className="text-xl font-black text-white">Tune Details</h3>
+                        <p className="section-kicker">Listing Metadata</p>
+                        <h3 className="mt-2 text-xl font-black text-white">Tune Details</h3>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {[
                                 { key: 'name', label: 'Tune Name', placeholder: 'Stage 2 Power Pack', type: 'text', required: true, full: true },
@@ -146,7 +148,7 @@ export default function TuneUploadPage() {
                                         value={form[field.key as keyof typeof form]}
                                         onChange={(e) => set(field.key, e.target.value)}
                                         placeholder={field.placeholder}
-                                        className="h-11 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
+                                        className="h-11 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
                                     />
                                 </div>
                             ))}
@@ -157,7 +159,7 @@ export default function TuneUploadPage() {
                                     onChange={(e) => set('description', e.target.value)}
                                     placeholder="Describe this tune and expected behavior"
                                     rows={4}
-                                    className="w-full resize-none rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
+                                    className="w-full resize-none rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -172,7 +174,7 @@ export default function TuneUploadPage() {
                             <button
                                 type="button"
                                 onClick={() => setStep(2)}
-                                className="rounded-xl border border-primary/30 bg-primary/12 px-6 py-2.5 text-sm font-bold text-primary"
+                                className="rs-button-primary rounded-xl px-6 py-2.5 text-sm font-bold"
                             >
                                 Next →
                             </button>
@@ -182,7 +184,8 @@ export default function TuneUploadPage() {
 
                 {step === 2 && (
                     <div className="space-y-4">
-                        <h3 className="text-xl font-black text-white">Safety Declaration</h3>
+                        <p className="section-kicker">Validation Gate</p>
+                        <h3 className="mt-2 text-xl font-black text-white">Safety Declaration</h3>
                         <p className="text-sm text-text-muted">Confirm all required checks before publishing.</p>
 
                         <div className="space-y-3">
@@ -222,7 +225,7 @@ export default function TuneUploadPage() {
                                 type="button"
                                 onClick={() => setStep(3)}
                                 disabled={!allSafe}
-                                className="rounded-xl border border-primary/30 bg-primary/12 px-6 py-2.5 text-sm font-bold text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                className="rs-button-primary rounded-xl px-6 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 Next →
                             </button>
@@ -232,7 +235,8 @@ export default function TuneUploadPage() {
 
                 {step === 3 && (
                     <div>
-                        <h3 className="text-xl font-black text-white">Review & Publish</h3>
+                        <p className="section-kicker">Release Review</p>
+                        <h3 className="mt-2 text-xl font-black text-white">Review & Publish</h3>
                         <p className="mt-1 text-sm text-text-muted">Final check before submitting.</p>
 
                         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -262,7 +266,7 @@ export default function TuneUploadPage() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-primary to-red-600 px-8 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                className="rs-button-primary inline-flex h-11 items-center justify-center rounded-xl px-8 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {loading ? (
                                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />

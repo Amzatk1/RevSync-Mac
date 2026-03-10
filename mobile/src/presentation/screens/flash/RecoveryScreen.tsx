@@ -1,25 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View, Text, StyleSheet, BackHandler, Alert, ScrollView,
-    TouchableOpacity, Platform,
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    primary: '#ea103c',
-    white: '#ffffff',
-    textMuted: '#a3a3a3',
-    textDim: '#737373',
-    green: '#22c55e',
-    red: '#ef4444',
-    yellow: '#f59e0b',
-    border: 'rgba(255,255,255,0.05)',
-};
+const { Colors, Layout, Typography } = Theme;
 
 export const RecoveryScreen = ({ navigation, route }: any) => {
     const { backupPath, deviceId } = route.params || {};
@@ -32,12 +18,12 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
     useEffect(() => {
         const onBackPress = () => {
             if (status === 'restoring') {
-                Alert.alert('⛔ CRITICAL', 'Recovery is in progress. Interrupting will corrupt your ECU.',
-                    [{ text: 'I Understand', style: 'cancel' }]);
+                Alert.alert('Recovery in progress', 'Interrupting the restore can corrupt the ECU. Stay on this screen until recovery finishes.');
                 return true;
             }
             return false;
         };
+
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
     }, [status]);
@@ -46,377 +32,359 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }, [log]);
 
-    const addLog = (msg: string) => setLog(prev => [...prev, msg]);
+    const addLog = (message: string) => setLog((prev) => [...prev, message]);
 
     const startRecovery = async () => {
-        if (!backupPath) { setError('No backup file provided.'); return; }
+        if (!backupPath) {
+            setError('No backup file provided.');
+            return;
+        }
+
         setStatus('restoring');
         setProgress(0);
         setError(null);
         setLog([]);
-        addLog('Initializing Recovery Mode...');
-        addLog(`Backup file: ${backupPath.split('/').pop()}`);
+        addLog('Initializing recovery mode...');
+        addLog(`Backup file detected: ${backupPath.split('/').pop()}`);
+
         try {
             const ecuService = ServiceLocator.getECUService();
             if (deviceId && 'setConnectedDevice' in ecuService) {
                 (ecuService as any).setConnectedDevice(deviceId);
             }
-            addLog('Starting ECU restore...');
-            await ecuService.restoreBackup(backupPath, (pct, msg) => {
+
+            addLog('Writing backup to ECU...');
+            await ecuService.restoreBackup(backupPath, (pct: number, message?: string) => {
                 setProgress(pct);
-                if (msg) {
-                    const chunkMatch = msg.match(/chunk (\d+)\/(\d+)/i);
-                    if (!chunkMatch || parseInt(chunkMatch[1]) % Math.max(1, Math.ceil(parseInt(chunkMatch[2]) / 10)) === 0) {
-                        addLog(msg);
-                    }
-                }
+                if (message) addLog(message);
             });
-            addLog('Restore complete. Verifying integrity...');
-            addLog('Recovery successful ✓');
+            addLog('Restore complete. Verifying ECU response...');
+            addLog('Recovery finished successfully.');
             setStatus('success');
         } catch (e: any) {
-            setError(e.message || 'Recovery Failed');
+            const message = e.message || 'Recovery failed';
+            setError(message);
             setStatus('failed');
-            addLog(`CRITICAL ERROR: ${e.message}`);
+            addLog(`Critical error: ${message}`);
         }
     };
 
-    const handleFinish = () => {
-        navigation.reset({ index: 0, routes: [{ name: 'Garage' }] });
-    };
+    const handleFinish = () => navigation.reset({ index: 0, routes: [{ name: 'Garage' }] });
 
-    // ─── Restoring ────────────────────────────────────────────
-    if (status === 'restoring') {
-        return (
-            <View style={s.root}>
-                <SafeAreaView edges={['top']}>
-                    <View style={s.header}>
-                        <View style={{ width: 40 }} />
-                        <Text style={s.headerTitle}>ECU Recovery</Text>
-                        <View style={{ width: 40 }} />
-                    </View>
-                </SafeAreaView>
-                <View style={s.centeredContent}>
-                    <View style={s.emergencyBadge}>
-                        <Ionicons name="warning" size={16} color={C.red} />
-                        <Text style={s.emergencyText}>EMERGENCY RECOVERY</Text>
-                    </View>
-                    <Text style={s.progressPercent}>{Math.round(progress)}%</Text>
-                    <Text style={s.restoringSubtitle}>Restoring original ECU state...</Text>
-                    <View style={s.progressBarBg}>
-                        <View style={[s.progressBarFill, { width: `${progress}%` }]} />
-                    </View>
-                    {/* Log */}
-                    <View style={s.logCard}>
-                        <ScrollView ref={scrollRef} style={{ maxHeight: 180 }}>
-                            {log.map((line, i) => (
-                                <Text key={i} style={[s.logText, {
-                                    color: line.includes('ERROR') ? C.red
-                                        : line.includes('✓') ? C.green : '#BBB',
-                                }]}>{`> ${line}`}</Text>
-                            ))}
-                        </ScrollView>
-                    </View>
-                    <Text style={s.dangerWarning}>DO NOT DISCONNECT POWER.{'\n'}DO NOT CLOSE APP.</Text>
-                </View>
-            </View>
-        );
-    }
-
-    // ─── Success ──────────────────────────────────────────────
     if (status === 'success') {
         return (
-            <View style={[s.root, { justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
-                <View style={s.successCircle}>
-                    <Ionicons name="checkmark" size={48} color="#FFF" />
+            <AppScreen contentContainerStyle={styles.centeredScreen}>
+                <TopBar title="Recovery" subtitle="ECU restore completed" />
+                <View style={styles.centeredContent}>
+                    <View style={[styles.centerIcon, { backgroundColor: 'rgba(46,211,154,0.12)' }]}>
+                        <Ionicons name="checkmark" size={44} color={Colors.success} />
+                    </View>
+                    <Text style={styles.centerTitle}>Recovery successful</Text>
+                    <Text style={styles.centerBody}>The ECU has been restored to its previous working state. Cycle ignition off, then on, before riding.</Text>
+                    <TouchableOpacity style={styles.primaryButton} onPress={handleFinish}>
+                        <Text style={styles.primaryButtonText}>Return to Garage</Text>
+                    </TouchableOpacity>
                 </View>
-                <Text style={s.successTitle}>Recovery Successful</Text>
-                <Text style={s.successDesc}>
-                    Your ECU has been restored to its previous working state.{'\n'}
-                    Cycle ignition (OFF → ON) to finalize.
-                </Text>
-                <TouchableOpacity style={s.primaryBtn} onPress={handleFinish} activeOpacity={0.85}>
-                    <Text style={s.primaryBtnText}>Return to Garage</Text>
-                </TouchableOpacity>
-            </View>
+            </AppScreen>
         );
     }
 
-    // ─── Failed ───────────────────────────────────────────────
     if (status === 'failed') {
         return (
-            <View style={[s.root, { justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
-                <View style={s.failCircle}>
-                    <Ionicons name="warning" size={48} color="#FFF" />
+            <AppScreen scroll contentContainerStyle={styles.content}>
+                <TopBar title="Recovery" subtitle="Restore failed" />
+                <GlassCard style={styles.warningCard}>
+                    <Ionicons name="warning" size={18} color={Colors.error} />
+                    <Text style={styles.warningText}>{error || 'Recovery operation failed.'}</Text>
+                </GlassCard>
+
+                <GlassCard style={styles.logCard}>
+                    <Text style={styles.sectionLabel}>Session Log</Text>
+                    {log.map((line, index) => (
+                        <Text key={`${line}-${index}`} style={[styles.logLine, line.toLowerCase().includes('critical') && styles.logLineError]}>
+                            {`> ${line}`}
+                        </Text>
+                    ))}
+                </GlassCard>
+
+                <View style={styles.actions}>
+                    <TouchableOpacity style={styles.primaryButton} onPress={startRecovery}>
+                        <Text style={styles.primaryButtonText}>Retry Recovery</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Profile', { screen: 'LogsExport' })}>
+                        <Text style={styles.secondaryButtonText}>Export Session Logs</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Profile', { screen: 'Support' })}>
+                        <Text style={styles.secondaryButtonText}>Contact Support</Text>
+                    </TouchableOpacity>
                 </View>
-                <Text style={s.failTitle}>Recovery Failed</Text>
-                <Text style={s.failDesc}>{error || 'Recovery operation failed'}</Text>
-                <View style={s.logCard}>
-                    <ScrollView style={{ maxHeight: 120 }}>
-                        {log.map((line, i) => (
-                            <Text key={i} style={[s.logText, {
-                                color: line.includes('ERROR') ? C.red : '#BBB',
-                            }]}>{`> ${line}`}</Text>
-                        ))}
-                    </ScrollView>
-                </View>
-                <TouchableOpacity style={s.primaryBtn} onPress={startRecovery} activeOpacity={0.85}>
-                    <Ionicons name="refresh" size={20} color="#FFF" />
-                    <Text style={s.primaryBtnText}>Retry Recovery</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Profile', { screen: 'LogsExport' })} activeOpacity={0.7}>
-                    <Ionicons name="document-text-outline" size={18} color="#d4d4d4" />
-                    <Text style={s.secondaryBtnText}>Export Session Logs</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Profile', { screen: 'Support' })} activeOpacity={0.7}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={18} color="#d4d4d4" />
-                    <Text style={s.secondaryBtnText}>Contact Support</Text>
-                </TouchableOpacity>
-            </View>
+            </AppScreen>
         );
     }
 
-    // ─── Idle ─────────────────────────────────────────────────
+    if (status === 'restoring') {
+        return (
+            <AppScreen scroll contentContainerStyle={styles.content}>
+                <TopBar title="Recovery" subtitle="Emergency restore in progress" />
+
+                <GlassCard style={styles.heroCard}>
+                    <Text style={styles.kicker}>Emergency Recovery</Text>
+                    <Text style={styles.heroTitle}>Do not disconnect power or close the app during restore.</Text>
+                    <Text style={styles.heroSubtitle}>RevSync is rewriting the backup and validating ECU response step by step.</Text>
+                </GlassCard>
+
+                <GlassCard style={styles.progressCard}>
+                    <View style={styles.progressHeader}>
+                        <Text style={styles.progressLabel}>Recovery progress</Text>
+                        <Text style={styles.progressValue}>{Math.round(progress)}%</Text>
+                    </View>
+                    <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                    </View>
+                </GlassCard>
+
+                <GlassCard style={styles.logCard}>
+                    <Text style={styles.sectionLabel}>Recovery Log</Text>
+                    <ScrollView ref={scrollRef} style={{ maxHeight: 220 }}>
+                        {log.map((line, index) => (
+                            <Text key={`${line}-${index}`} style={styles.logLine}>
+                                {`> ${line}`}
+                            </Text>
+                        ))}
+                    </ScrollView>
+                </GlassCard>
+            </AppScreen>
+        );
+    }
+
     return (
-        <View style={s.root}>
-            <SafeAreaView edges={['top']}>
-                <View style={s.header}>
-                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="arrow-back" size={20} color={C.white} />
-                    </TouchableOpacity>
-                    <Text style={s.headerTitle}>ECU Recovery</Text>
-                    <View style={{ width: 40 }} />
-                </View>
-            </SafeAreaView>
+        <AppScreen scroll contentContainerStyle={styles.content}>
+            <TopBar title="Recovery" subtitle="Restore the ECU from a known-good backup" onBack={() => navigation.goBack()} />
 
-            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Critical Warning */}
-                <View style={s.criticalSection}>
-                    <View style={s.criticalIcon}>
-                        <Ionicons name="fitness" size={36} color={C.red} />
-                    </View>
-                    <Text style={s.criticalTitle}>Emergency Recovery</Text>
-                    <Text style={s.criticalDesc}>
-                        This will wipe the corrupted tune and restore the backup to your ECU.
-                    </Text>
-                </View>
+            <GlassCard style={styles.heroCard}>
+                <Text style={styles.kicker}>Fail-Closed Path</Text>
+                <Text style={styles.heroTitle}>Use recovery only when a flash session has been interrupted or the ECU is no longer stable.</Text>
+                <Text style={styles.heroSubtitle}>The backup package will replace the current state on the ECU. This is a serious operation and should only begin with stable power.</Text>
+            </GlassCard>
 
-                {/* Pre-check cards */}
-                <View style={s.prechecksRow}>
-                    <PreCheckCard icon="key" label="Keep Ignition ON" color={C.yellow} />
-                    <PreCheckCard icon="battery-full" label="Check Battery" color={C.green} />
-                    <PreCheckCard icon="link" label="Do Not Disconnect" color={C.red} />
-                </View>
+            <View style={styles.precheckGrid}>
+                {[
+                    { icon: 'flash-outline', label: 'Ignition on', tone: Colors.warning },
+                    { icon: 'battery-full-outline', label: 'Stable battery', tone: Colors.success },
+                    { icon: 'link-outline', label: 'Keep device connected', tone: Colors.error },
+                ].map((item) => (
+                    <GlassCard key={item.label} style={styles.precheckCard}>
+                        <View style={[styles.precheckIcon, { backgroundColor: `${item.tone}18` }]}>
+                            <Ionicons name={item.icon as any} size={18} color={item.tone} />
+                        </View>
+                        <Text style={styles.precheckLabel}>{item.label}</Text>
+                    </GlassCard>
+                ))}
+            </View>
 
-                {/* Backup File Card */}
-                <View style={s.backupCard}>
-                    <View style={s.backupCardHeader}>
-                        <Ionicons name="document-text-outline" size={20} color={C.white} />
-                        <Text style={s.backupLabel}>Backup File</Text>
-                    </View>
-                    <Text style={s.backupFileName} numberOfLines={1} ellipsizeMode="middle">
-                        {backupPath ? backupPath.split('/').pop() : 'No backup available'}
-                    </Text>
-                </View>
-
+            <GlassCard>
+                <Text style={styles.sectionLabel}>Backup File</Text>
+                <Text style={styles.backupFileName}>{backupPath ? backupPath.split('/').pop() : 'No backup available'}</Text>
                 {!backupPath && (
-                    <View style={s.noBakBanner}>
-                        <Ionicons name="alert-circle" size={18} color={C.red} />
-                        <Text style={s.noBakText}>No backup file available. Contact support.</Text>
+                    <View style={styles.warningInline}>
+                        <Ionicons name="alert-circle" size={16} color={Colors.error} />
+                        <Text style={styles.warningInlineText}>Recovery is blocked until a valid backup file is available.</Text>
                     </View>
                 )}
-            </ScrollView>
+            </GlassCard>
 
-            {/* Bottom Actions */}
-            <LinearGradient colors={['transparent', C.bg, C.bg]} style={s.bottomActions}>
-                <SafeAreaView edges={['bottom']}>
-                    <TouchableOpacity
-                        style={[s.recoveryBtn, !backupPath && { opacity: 0.4 }]}
-                        onPress={startRecovery}
-                        disabled={!backupPath}
-                        activeOpacity={0.85}
-                    >
-                        <Ionicons name="medical" size={20} color="#FFF" />
-                        <Text style={s.recoveryBtnText}>Start Recovery</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.cancelOpBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-                        <Text style={s.cancelOpText}>Cancel Operation</Text>
-                    </TouchableOpacity>
-                </SafeAreaView>
-            </LinearGradient>
-        </View>
+            <View style={styles.actions}>
+                <TouchableOpacity style={[styles.primaryButton, !backupPath && styles.buttonDisabled]} onPress={startRecovery} disabled={!backupPath}>
+                    <Text style={styles.primaryButtonText}>Start Recovery</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.secondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </AppScreen>
     );
 };
 
-const PreCheckCard = ({ icon, label, color }: { icon: string; label: string; color: string }) => (
-    <View style={s.preCheckCard}>
-        <View style={[s.preCheckIconWrap, { backgroundColor: `${color}15` }]}>
-            <Ionicons name={icon as any} size={20} color={color} />
-        </View>
-        <Text style={s.preCheckLabel}>{label}</Text>
-    </View>
-);
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-
-    // Header
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 24, paddingVertical: 12,
+const styles = StyleSheet.create({
+    content: {
+        paddingBottom: 120,
     },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    centeredScreen: {
+        paddingBottom: 80,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.white },
-
-    scrollContent: { paddingHorizontal: 24, paddingBottom: 200, gap: 24, paddingTop: 8 },
-
-    // Critical
-    criticalSection: { alignItems: 'center', paddingVertical: 24 },
-    criticalIcon: {
-        width: 72, height: 72, borderRadius: 36,
-        backgroundColor: 'rgba(239,68,68,0.08)',
-        alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-    },
-    criticalTitle: { fontSize: 22, fontWeight: '800', color: C.white, marginBottom: 8 },
-    criticalDesc: { fontSize: 14, color: C.textMuted, textAlign: 'center', lineHeight: 20 },
-
-    // Prechecks
-    prechecksRow: { flexDirection: 'row', gap: 12 },
-    preCheckCard: {
-        flex: 1, backgroundColor: C.surface, borderRadius: 16,
-        padding: 16, alignItems: 'center', gap: 10,
-        borderWidth: 1, borderColor: C.border,
-    },
-    preCheckIconWrap: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    preCheckLabel: {
-        fontSize: 11, fontWeight: '600', color: C.textMuted,
-        textAlign: 'center', lineHeight: 14,
-    },
-
-    // Backup
-    backupCard: {
-        backgroundColor: C.surface, borderRadius: 16, padding: 20,
-        borderWidth: 1, borderColor: C.border,
-    },
-    backupCardHeader: {
-        flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8,
-    },
-    backupLabel: { fontSize: 14, fontWeight: '600', color: C.white },
-    backupFileName: {
-        fontSize: 12, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
-        color: C.textDim, letterSpacing: 0.5,
-    },
-    noBakBanner: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: 'rgba(239,68,68,0.06)', padding: 14,
-        borderRadius: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)',
-    },
-    noBakText: { fontSize: 13, color: C.red, flex: 1 },
-
-    // Bottom
-    bottomActions: {
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        paddingHorizontal: 24, paddingTop: 48,
-    },
-    recoveryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 10, height: 56, borderRadius: 50,
-        backgroundColor: '#DC2626',
-        shadowColor: '#DC2626', shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
-        marginBottom: 12,
-    },
-    recoveryBtnText: { fontSize: 18, fontWeight: '700', color: '#FFF' },
-    cancelOpBtn: {
-        alignItems: 'center', paddingVertical: 12,
-    },
-    cancelOpText: { fontSize: 14, fontWeight: '600', color: C.textDim },
-
-    // Restoring
     centeredContent: {
-        flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32,
-    },
-    emergencyBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingHorizontal: 14, paddingVertical: 6,
-        borderRadius: 50, backgroundColor: 'rgba(239,68,68,0.08)',
-        borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)',
-        marginBottom: 24,
-    },
-    emergencyText: {
-        fontSize: 11, fontWeight: '700', color: C.red,
-        textTransform: 'uppercase', letterSpacing: 1,
-    },
-    progressPercent: {
-        fontSize: 56, fontWeight: '800', color: C.red, marginBottom: 4,
-    },
-    restoringSubtitle: { fontSize: 14, color: C.textMuted, marginBottom: 24 },
-    progressBarBg: {
-        width: '100%', height: 8, borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden',
-        marginBottom: 24,
-    },
-    progressBarFill: { height: '100%', backgroundColor: C.red, borderRadius: 4 },
-    logCard: {
-        width: '100%', backgroundColor: '#111', borderRadius: 12,
-        padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
-        marginBottom: 16,
-    },
-    logText: {
-        fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
-        fontSize: 11, marginBottom: 4, lineHeight: 16,
-    },
-    dangerWarning: {
-        color: C.red, fontWeight: '700', textAlign: 'center',
-        fontSize: 13, lineHeight: 20,
-    },
-
-    // Success
-    successCircle: {
-        width: 96, height: 96, borderRadius: 48,
-        backgroundColor: C.green, alignItems: 'center', justifyContent: 'center',
-        shadowColor: C.green, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4, shadowRadius: 20, marginBottom: 24,
-    },
-    successTitle: { fontSize: 24, fontWeight: '800', color: C.white, marginBottom: 8 },
-    successDesc: {
-        fontSize: 14, color: C.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: 32,
-    },
-
-    // Failed
-    failCircle: {
-        width: 96, height: 96, borderRadius: 48,
-        backgroundColor: C.red, alignItems: 'center', justifyContent: 'center',
-        shadowColor: C.red, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4, shadowRadius: 20, marginBottom: 24,
-    },
-    failTitle: { fontSize: 24, fontWeight: '800', color: C.red, marginBottom: 8 },
-    failDesc: {
-        fontSize: 14, color: C.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: 24,
-    },
-
-    // Common
-    primaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 10, height: 56, borderRadius: 50, width: '100%',
-        backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
-        marginBottom: 12,
-    },
-    primaryBtnText: { fontSize: 18, fontWeight: '700', color: '#FFF' },
-    secondaryBtn: {
-        width: '100%', paddingVertical: 14,
-        borderRadius: 50, borderWidth: 1, borderColor: '#525252',
+        flex: 1,
         alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
     },
-    secondaryBtnText: { fontSize: 14, fontWeight: '600', color: '#d4d4d4' },
+    centerIcon: {
+        width: 88,
+        height: 88,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 40,
+        marginBottom: 18,
+    },
+    centerTitle: {
+        ...Typography.h1,
+        textAlign: 'center',
+    },
+    centerBody: {
+        ...Typography.body,
+        textAlign: 'center',
+        marginTop: 10,
+        maxWidth: 320,
+    },
+    heroCard: {
+        marginTop: 8,
+    },
+    kicker: {
+        ...Typography.dataLabel,
+        color: Colors.accent,
+        marginBottom: 8,
+    },
+    heroTitle: {
+        ...Typography.h2,
+    },
+    heroSubtitle: {
+        ...Typography.caption,
+        marginTop: 8,
+        lineHeight: 20,
+    },
+    precheckGrid: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 12,
+    },
+    precheckCard: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 10,
+    },
+    precheckIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    precheckLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+        textAlign: 'center',
+    },
+    progressCard: {
+        marginTop: 12,
+    },
+    progressHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    progressLabel: {
+        ...Typography.dataLabel,
+    },
+    progressValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    progressTrack: {
+        height: 8,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        borderRadius: 999,
+        backgroundColor: Colors.primary,
+    },
+    logCard: {
+        marginTop: 12,
+    },
+    sectionLabel: {
+        ...Typography.dataLabel,
+        marginBottom: 10,
+    },
+    logLine: {
+        fontSize: 12,
+        lineHeight: 18,
+        color: Colors.textSecondary,
+        marginBottom: 6,
+        fontFamily: 'Courier',
+    },
+    logLineError: {
+        color: Colors.error,
+    },
+    backupFileName: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    warningCard: {
+        marginTop: 8,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 10,
+        borderColor: 'rgba(255,107,121,0.22)',
+        backgroundColor: 'rgba(255,107,121,0.08)',
+    },
+    warningText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 19,
+        color: Colors.error,
+    },
+    warningInline: {
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'flex-start',
+    },
+    warningInlineText: {
+        flex: 1,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Colors.error,
+    },
+    actions: {
+        gap: 10,
+        marginTop: 14,
+    },
+    primaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    primaryButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
+    },
+    secondaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    buttonDisabled: {
+        opacity: 0.45,
+    },
 });

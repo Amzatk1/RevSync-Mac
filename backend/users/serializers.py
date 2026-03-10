@@ -7,8 +7,8 @@ User = get_user_model()
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['bio', 'country', 'photo_url', 'experience_level', 'riding_style', 'risk_tolerance', 'last_active']
-        read_only_fields = ['last_active']
+        fields = ['id', 'bio', 'country', 'photo_url', 'experience_level', 'riding_style', 'risk_tolerance', 'has_completed_onboarding', 'last_active']
+        read_only_fields = ['id', 'last_active']
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
@@ -96,7 +96,31 @@ class UserLegalAcceptanceSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         ip_address = self.context['request'].META.get('REMOTE_ADDR')
-        return UserLegalAcceptance.objects.create(user=user, ip_address=ip_address, **validated_data)
+        acceptance, created = UserLegalAcceptance.objects.get_or_create(
+            user=user,
+            document_type=validated_data['document_type'],
+            version=validated_data['version'],
+            defaults={'ip_address': ip_address},
+        )
+        if not created and not acceptance.ip_address and ip_address:
+            acceptance.ip_address = ip_address
+            acceptance.save(update_fields=['ip_address'])
+        return acceptance
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_new_password(self, value):
+        from django.contrib.auth.password_validation import validate_password
+        validate_password(value)
+        return value
 
 class UserPreferenceSerializer(serializers.ModelSerializer):
     KNOWN_PREFERENCE_TYPES = {

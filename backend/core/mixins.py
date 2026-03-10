@@ -1,6 +1,7 @@
 from django.utils.dateparse import parse_datetime
 from rest_framework.exceptions import ValidationError
 
+
 class LastModifiedSinceMixin:
     """
     Mixin to filter querysets by 'since' query parameter (ISO 8601 timestamp).
@@ -12,9 +13,10 @@ class LastModifiedSinceMixin:
         
         if since_param:
             since_dt = parse_datetime(since_param)
-            if since_dt:
-                # Return all items updated after 'since', including deleted ones
-                queryset = queryset.filter(updated_at__gt=since_dt)
+            if since_dt is None:
+                raise ValidationError({'since': 'Invalid ISO 8601 timestamp.'})
+            # Return all items updated after 'since', including deleted ones
+            queryset = queryset.filter(updated_at__gt=since_dt)
         else:
             # Initial sync: Only return active items
             # Check if model has deleted_at field

@@ -39,19 +39,19 @@ export const AppScreen = ({ children, scroll = false, contentContainerStyle, scr
             <View style={styles.root}>
                 <View style={styles.background}>
                     <LinearGradient
-                        colors={['#0b0b11', '#0f1020', '#0c0d15']}
+                        colors={[Theme.Colors.shell, Theme.Colors.surfaceMuted, Theme.Colors.shellAlt]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={StyleSheet.absoluteFill}
                     />
                     <LinearGradient
-                        colors={['rgba(234,16,60,0.18)', 'rgba(234,16,60,0.01)']}
+                        colors={[Theme.Colors.accentSoft, 'rgba(99,199,255,0)']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 0.85, y: 0.65 }}
                         style={styles.orbTop}
                     />
                     <LinearGradient
-                        colors={['rgba(249,115,22,0.12)', 'rgba(249,115,22,0)']}
+                        colors={['rgba(234,16,60,0.14)', 'rgba(234,16,60,0)']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.orbBottom}
@@ -115,7 +115,7 @@ export const Chip = ({ label, active = false, onPress, icon }: ChipProps) => (
 const styles = StyleSheet.create({
     safe: {
         flex: 1,
-        backgroundColor: '#0b0b11',
+        backgroundColor: Theme.Colors.shell,
     },
     root: {
         flex: 1,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     topBarTitle: {
         fontSize: 28,
         fontWeight: '800',
-        color: Theme.Colors.text,
+        color: Theme.Colors.textPrimary,
         letterSpacing: -0.6,
     },
     topBarSubtitle: {
@@ -189,8 +189,8 @@ const styles = StyleSheet.create({
     glassCard: {
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
-        backgroundColor: 'rgba(20,21,30,0.68)',
+        borderColor: Theme.Colors.strokeSoft,
+        backgroundColor: 'rgba(18,25,37,0.82)',
         padding: 14,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         textTransform: 'uppercase',
         letterSpacing: 1.2,
-        color: Theme.Colors.textSecondary,
+        color: Theme.Colors.textTertiary,
     },
     chip: {
         flexDirection: 'row',
@@ -215,13 +215,13 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         paddingHorizontal: 12,
         paddingVertical: 8,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
+        borderColor: Theme.Colors.strokeSoft,
     },
     chipActive: {
-        backgroundColor: Theme.Colors.primary,
-        borderColor: Theme.Colors.primary,
+        backgroundColor: Theme.Colors.accent,
+        borderColor: Theme.Colors.accent,
     },
     chipText: {
         fontSize: 12,
@@ -230,6 +230,6 @@ const styles = StyleSheet.create({
         color: Theme.Colors.textSecondary,
     },
     chipTextActive: {
-        color: '#111',
+        color: '#081018',
     },
 });

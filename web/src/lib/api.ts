@@ -1,4 +1,9 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+interface TokenRefreshPayload {
+    access?: string;
+    refresh?: string;
+}
 
 interface ApiRequestConfig extends RequestInit {
     params?: Record<string, string | number | boolean | undefined>;
@@ -62,7 +67,7 @@ class ApiClient {
         return this.request<T>(path, {
             ...config,
             method: 'POST',
-            body: body ? JSON.stringify(body) : undefined,
+            body: body === undefined ? undefined : JSON.stringify(body),
         });
     }
 
@@ -70,7 +75,7 @@ class ApiClient {
         return this.request<T>(path, {
             ...config,
             method: 'PUT',
-            body: body ? JSON.stringify(body) : undefined,
+            body: body === undefined ? undefined : JSON.stringify(body),
         });
     }
 
@@ -78,7 +83,7 @@ class ApiClient {
         return this.request<T>(path, {
             ...config,
             method: 'PATCH',
-            body: body ? JSON.stringify(body) : undefined,
+            body: body === undefined ? undefined : JSON.stringify(body),
         });
     }
 
@@ -98,7 +103,7 @@ class ApiClient {
                 ...((config.headers as Record<string, string>) || {}),
             };
 
-            const response = await fetch(`${BASE_URL}${path}`, {
+            const response = await fetch(`${API_BASE_URL}${path}`, {
                 ...config,
                 headers,
                 signal: controller.signal,
@@ -156,16 +161,24 @@ class ApiClient {
 
         this.refreshPromise = (async () => {
             try {
-                const res = await fetch(`${BASE_URL}/v1/auth/refresh/`, {
+                const res = await fetch(`${API_BASE_URL}/v1/auth/refresh/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ refresh: this.refreshToken }),
                 });
                 if (!res.ok) return null;
-                const data = await res.json();
+                const data = (await res.json()) as TokenRefreshPayload;
+                if (!data.access) return null;
+
                 this.accessToken = data.access;
+                if (data.refresh) {
+                    this.refreshToken = data.refresh;
+                }
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('revsync_access', data.access);
+                    if (data.refresh) {
+                        localStorage.setItem('revsync_refresh', data.refresh);
+                    }
                 }
                 return data.access as string;
             } catch {

@@ -127,7 +127,7 @@ export const TuneMarketplaceScreen = ({ navigation }: any) => {
                     <>
                         <GlassCard style={styles.heroCard}>
                             <LinearGradient
-                                colors={['rgba(234,16,60,0.18)', 'rgba(234,16,60,0.02)']}
+                                colors={['rgba(99,199,255,0.16)', 'rgba(99,199,255,0.02)']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={StyleSheet.absoluteFill}
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1.1,
-        color: '#FB7185',
+        color: Theme.Colors.accent,
     },
     heroTitle: {
         fontSize: 24,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: 'rgba(255,255,255,0.06)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: Theme.Colors.strokeSoft,
         paddingVertical: 8,
         alignItems: 'center',
     },

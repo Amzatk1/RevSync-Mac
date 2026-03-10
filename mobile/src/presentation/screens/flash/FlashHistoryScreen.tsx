@@ -1,17 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, FlatList, TouchableOpacity,
-    RefreshControl, ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a', surface: '#252525', border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF', muted: '#9ca3af', primary: '#ea103c',
-    success: '#22C55E', error: '#EF4444', warning: '#F59E0B', dim: '#525252',
-};
+const { Colors, Layout, Typography } = Theme;
 
 interface FlashJob {
     id: string;
@@ -25,11 +18,11 @@ interface FlashJob {
     bike_name?: string;
 }
 
-const STATUS_MAP: Record<string, { icon: string; color: string; label: string }> = {
-    COMPLETED: { icon: 'checkmark-circle', color: C.success, label: 'Verified' },
-    FAILED: { icon: 'close-circle', color: C.error, label: 'Failed' },
-    VERIFY_FAILED: { icon: 'alert-circle', color: C.warning, label: 'Verify Failed' },
-    IN_PROGRESS: { icon: 'hourglass', color: '#3B82F6', label: 'In Progress' },
+const STATUS_MAP: Record<FlashJob['status'], { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
+    COMPLETED: { icon: 'checkmark-circle', color: Colors.success, label: 'Verified' },
+    FAILED: { icon: 'close-circle', color: Colors.error, label: 'Failed' },
+    VERIFY_FAILED: { icon: 'alert-circle', color: Colors.warning, label: 'Verify Failed' },
+    IN_PROGRESS: { icon: 'hourglass', color: Colors.info, label: 'In Progress' },
 };
 
 export const FlashHistoryScreen = ({ navigation }: any) => {
@@ -43,199 +36,255 @@ export const FlashHistoryScreen = ({ navigation }: any) => {
             const { ApiClient } = await import('../../../data/http/ApiClient');
             const resp: any = await ApiClient.getInstance().get('/v1/garage/flash-jobs/');
             const results: FlashJob[] = resp?.results || resp || [];
-            setJobs(results.sort((a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            ));
+            setJobs(results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         } catch {
-            // Offline — show empty
+            setJobs([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     }, []);
 
-    useEffect(() => { loadHistory(); }, []);
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
 
-    const onRefresh = () => { setRefreshing(true); loadHistory(); };
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadHistory();
+    };
 
     const formatDate = (iso: string) => {
         const d = new Date(iso);
         const now = new Date();
         const diff = now.getTime() - d.getTime();
-        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+        if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+        if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+        if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`;
         return d.toLocaleDateString();
     };
 
-    const renderJob = ({ item, index }: { item: FlashJob; index: number }) => {
+    const renderJob = ({ item }: { item: FlashJob }) => {
         const cfg = STATUS_MAP[item.status] || STATUS_MAP.FAILED;
-        const isLast = index === jobs.length - 1;
         return (
-            <View style={s.timelineItem}>
-                {/* Timeline connector */}
-                <View style={s.timelineLeft}>
-                    <View style={[s.timelineDot, { backgroundColor: cfg.color }]}>
-                        <Ionicons name={cfg.icon as any} size={14} color="#FFF" />
+            <GlassCard style={styles.card}>
+                <View style={styles.cardHeader}>
+                    <Text style={styles.tuneName} numberOfLines={1}>
+                        {item.tune_title || 'Untitled Tune'}
+                    </Text>
+                    <View style={[styles.statusPill, { backgroundColor: `${cfg.color}15`, borderColor: `${cfg.color}30` }]}>
+                        <Ionicons name={cfg.icon} size={12} color={cfg.color} />
+                        <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
                     </View>
-                    {!isLast && <View style={s.timelineLine} />}
                 </View>
 
-                {/* Card */}
-                <View style={s.card}>
-                    <View style={s.cardHeader}>
-                        <Text style={s.tuneName} numberOfLines={1}>{item.tune_title || 'Untitled Tune'}</Text>
-                        <View style={[s.statusPill, { backgroundColor: `${cfg.color}15`, borderColor: `${cfg.color}30` }]}>
-                            <View style={[s.statusDot, { backgroundColor: cfg.color }]} />
-                            <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-                        </View>
-                    </View>
-
-                    <View style={s.cardMeta}>
-                        <View style={s.metaRow}>
-                            <Ionicons name="time-outline" size={14} color={C.muted} />
-                            <Text style={s.metaText}>{formatDate(item.created_at)}</Text>
-                        </View>
-                        {item.tune_version && (
-                            <View style={s.metaRow}>
-                                <Ionicons name="git-branch-outline" size={14} color={C.muted} />
-                                <Text style={s.metaText}>v{item.tune_version}</Text>
-                            </View>
-                        )}
-                        {item.bike_name && (
-                            <View style={s.metaRow}>
-                                <Ionicons name="bicycle" size={14} color={C.muted} />
-                                <Text style={s.metaText}>{item.bike_name}</Text>
-                            </View>
-                        )}
-                    </View>
-
-                    {item.checksum_matched && (
-                        <View style={s.checksumBadge}>
-                            <Ionicons name="shield-checkmark" size={14} color={C.success} />
-                            <Text style={s.checksumText}>SHA-256 Verified</Text>
-                        </View>
-                    )}
-
-                    {item.error_message && (
-                        <View style={s.errorBanner}>
-                            <Ionicons name="warning" size={14} color={C.error} />
-                            <Text style={s.errorText} numberOfLines={2}>{item.error_message}</Text>
-                        </View>
-                    )}
+                <View style={styles.metaWrap}>
+                    <MetaRow icon="time-outline" text={formatDate(item.created_at)} />
+                    {!!item.tune_version && <MetaRow icon="git-branch-outline" text={`v${item.tune_version}`} />}
+                    {!!item.bike_name && <MetaRow icon="bicycle" text={item.bike_name} />}
                 </View>
-            </View>
+
+                {item.checksum_matched && (
+                    <View style={styles.checksumBadge}>
+                        <Ionicons name="shield-checkmark" size={14} color={Colors.success} />
+                        <Text style={styles.checksumText}>SHA-256 verified</Text>
+                    </View>
+                )}
+
+                {item.error_message && (
+                    <View style={styles.errorBanner}>
+                        <Ionicons name="warning" size={14} color={Colors.error} />
+                        <Text style={styles.errorText} numberOfLines={2}>
+                            {item.error_message}
+                        </Text>
+                    </View>
+                )}
+            </GlassCard>
         );
     };
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            <View style={s.header}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={20} color={C.text} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>Flash History</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <AppScreen>
+            <TopBar title="Flash History" subtitle="Recorded tune write and verification sessions" onBack={() => navigation.goBack()} />
 
             <FlatList
                 data={jobs}
                 renderItem={renderJob}
-                keyExtractor={item => item.id}
-                contentContainerStyle={s.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.list}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+                ListHeaderComponent={
+                    <GlassCard style={styles.summaryCard}>
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryValue}>{jobs.length}</Text>
+                            <Text style={styles.summaryLabel}>Sessions</Text>
+                        </View>
+                        <View style={styles.summaryDivider} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryValue}>{jobs.filter((job) => job.status === 'COMPLETED').length}</Text>
+                            <Text style={styles.summaryLabel}>Verified</Text>
+                        </View>
+                        <View style={styles.summaryDivider} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryValue}>{jobs.filter((job) => job.status !== 'COMPLETED').length}</Text>
+                            <Text style={styles.summaryLabel}>Attention</Text>
+                        </View>
+                    </GlassCard>
+                }
                 ListEmptyComponent={
                     loading ? (
-                        <View style={s.emptyState}><ActivityIndicator size="large" color={C.primary} /></View>
-                    ) : (
-                        <View style={s.emptyState}>
-                            <View style={s.emptyCircle}>
-                                <Ionicons name="flash-outline" size={48} color={C.dim} />
-                            </View>
-                            <Text style={s.emptyTitle}>No Flash History</Text>
-                            <Text style={s.emptySub}>Your ECU flash operations will appear here.</Text>
+                        <View style={styles.emptyState}>
+                            <ActivityIndicator size="large" color={Colors.primary} />
                         </View>
+                    ) : (
+                        <GlassCard style={styles.emptyCard}>
+                            <Ionicons name="flash-outline" size={36} color={Colors.textTertiary} />
+                            <Text style={styles.emptyTitle}>No flash history</Text>
+                            <Text style={styles.emptyBody}>Completed and failed ECU sessions will appear here once you start using the flash workflow.</Text>
+                        </GlassCard>
                     )
                 }
             />
-        </SafeAreaView>
+        </AppScreen>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
-    },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 12,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-    list: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 },
+const MetaRow = ({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) => (
+    <View style={styles.metaRow}>
+        <Ionicons name={icon} size={13} color={Colors.textTertiary} />
+        <Text style={styles.metaText}>{text}</Text>
+    </View>
+);
 
-    // Timeline
-    timelineItem: { flexDirection: 'row', marginBottom: 4 },
-    timelineLeft: { width: 36, alignItems: 'center' },
-    timelineDot: {
-        width: 28, height: 28, borderRadius: 14,
-        alignItems: 'center', justifyContent: 'center', zIndex: 2,
+const styles = StyleSheet.create({
+    list: {
+        paddingHorizontal: 16,
+        paddingBottom: 110,
     },
-    timelineLine: {
-        width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.06)',
-        marginTop: -2,
+    summaryCard: {
+        marginTop: 4,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-
-    // Card
+    summaryItem: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    summaryValue: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+    },
+    summaryLabel: {
+        marginTop: 2,
+        fontSize: 10,
+        letterSpacing: 0.8,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        color: Colors.textSecondary,
+    },
+    summaryDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: Colors.divider,
+    },
     card: {
-        flex: 1, marginLeft: 12, marginBottom: 16,
-        backgroundColor: C.surface, borderRadius: 16,
-        padding: 16, borderWidth: 1, borderColor: C.border,
+        marginBottom: 10,
     },
     cardHeader: {
-        flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        gap: 10,
     },
-    tuneName: { fontSize: 16, fontWeight: '700', color: C.text, flex: 1, marginRight: 8 },
+    tuneName: {
+        flex: 1,
+        fontSize: 16,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
     statusPill: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingHorizontal: 10, paddingVertical: 4,
-        borderRadius: 20, borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        borderWidth: 1,
     },
-    statusDot: { width: 6, height: 6, borderRadius: 3 },
-    statusText: { fontSize: 11, fontWeight: '700' },
-
-    // Meta
-    cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    metaText: { fontSize: 12, color: C.muted },
-
-    // Checksum
+    statusText: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    metaWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 8,
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    metaText: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+    },
     checksumBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: 'rgba(34,197,94,0.08)', paddingHorizontal: 10,
-        paddingVertical: 6, borderRadius: 8, marginTop: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 2,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: Layout.radiusSm,
+        backgroundColor: 'rgba(46,211,154,0.08)',
     },
-    checksumText: { fontSize: 11, fontWeight: '600', color: C.success },
-
-    // Error
+    checksumText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: Colors.success,
+    },
     errorBanner: {
-        flexDirection: 'row', alignItems: 'flex-start', gap: 6,
-        backgroundColor: 'rgba(239,68,68,0.08)', paddingHorizontal: 10,
-        paddingVertical: 8, borderRadius: 8, marginTop: 4,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+        marginTop: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: Layout.radiusSm,
+        backgroundColor: 'rgba(255,107,121,0.08)',
     },
-    errorText: { fontSize: 12, color: C.error, flex: 1, lineHeight: 16 },
-
-    // Empty
-    emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-    emptyCircle: {
-        width: 96, height: 96, borderRadius: 48,
-        backgroundColor: C.surface, alignItems: 'center',
-        justifyContent: 'center', marginBottom: 20,
+    errorText: {
+        flex: 1,
+        fontSize: 12,
+        lineHeight: 17,
+        color: Colors.error,
     },
-    emptyTitle: { fontSize: 20, fontWeight: '800', color: C.text },
-    emptySub: { fontSize: 14, color: C.muted, marginTop: 8, textAlign: 'center' },
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingTop: 60,
+    },
+    emptyCard: {
+        marginTop: 14,
+        alignItems: 'center',
+        paddingVertical: 34,
+    },
+    emptyTitle: {
+        marginTop: 12,
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+    },
+    emptyBody: {
+        ...Typography.caption,
+        marginTop: 8,
+        textAlign: 'center',
+        maxWidth: 280,
+    },
 });

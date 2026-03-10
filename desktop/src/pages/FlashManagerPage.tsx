@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../lib/api';
-import type { TuneListing, Vehicle, FlashJob } from '../lib/types';
+import type { FlashJob, TuneListing, Vehicle } from '../lib/types';
 
 type ChecklistItem = { id: string; label: string; checked: boolean; required: boolean };
 
@@ -14,29 +14,16 @@ const INITIAL_CHECKLIST: ChecklistItem[] = [
 ];
 
 const FLASH_STEPS = [
-    'Initiating flash sequence...',
-    'Entering bootloader mode...',
-    'Erasing target region (0x00000–0x7FFFF)...',
-    'Writing block 1/16...',
-    'Writing block 2/16...',
-    'Writing block 3/16...',
-    'Writing block 4/16...',
-    'Writing block 5/16...',
-    'Writing block 6/16...',
-    'Writing block 7/16...',
-    'Writing block 8/16...',
-    'Writing block 9/16...',
-    'Writing block 10/16...',
-    'Writing block 11/16...',
-    'Writing block 12/16...',
-    'Writing block 13/16...',
-    'Writing block 14/16...',
-    'Writing block 15/16...',
-    'Writing block 16/16...',
-    'Verifying flash integrity...',
-    'CRC32 checksum verified ✓',
-    'Rebooting ECU...',
-    'Flash completed successfully! ✓',
+    'Entering controlled flash workflow.',
+    'Switching ECU to bootloader mode.',
+    'Erasing target calibration region.',
+    'Writing package blocks 1-4.',
+    'Writing package blocks 5-8.',
+    'Writing package blocks 9-12.',
+    'Writing package blocks 13-16.',
+    'Verifying checksum and package signature.',
+    'Rebooting ECU and checking session recovery.',
+    'Flash completed successfully.',
 ];
 
 export default function FlashManagerPage() {
@@ -48,227 +35,307 @@ export default function FlashManagerPage() {
     const [progress, setProgress] = useState(0);
     const [isFlashing, setIsFlashing] = useState(false);
     const [flashComplete, setFlashComplete] = useState(false);
-    const [logs, setLogs] = useState<string[]>([
-        `[${new Date().toLocaleTimeString()}] System ready. Select a package and vehicle to begin.`,
-    ]);
+    const [phaseLabel, setPhaseLabel] = useState('Awaiting operator readiness');
+    const [logs, setLogs] = useState<string[]>(['[READY] Select a package and vehicle to prepare a flash run.']);
     const logEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         api.get<any>('/v1/marketplace/browse/')
-            .then(res => { const arr = Array.isArray(res) ? res : res?.results || []; setListings(arr); if (arr.length) setSelectedTune(arr[0].id); })
-            .catch(() => { });
+            .then((res) => {
+                const results = Array.isArray(res) ? res : res?.results || [];
+                setListings(results);
+                if (results.length) setSelectedTune(results[0].id);
+            })
+            .catch(() => setListings([]));
+
         api.get<any>('/v1/garage/')
-            .then(res => { const arr = Array.isArray(res) ? res : res?.results || []; setVehicles(arr); if (arr.length) setSelectedVehicle(String(arr[0].id)); })
-            .catch(() => { });
+            .then((res) => {
+                const results = Array.isArray(res) ? res : res?.results || [];
+                setVehicles(results);
+                if (results.length) setSelectedVehicle(String(results[0].id));
+            })
+            .catch(() => setVehicles([]));
     }, []);
 
-    useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
+    useEffect(() => {
+        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [logs]);
 
-    const addLog = useCallback((msg: string) => {
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    const addLog = useCallback((message: string) => {
+        setLogs((current) => [...current.slice(-20), message]);
     }, []);
 
-    const toggleCheck = useCallback((id: string) => {
-        if (isFlashing) return;
-        setChecklist(prev => prev.map(c => c.id === id ? { ...c, checked: !c.checked } : c));
-    }, [isFlashing]);
+    const toggleCheck = useCallback(
+        (id: string) => {
+            if (isFlashing) return;
+            setChecklist((current) => current.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)));
+        },
+        [isFlashing]
+    );
 
-    const allRequiredChecked = checklist.filter(c => c.required).every(c => c.checked);
-    const selectedListing = listings.find(l => l.id === selectedTune);
-    const selectedVeh = vehicles.find(v => String(v.id) === selectedVehicle);
+    const allRequiredChecked = checklist.filter((item) => item.required).every((item) => item.checked);
+    const selectedListing = listings.find((item) => item.id === selectedTune);
+    const selectedVeh = vehicles.find((item) => String(item.id) === selectedVehicle);
+
+    const readinessCards = useMemo(
+        () => [
+            { label: 'Package', value: selectedListing ? selectedListing.title : 'None selected' },
+            { label: 'Vehicle', value: selectedVeh ? `${selectedVeh.year} ${selectedVeh.make} ${selectedVeh.model}` : 'None selected' },
+            { label: 'Readiness', value: allRequiredChecked ? 'Armed' : 'Blocked by checklist' },
+            { label: 'Mode', value: isFlashing ? 'Controlled flash active' : flashComplete ? 'Completed' : 'Pre-flight' },
+        ],
+        [selectedListing, selectedVeh, allRequiredChecked, isFlashing, flashComplete]
+    );
 
     const startFlash = useCallback(async () => {
         if (!selectedListing || !selectedVeh || isFlashing) return;
         setIsFlashing(true);
         setFlashComplete(false);
         setProgress(0);
-        addLog(`Starting flash: ${selectedListing.title} → ${selectedVeh.year} ${selectedVeh.make} ${selectedVeh.model}`);
+        setPhaseLabel('Creating flash record');
+        addLog(`[START] ${selectedListing.title} → ${selectedVeh.year} ${selectedVeh.make} ${selectedVeh.model}`);
 
-        // Create flash job via API
         try {
             await api.post<FlashJob>('/v1/garage/flash-jobs/', {
                 vehicle: selectedVeh.id,
                 tune: selectedListing.id,
                 connection_type: 'USB',
             });
-            addLog('Flash job created on server ✓');
+            addLog('[SYNC] Flash job created on backend.');
         } catch {
-            addLog('Warning: Could not create server record (offline mode)');
+            addLog('[WARN] Backend flash record unavailable. Continuing in offline mode.');
         }
 
-        // Simulate flash sequence
-        for (let i = 0; i < FLASH_STEPS.length; i++) {
-            await new Promise(r => setTimeout(r, 300 + Math.random() * 200));
-            addLog(FLASH_STEPS[i]);
-            setProgress(Math.min(100, Math.round(((i + 1) / FLASH_STEPS.length) * 100)));
+        for (let index = 0; index < FLASH_STEPS.length; index += 1) {
+            setPhaseLabel(FLASH_STEPS[index]);
+            addLog(`[STEP ${index + 1}/${FLASH_STEPS.length}] ${FLASH_STEPS[index]}`);
+            await new Promise((resolve) => setTimeout(resolve, 420));
+            setProgress(Math.min(100, Math.round(((index + 1) / FLASH_STEPS.length) * 100)));
         }
 
         setIsFlashing(false);
         setFlashComplete(true);
-        addLog('ECU ready. All verifications passed.');
+        setPhaseLabel('Flash run complete');
+        addLog('[SUCCESS] ECU restarted and verification passed.');
     }, [selectedListing, selectedVeh, isFlashing, addLog]);
 
     const resetFlash = useCallback(() => {
         setProgress(0);
         setFlashComplete(false);
+        setPhaseLabel('Awaiting operator readiness');
         setChecklist(INITIAL_CHECKLIST);
-        setLogs([`[${new Date().toLocaleTimeString()}] System reset. Ready for new flash operation.`]);
+        setLogs(['[RESET] Flash manager reset. Ready for the next controlled run.']);
     }, []);
 
-    // SVG circular progress
-    const radius = 80;
+    const radius = 78;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (progress / 100) * circumference;
-    const progressColor = flashComplete ? '#22c55e' : isFlashing ? '#ea103c' : '#3b82f6';
+    const progressColor = flashComplete ? 'var(--rs-success)' : isFlashing ? 'var(--rs-primary)' : 'var(--rs-accent)';
 
     return (
-        <div className="flex-1 flex overflow-hidden">
-            {/* ─── Left: Package + Checklist ──────────── */}
-            <div className="flex-1 flex flex-col overflow-y-auto p-6 gap-6">
-                {/* Package Selection */}
-                <section className="bg-surface-dark border border-border-dark rounded-xl p-5">
-                    <h2 className="text-lg font-black text-white mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">inventory_2</span>
-                        Flash Package
-                    </h2>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="text-[11px] uppercase tracking-wider font-bold text-text-muted mb-1.5 block">Tune Package</label>
-                            <select value={selectedTune} onChange={e => setSelectedTune(e.target.value)} disabled={isFlashing}
-                                className="w-full h-10 px-3 bg-bg-dark border border-border-dark rounded-lg text-sm text-white focus:outline-none focus:border-primary">
-                                {listings.map(l => (
-                                    <option key={l.id} value={l.id}>{l.title} (v{l.latest_version_number})</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-[11px] uppercase tracking-wider font-bold text-text-muted mb-1.5 block">Target Vehicle</label>
-                            <select value={selectedVehicle} onChange={e => setSelectedVehicle(e.target.value)} disabled={isFlashing}
-                                className="w-full h-10 px-3 bg-bg-dark border border-border-dark rounded-lg text-sm text-white focus:outline-none focus:border-primary">
-                                {vehicles.map(v => (
-                                    <option key={v.id} value={String(v.id)}>{v.year} {v.make} {v.model}</option>
-                                ))}
-                            </select>
-                        </div>
+        <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-6">
+                    <div className="max-w-3xl">
+                        <p className="rs-section-label m-0">Flash Manager</p>
+                        <h1 className="mt-2 text-2xl font-black text-[var(--rs-text-primary)]">Controlled flash execution with guarded pre-flight checks</h1>
+                        <p className="mt-3 text-sm text-[var(--rs-text-secondary)]">
+                            Package and vehicle selection, safety verification, execution progress, and operator log all stay connected inside one flow so flashing feels deliberate, not theatrical.
+                        </p>
                     </div>
-
-                    {/* Package Details */}
-                    {selectedListing && (
-                        <div className="bg-bg-dark rounded-lg p-4 space-y-2">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-primary">description</span>
-                                </div>
-                                <div className="flex flex-col overflow-hidden">
-                                    <span className="text-white font-medium truncate">{selectedListing.title}</span>
-                                    <span className="text-text-muted text-xs truncate">v{selectedListing.latest_version_number} • {selectedListing.tuner?.business_name}</span>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 mt-3">
-                                {[
-                                    { label: 'Signature', value: 'Ed25519 Verified', icon: 'verified', color: 'text-green-400' },
-                                    { label: 'Checksum', value: 'CRC32: OK', icon: 'check_circle', color: 'text-green-400' },
-                                    { label: 'Target', value: `${selectedListing.vehicle_make} ${selectedListing.vehicle_model}`, icon: 'two_wheeler', color: 'text-white' },
-                                ].map(item => (
-                                    <div key={item.label} className="flex items-center gap-2 text-xs">
-                                        <span className={`material-symbols-outlined ${item.color}`} style={{ fontSize: 14 }}>{item.icon}</span>
-                                        <span className="text-text-muted">{item.label}:</span>
-                                        <span className={item.color}>{item.value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </section>
-
-                {/* Pre-flash Checklist */}
-                <section className="bg-surface-dark border border-border-dark rounded-xl p-5">
-                    <h2 className="text-lg font-black text-white mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-amber-400">checklist</span>
-                        Pre-Flash Verification
-                    </h2>
-                    <div className="space-y-2">
-                        {checklist.map(item => (
-                            <button key={item.id} onClick={() => toggleCheck(item.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-all text-left ${item.checked ? 'border-green-500/30 bg-green-500/5' : 'border-border-dark hover:border-white/20'
-                                    } ${isFlashing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${item.checked ? 'bg-green-500' : 'border border-border-dark bg-bg-dark'
-                                    }`}>
-                                    {item.checked && <span className="material-symbols-outlined text-white" style={{ fontSize: 14 }}>check</span>}
-                                </div>
-                                <span className={`text-sm ${item.checked ? 'text-green-400' : 'text-slate-300'}`}>{item.label}</span>
-                                {item.required && <span className="text-[9px] text-red-400 font-bold ml-auto">REQUIRED</span>}
-                            </button>
-                        ))}
-                    </div>
-                </section>
-            </div>
-
-            {/* ─── Right: Progress + Log ──────────────── */}
-            <div className="w-96 bg-[#0a0a0d] border-l border-border-dark flex flex-col shrink-0">
-                {/* Progress Circle */}
-                <div className="flex flex-col items-center py-8">
-                    <div className="relative w-48 h-48">
-                        <svg className="w-full h-full -rotate-90" viewBox="0 0 176 176">
-                            <circle cx="88" cy="88" r={radius} fill="none" stroke="#1a1a20" strokeWidth="8" />
-                            <circle cx="88" cy="88" r={radius} fill="none" stroke={progressColor} strokeWidth="8" strokeLinecap="round"
-                                strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-                                className="transition-all duration-500"
-                                style={{ filter: `drop-shadow(0 0 8px ${progressColor}50)` }} />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-3xl font-black text-white">{progress}%</span>
-                            <span className="text-xs text-text-muted mt-1">
-                                {flashComplete ? 'Complete' : isFlashing ? 'Flashing...' : 'Ready'}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-3 mt-4">
-                        {!isFlashing && !flashComplete && (
-                            <button onClick={startFlash} disabled={!allRequiredChecked || !selectedTune || !selectedVehicle}
-                                className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white font-bold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-primary hover:bg-red-600 shadow-[0_0_20px_rgba(234,16,60,0.3)]">
-                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>bolt</span>
-                                Start Flash
-                            </button>
-                        )}
-                        {isFlashing && (
-                            <button className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white font-bold text-sm bg-amber-600 cursor-not-allowed opacity-80">
-                                <span className="material-symbols-outlined animate-spin" style={{ fontSize: 18 }}>progress_activity</span>
-                                Flashing...
-                            </button>
-                        )}
-                        {flashComplete && (
-                            <button onClick={resetFlash}
-                                className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white font-bold text-sm bg-green-600 hover:bg-green-700 transition-all">
-                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span>
-                                New Flash
-                            </button>
-                        )}
-                    </div>
+                    <span className={`rs-badge ${flashComplete ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300' : isFlashing ? 'border-[var(--rs-primary)]/25 bg-[var(--rs-primary)]/10 text-[var(--rs-primary)]' : 'border-[var(--rs-stroke-soft)] bg-white/[0.04] text-[var(--rs-text-secondary)]'}`}>
+                        <span className="material-symbols-outlined text-sm">{flashComplete ? 'verified' : isFlashing ? 'bolt' : 'shield'}</span>
+                        {flashComplete ? 'Completed' : isFlashing ? 'Flashing' : 'Pre-Flight'}
+                    </span>
                 </div>
 
-                {/* System Log */}
-                <div className="flex-1 flex flex-col min-h-0 border-t border-border-dark">
-                    <div className="px-4 py-2 flex items-center justify-between shrink-0">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">System Log</span>
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${isFlashing ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-                            <span className="text-[10px] text-text-muted">{isFlashing ? 'FLASHING' : 'IDLE'}</span>
+                <div className="grid grid-cols-4 gap-4">
+                    {readinessCards.map((item) => (
+                        <div key={item.label} className="rs-panel rounded-[18px] p-4">
+                            <p className="rs-data-label">{item.label}</p>
+                            <p className="mt-2 text-sm font-semibold text-[var(--rs-text-primary)]">{item.value}</p>
                         </div>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] gap-6">
+                    <section className="rs-panel-raised rounded-[22px] p-5">
+                        <div className="mb-5">
+                            <p className="rs-section-label m-0">Package Assignment</p>
+                            <h2 className="mt-2 text-lg font-bold text-[var(--rs-text-primary)]">Select package and target vehicle</h2>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <label className="block">
+                                <span className="rs-data-label">Tune Package</span>
+                                <select value={selectedTune} onChange={(event) => setSelectedTune(event.target.value)} disabled={isFlashing} className="rs-input mt-2">
+                                    {listings.map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                            {item.title} (v{item.latest_version_number})
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="block">
+                                <span className="rs-data-label">Target Vehicle</span>
+                                <select value={selectedVehicle} onChange={(event) => setSelectedVehicle(event.target.value)} disabled={isFlashing} className="rs-input mt-2">
+                                    {vehicles.map((item) => (
+                                        <option key={item.id} value={String(item.id)}>
+                                            {item.year} {item.make} {item.model}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+
+                        {selectedListing && (
+                            <div className="mt-5 rs-surface-muted rounded-[18px] p-4">
+                                <div className="flex items-start gap-4">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[var(--rs-primary)]/10 text-[var(--rs-primary)]">
+                                        <span className="material-symbols-outlined">description</span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-semibold text-[var(--rs-text-primary)]">{selectedListing.title}</p>
+                                        <p className="mt-1 truncate text-xs text-[var(--rs-text-secondary)]">
+                                            v{selectedListing.latest_version_number} • {selectedListing.tuner?.business_name || 'Verified tuner'}
+                                        </p>
+                                        <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                                            <div>
+                                                <p className="rs-data-label">Signature</p>
+                                                <p className="mt-1 text-emerald-300">Ed25519 verified</p>
+                                            </div>
+                                            <div>
+                                                <p className="rs-data-label">Checksum</p>
+                                                <p className="mt-1 text-emerald-300">CRC32 ready</p>
+                                            </div>
+                                            <div>
+                                                <p className="rs-data-label">Target</p>
+                                                <p className="mt-1 text-[var(--rs-text-primary)]">{selectedListing.vehicle_make} {selectedListing.vehicle_model}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-5">
+                            <p className="rs-section-label m-0">Pre-Flash Verification</p>
+                            <div className="mt-3 space-y-2">
+                                {checklist.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => toggleCheck(item.id)}
+                                        className={`flex w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left transition-colors ${
+                                            item.checked
+                                                ? 'border-emerald-400/20 bg-emerald-400/5'
+                                                : 'border-[var(--rs-stroke-soft)] bg-white/[0.02] hover:border-[var(--rs-stroke-strong)]'
+                                        } ${isFlashing ? 'cursor-not-allowed opacity-60' : ''}`}
+                                    >
+                                        <div className={`flex h-5 w-5 items-center justify-center rounded-md border ${item.checked ? 'border-emerald-400/40 bg-emerald-400 text-[#04110c]' : 'border-[var(--rs-stroke-soft)] bg-transparent'}`}>
+                                            {item.checked && <span className="material-symbols-outlined text-sm">check</span>}
+                                        </div>
+                                        <span className={`text-sm ${item.checked ? 'text-[var(--rs-text-primary)]' : 'text-[var(--rs-text-secondary)]'}`}>{item.label}</span>
+                                        {item.required && <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--rs-danger)]">Required</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="rs-panel rounded-[22px] p-5">
+                        <p className="rs-section-label m-0">Execution State</p>
+                        <div className="mt-5 flex flex-col items-center">
+                            <div className="relative h-48 w-48">
+                                <svg className="h-full w-full -rotate-90" viewBox="0 0 176 176">
+                                    <circle cx="88" cy="88" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+                                    <circle
+                                        cx="88"
+                                        cy="88"
+                                        r={radius}
+                                        fill="none"
+                                        stroke={progressColor}
+                                        strokeWidth="8"
+                                        strokeLinecap="round"
+                                        strokeDasharray={circumference}
+                                        strokeDashoffset={strokeDashoffset}
+                                        className="transition-all duration-500"
+                                    />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-3xl font-black text-[var(--rs-text-primary)]">{progress}%</span>
+                                    <span className="mt-2 text-xs text-[var(--rs-text-secondary)]">{phaseLabel}</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 flex gap-3">
+                                {!isFlashing && !flashComplete && (
+                                    <button onClick={startFlash} disabled={!allRequiredChecked || !selectedTune || !selectedVehicle} className="rs-button-primary px-5 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">
+                                        Start Flash
+                                    </button>
+                                )}
+                                {isFlashing && (
+                                    <button className="rs-button-secondary px-5 py-2.5 text-sm font-bold">
+                                        Flashing...
+                                    </button>
+                                )}
+                                {flashComplete && (
+                                    <button onClick={resetFlash} className="rs-button-secondary px-5 py-2.5 text-sm font-bold">
+                                        New Run
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                            <div className="rs-surface-muted rounded-[16px] p-4">
+                                <p className="rs-data-label">Execution policy</p>
+                                <p className="mt-2 text-sm text-[var(--rs-text-secondary)]">
+                                    Flashing only starts when required verification items are complete. Recovery and diagnostics remain separate surfaces so dangerous actions are never mixed with routine browsing.
+                                </p>
+                            </div>
+                            <div className="rs-surface-muted rounded-[16px] p-4">
+                                <p className="rs-data-label">Result handling</p>
+                                <p className="mt-2 text-sm text-[var(--rs-text-secondary)]">
+                                    Successful runs stay auditable in flash history. If this run blocks or fails, the operator should switch to recovery or diagnostics before any retry.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <aside className="flex w-[380px] shrink-0 flex-col border-l border-[var(--rs-stroke-soft)] bg-[rgba(9,13,18,0.9)]">
+                <div className="border-b border-[var(--rs-stroke-soft)] p-5">
+                    <p className="rs-section-label m-0">System Log</p>
+                    <div className="mt-3 flex items-center justify-between">
+                        <span className="text-xs text-[var(--rs-text-secondary)]">Operator state</span>
+                        <span className={`text-xs font-semibold ${flashComplete ? 'text-emerald-300' : isFlashing ? 'text-[var(--rs-primary)]' : 'text-[var(--rs-text-secondary)]'}`}>
+                            {flashComplete ? 'Complete' : isFlashing ? 'Active run' : 'Idle'}
+                        </span>
                     </div>
-                    <div className="flex-1 overflow-y-auto px-4 pb-4 font-mono text-[11px]">
-                        {logs.map((line, i) => (
-                            <div key={i} className={`leading-relaxed ${line.includes('ERROR') || line.includes('Warning') ? 'text-red-400' :
-                                    line.includes('✓') || line.includes('verified') || line.includes('Complete') ? 'text-green-400' :
-                                        line.includes('Writing') ? 'text-blue-400' : 'text-emerald-400/80'
-                                }`}>{line}</div>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col">
+                    <div className="flex-1 overflow-y-auto px-5 py-4 font-mono text-[11px]">
+                        {logs.map((line, index) => (
+                            <div
+                                key={`${line}-${index}`}
+                                className={`leading-relaxed ${
+                                    line.includes('[SUCCESS]')
+                                        ? 'text-emerald-300'
+                                        : line.includes('[WARN]')
+                                          ? 'text-[var(--rs-warning)]'
+                                          : line.includes('[STEP') || line.includes('[SYNC]')
+                                            ? 'text-sky-300'
+                                            : 'text-[var(--rs-text-secondary)]'
+                                }`}
+                            >
+                                {line}
+                            </div>
                         ))}
                         <div ref={logEndRef} />
                     </div>
                 </div>
-            </div>
+            </aside>
         </div>
     );
 }

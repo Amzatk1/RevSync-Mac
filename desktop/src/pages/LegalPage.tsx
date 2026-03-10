@@ -14,47 +14,64 @@ export default function LegalPage() {
     const doc = LEGAL_DOCS[activeKey];
 
     return (
-        <div className="h-full min-h-screen bg-bg-dark overflow-y-auto">
-            <div className="absolute inset-0 dot-grid pointer-events-none" />
-            <div className="relative z-10 mx-auto w-full max-w-4xl px-6 py-8">
-                <div className="mb-6 flex items-center justify-between gap-4">
-                    <div>
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-text-muted">Legal</p>
-                        <h1 className="text-3xl font-black text-white mt-1">{doc.title}</h1>
-                        <p className="text-sm text-text-muted mt-1">Last updated: {doc.lastUpdated}</p>
+        <div className="rs-shell min-h-screen overflow-y-auto">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+                <div className="flex items-start justify-between gap-6">
+                    <div className="max-w-3xl">
+                        <p className="rs-section-label m-0">Legal Workspace</p>
+                        <h1 className="mt-2 text-3xl font-black text-[var(--rs-text-primary)]">{doc.title}</h1>
+                        <p className="mt-3 text-sm text-[var(--rs-text-secondary)]">
+                            Policy content used across RevSync desktop, mobile, and public web surfaces. Review history and routing stay explicit so operators always know which policy they are reading.
+                        </p>
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--rs-text-tertiary)]">Last updated {doc.lastUpdated}</p>
                     </div>
-                    <Link
-                        to="/login"
-                        className="inline-flex items-center gap-2 rounded-lg border border-border-dark bg-panel-dark px-3 py-2 text-xs font-semibold text-text-muted hover:text-white"
-                    >
+                    <Link to="/login" className="rs-button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold">
                         <span className="material-symbols-outlined text-base">login</span>
                         Sign In
                     </Link>
                 </div>
 
-                <div className="mb-5 flex flex-wrap gap-2">
-                    {LEGAL_DOC_ORDER.map((key) => {
-                        const item = LEGAL_DOCS[key];
-                        const isActive = key === activeKey;
-                        return (
-                            <Link
-                                key={key}
-                                to={`/legal/${key}`}
-                                className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${
-                                    isActive
-                                        ? 'border-primary/40 bg-primary/15 text-primary'
-                                        : 'border-border-dark bg-panel-dark text-text-muted hover:text-white'
-                                }`}
-                            >
-                                {item.title}
-                            </Link>
-                        );
-                    })}
-                </div>
+                <div className="grid grid-cols-[280px_minmax(0,1fr)] gap-6">
+                    <aside className="rs-panel rounded-[22px] p-4">
+                        <p className="rs-section-label m-0">Documents</p>
+                        <div className="mt-4 space-y-2">
+                            {LEGAL_DOC_ORDER.map((key) => {
+                                const item = LEGAL_DOCS[key];
+                                const isActive = key === activeKey;
+                                return (
+                                    <Link
+                                        key={key}
+                                        to={`/legal/${key}`}
+                                        className={`block rounded-[16px] border px-4 py-3 transition-colors ${
+                                            isActive
+                                                ? 'border-[var(--rs-accent)]/30 bg-[var(--rs-accent)]/10 text-[var(--rs-text-primary)]'
+                                                : 'border-[var(--rs-stroke-soft)] bg-white/[0.02] text-[var(--rs-text-secondary)] hover:border-[var(--rs-stroke-strong)] hover:text-[var(--rs-text-primary)]'
+                                        }`}
+                                    >
+                                        <p className="text-sm font-semibold">{item.title}</p>
+                                        <p className="mt-1 text-xs text-[var(--rs-text-tertiary)]">Mirrored policy for all RevSync product surfaces.</p>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </aside>
 
-                <article className="rounded-2xl border border-border-dark bg-panel-dark/70 p-6">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-300">{doc.content}</pre>
-                </article>
+                    <article className="rs-panel-raised rounded-[24px] p-6">
+                        <div className="mb-5 flex items-center justify-between gap-4">
+                            <div>
+                                <p className="rs-section-label m-0">Policy Text</p>
+                                <p className="mt-2 text-sm text-[var(--rs-text-secondary)]">
+                                    This view is intentionally plain so operators can read dense legal material without dashboard-like noise.
+                                </p>
+                            </div>
+                            <span className="rs-badge border-[var(--rs-stroke-soft)] bg-white/[0.04] text-[var(--rs-text-secondary)]">
+                                <span className="material-symbols-outlined text-sm">gavel</span>
+                                Legal Reference
+                            </span>
+                        </div>
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-[var(--rs-text-secondary)]">{doc.content}</pre>
+                    </article>
+                </div>
             </div>
         </div>
     );

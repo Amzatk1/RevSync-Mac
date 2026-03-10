@@ -22,16 +22,17 @@ interface FlashLog {
 }
 
 const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
+    bg: '#0A0E14',
+    surface: '#18202D',
     primary: '#ea103c',
+    accent: '#63C7FF',
     white: '#ffffff',
-    textMuted: '#a3a3a3',
-    textDim: '#737373',
-    green: '#22c55e',
-    red: '#ef4444',
-    yellow: '#f59e0b',
-    border: 'rgba(255,255,255,0.05)',
+    textMuted: '#ABB5C5',
+    textDim: '#6F7F93',
+    green: '#2ED39A',
+    red: '#FF6B79',
+    yellow: '#FFB85C',
+    border: 'rgba(143,168,197,0.14)',
 };
 
 // ─── Component ─────────────────────────────────────────────────

@@ -1,25 +1,12 @@
-import React, { useState } from 'react';
-import {
-    View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity,
-    KeyboardAvoidingView, Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useMemo, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { Bike } from '../../../domain/services/DomainTypes';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    surfaceHigh: '#2f2f2f',
-    border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-    inputBg: '#1f1f1f',
-    error: '#EF4444',
-};
+const { Colors, Layout, Typography } = Theme;
 
 export const AddBikeScreen = ({ navigation }: any) => {
     const [make, setMake] = useState('');
@@ -29,209 +16,232 @@ export const AddBikeScreen = ({ navigation }: any) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const isValid = make.length > 0 && model.length > 0 && year.length === 4;
+    const isValid = make.trim().length > 0 && model.trim().length > 0 && year.length === 4;
+    const previewName = useMemo(() => `${year} ${make} ${model}`.trim(), [make, model, year]);
 
     const handleSave = async () => {
         if (!isValid) return;
+
         setLoading(true);
         setError(null);
 
         try {
             const bikeService = ServiceLocator.getBikeService();
             const newBike: Omit<Bike, 'id'> = {
-                make,
-                model,
-                year: parseInt(year),
-                vin: vin || undefined,
-                name: `${year} ${make} ${model}`,
+                make: make.trim(),
+                model: model.trim(),
+                year: parseInt(year, 10),
+                vin: vin.trim() || undefined,
+                name: previewName,
             };
 
             const created = await bikeService.addBike(newBike);
             await bikeService.setActiveBike(created.id);
-
             navigation.goBack();
         } catch (e: any) {
-            setError(e.message || 'Failed to add bike');
+            const message = e.message || 'Failed to add bike';
+            setError(message);
+            Alert.alert('Unable to add bike', message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="close" size={24} color={C.text} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>Add New Bike</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <AppScreen contentContainerStyle={styles.screen}>
+            <TopBar title="Add Bike" subtitle="Create a garage profile for fitment-aware tuning" onBack={() => navigation.goBack()} />
 
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={0}
-            >
-                <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-                    {/* ─── Hero Icon ─── */}
-                    <View style={s.heroCircle}>
-                        <Ionicons name="bicycle" size={48} color={C.primary} />
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <GlassCard style={styles.heroCard}>
+                    <View style={styles.heroIcon}>
+                        <Ionicons name="bicycle" size={28} color={Colors.primary} />
                     </View>
+                    <Text style={styles.heroTitle}>Bike profiles unlock safer tune selection.</Text>
+                    <Text style={styles.heroBody}>Year, make, model, and VIN help RevSync narrow compatibility and reduce the chance of flashing the wrong package.</Text>
+                </GlassCard>
 
-                    {/* ─── Error ─── */}
-                    {error && (
-                        <View style={s.errorBanner}>
-                            <Ionicons name="alert-circle" size={18} color={C.error} />
-                            <Text style={s.errorText}>{error}</Text>
-                        </View>
-                    )}
+                {error && (
+                    <GlassCard style={styles.errorCard}>
+                        <Ionicons name="alert-circle" size={18} color={Colors.error} />
+                        <Text style={styles.errorText}>{error}</Text>
+                    </GlassCard>
+                )}
 
-                    {/* ─── Form ─── */}
-                    <View style={s.formCard}>
-                        <FormField label="Year *" value={year} onChangeText={setYear}
-                            placeholder="e.g. 2024" keyboardType="numeric" maxLength={4} />
-                        <View style={s.divider} />
-                        <FormField label="Make *" value={make} onChangeText={setMake}
-                            placeholder="e.g. Yamaha" />
-                        <View style={s.divider} />
-                        <FormField label="Model *" value={model} onChangeText={setModel}
-                            placeholder="e.g. MT-07" />
-                        <View style={s.divider} />
-                        <FormField label="VIN (Optional)" value={vin} onChangeText={setVin}
-                            placeholder="17 character VIN" />
-                    </View>
+                <GlassCard style={styles.formCard}>
+                    <Text style={styles.sectionLabel}>Vehicle Data</Text>
+                    <FormField label="Year" value={year} onChangeText={setYear} placeholder="2024" keyboardType="numeric" maxLength={4} />
+                    <FormField label="Make" value={make} onChangeText={setMake} placeholder="Yamaha" />
+                    <FormField label="Model" value={model} onChangeText={setModel} placeholder="MT-07" />
+                    <FormField label="VIN" value={vin} onChangeText={setVin} placeholder="17 character VIN (optional)" />
+                    <Text style={styles.helperText}>VIN improves ECU identification and fitment confidence but is optional.</Text>
+                </GlassCard>
 
-                    <Text style={s.helperText}>
-                        VIN helps us auto-identify your ECU variant and cross-check tune compatibility.
-                    </Text>
+                {isValid && (
+                    <GlassCard style={styles.previewCard}>
+                        <Text style={styles.sectionLabel}>Preview</Text>
+                        <Text style={styles.previewName}>{previewName}</Text>
+                        {!!vin.trim() && <Text style={styles.previewMeta}>VIN: {vin.trim()}</Text>}
+                    </GlassCard>
+                )}
 
-                    {/* ─── Preview ─── */}
-                    {isValid && (
-                        <View style={s.previewCard}>
-                            <Text style={s.previewLabel}>Preview</Text>
-                            <Text style={s.previewName}>{year} {make} {model}</Text>
-                            {vin ? <Text style={s.previewVin}>VIN: {vin}</Text> : null}
-                        </View>
-                    )}
-                </ScrollView>
-
-                {/* ─── Sticky Footer ─── */}
-                <View style={s.footer}>
-                    <TouchableOpacity
-                        style={[s.addButton, (!isValid || loading) && s.addButtonDisabled]}
-                        onPress={handleSave}
-                        activeOpacity={0.85}
-                        disabled={!isValid || loading}
-                    >
-                        <Ionicons name="add-circle" size={22} color="#FFF" />
-                        <Text style={s.addButtonText}>
-                            {loading ? 'Adding…' : 'Add Bike'}
-                        </Text>
+                <View style={styles.actions}>
+                    <TouchableOpacity style={[styles.primaryButton, (!isValid || loading) && styles.buttonDisabled]} onPress={handleSave} disabled={!isValid || loading}>
+                        <Text style={styles.primaryButtonText}>{loading ? 'Adding Bike...' : 'Add Bike'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.cancelBtn}>
-                        <Text style={s.cancelBtnText}>Cancel</Text>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
+                        <Text style={styles.secondaryButtonText}>Cancel</Text>
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </AppScreen>
     );
 };
 
-// ─── Form Field ────────────────────────────────────────────────
-const FormField = ({ label, value, onChangeText, placeholder, keyboardType, maxLength }: any) => (
-    <View style={s.fieldRow}>
-        <Text style={s.fieldLabel}>{label}</Text>
+const FormField = ({
+    label,
+    value,
+    onChangeText,
+    placeholder,
+    keyboardType,
+    maxLength,
+}: {
+    label: string;
+    value: string;
+    onChangeText: (value: string) => void;
+    placeholder: string;
+    keyboardType?: 'default' | 'numeric';
+    maxLength?: number;
+}) => (
+    <View style={styles.field}>
+        <Text style={styles.fieldLabel}>{label}</Text>
         <TextInput
-            style={s.fieldInput}
+            style={styles.fieldInput}
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
-            placeholderTextColor={C.muted}
+            placeholderTextColor={Colors.textTertiary}
             keyboardType={keyboardType}
             maxLength={maxLength}
+            autoCapitalize="characters"
         />
     </View>
 );
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    screen: {
+        paddingBottom: 120,
     },
-    headerBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
+    heroCard: {
+        marginTop: 8,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-
-    scrollContent: { padding: 16, paddingBottom: 40 },
-
-    heroCircle: {
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: 'rgba(234,16,60,0.1)',
-        alignItems: 'center', justifyContent: 'center',
-        alignSelf: 'center', marginVertical: 24,
+    heroIcon: {
+        width: 54,
+        height: 54,
+        borderRadius: 18,
+        backgroundColor: 'rgba(234,16,60,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
     },
-
-    errorBanner: {
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-        backgroundColor: 'rgba(239,68,68,0.1)',
-        paddingHorizontal: 16, paddingVertical: 12,
-        borderRadius: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
-        marginBottom: 16,
+    heroTitle: {
+        ...Typography.h2,
     },
-    errorText: { color: C.error, fontSize: 14, fontWeight: '500', flex: 1 },
-
+    heroBody: {
+        ...Typography.caption,
+        marginTop: 8,
+        lineHeight: 20,
+    },
+    errorCard: {
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'flex-start',
+        borderColor: 'rgba(255,107,121,0.22)',
+        backgroundColor: 'rgba(255,107,121,0.08)',
+    },
+    errorText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 19,
+        color: Colors.error,
+    },
     formCard: {
-        backgroundColor: C.surface,
-        borderRadius: 20, overflow: 'hidden',
+        marginTop: 12,
     },
-    divider: { height: 1, backgroundColor: C.border, marginLeft: 16 },
-
-    fieldRow: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, minHeight: 56,
+    sectionLabel: {
+        ...Typography.dataLabel,
+        marginBottom: 10,
+    },
+    field: {
+        marginBottom: 12,
     },
     fieldLabel: {
-        width: 110, fontSize: 14, fontWeight: '600', color: C.muted,
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+        marginBottom: 6,
     },
     fieldInput: {
-        flex: 1, height: 56,
-        fontSize: 16, color: C.text,
-        textAlign: 'right',
+        minHeight: 48,
+        borderRadius: Layout.radiusMd,
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        color: Colors.textPrimary,
+        paddingHorizontal: 14,
+        fontSize: 15,
     },
-
     helperText: {
-        fontSize: 12, color: C.muted, marginTop: 12, marginLeft: 16,
+        fontSize: 12,
         lineHeight: 18,
+        color: Colors.textTertiary,
+        marginTop: 4,
     },
-
     previewCard: {
-        backgroundColor: C.surface,
-        borderRadius: 16, padding: 20,
-        marginTop: 24,
-        borderWidth: 1, borderColor: 'rgba(234,16,60,0.15)',
+        marginTop: 12,
     },
-    previewLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', color: C.primary, letterSpacing: 1.2, marginBottom: 8 },
-    previewName: { fontSize: 20, fontWeight: '800', color: C.text },
-    previewVin: { fontSize: 12, color: C.muted, fontFamily: 'monospace', marginTop: 4 },
-
-    footer: {
-        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12,
-        borderTopWidth: 1, borderTopColor: C.border,
+    previewName: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.textPrimary,
     },
-    addButton: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 52, borderRadius: 26, backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+    previewMeta: {
+        marginTop: 6,
+        fontSize: 12,
+        color: Colors.textSecondary,
+        fontFamily: 'Courier',
     },
-    addButtonDisabled: { backgroundColor: '#3f3f46', shadowOpacity: 0 },
-    addButtonText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
-    cancelBtn: { height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-    cancelBtnText: { fontSize: 16, fontWeight: '500', color: C.muted },
+    actions: {
+        gap: 10,
+        marginTop: 14,
+    },
+    primaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    primaryButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
+    },
+    secondaryButton: {
+        minHeight: 48,
+        borderRadius: Layout.buttonRadius,
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    buttonDisabled: {
+        opacity: 0.45,
+    },
 });

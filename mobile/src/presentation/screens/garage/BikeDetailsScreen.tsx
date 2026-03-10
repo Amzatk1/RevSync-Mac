@@ -1,21 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
-import { useAppStore } from '../../store/useAppStore';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    divider: 'rgba(255,255,255,0.04)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-    success: '#22C55E',
-};
+const { Colors, Layout, Typography } = Theme;
 
 export const BikeDetailsScreen = ({ navigation, route }: any) => {
     const { bikeId } = route.params;
@@ -25,7 +15,7 @@ export const BikeDetailsScreen = ({ navigation, route }: any) => {
         const load = async () => {
             const bikeService = ServiceLocator.getBikeService();
             const all = await bikeService.getBikes();
-            const found = all.find(b => b.id === bikeId);
+            const found = all.find((entry) => entry.id === bikeId);
             setBike(found);
 
             if (found) {
@@ -41,165 +31,195 @@ export const BikeDetailsScreen = ({ navigation, route }: any) => {
 
     if (!bike) {
         return (
-            <SafeAreaView style={s.root} edges={['top']}>
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ color: C.muted, fontSize: 16 }}>Loading...</Text>
-                </View>
-            </SafeAreaView>
+            <AppScreen contentContainerStyle={styles.loadingScreen}>
+                <Text style={styles.loadingText}>Loading bike details...</Text>
+            </AppScreen>
         );
     }
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color={C.text} />
+        <AppScreen scroll contentContainerStyle={styles.content}>
+            <TopBar title="Bike Details" subtitle={`${bike.year} ${bike.make} ${bike.model}`} onBack={() => navigation.goBack()} />
+
+            <GlassCard style={styles.heroCard}>
+                <View style={styles.heroIcon}>
+                    <Ionicons name="bicycle" size={32} color={Colors.primary} />
+                </View>
+                <Text style={styles.heroTitle}>
+                    {bike.year} {bike.make} {bike.model}
+                </Text>
+                <Text style={styles.heroSub}>{bike.name || 'Vehicle profile'}</Text>
+            </GlassCard>
+
+            <GlassCard style={styles.detailsCard}>
+                <Text style={styles.sectionLabel}>Specifications</Text>
+                <DetailRow icon="barcode-outline" iconColor={Colors.info} label="VIN" value={bike.vin || 'Not set'} />
+                <DetailRow icon="hardware-chip-outline" iconColor="#9B8CFF" label="ECU ID" value={bike.ecuId || 'Not linked'} />
+                <DetailRow icon="calendar-outline" iconColor={Colors.warning} label="Year" value={String(bike.year)} />
+                <DetailRow icon="flash-outline" iconColor={Colors.primary} label="Last Flash" value="No recorded flash session" />
+            </GlassCard>
+
+            <GlassCard>
+                <Text style={styles.sectionLabel}>Actions</Text>
+                <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => {
+                        ServiceLocator.getAnalyticsService().logEvent('ecu_identify_initiated', { bikeId: bike.id });
+                        navigation.navigate('Flash', {
+                            screen: 'ECUIdentify',
+                            params: { bikeId: bike.id },
+                        });
+                    }}
+                >
+                    <Ionicons name="scan-outline" size={18} color={Colors.white} />
+                    <Text style={styles.primaryButtonText}>Identify ECU</Text>
                 </TouchableOpacity>
-                <Text style={s.headerTitle}>Bike Details</Text>
-                <View style={{ width: 40 }} />
-            </View>
 
-            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* ─── Hero ─── */}
-                <View style={s.heroCard}>
-                    <View style={s.heroIcon}>
-                        <Ionicons name="bicycle" size={40} color={C.primary} />
-                    </View>
-                    <Text style={s.heroTitle}>{bike.year} {bike.make} {bike.model}</Text>
-                    <Text style={s.heroSub}>{bike.name || 'Vehicle Details'}</Text>
-                </View>
+                <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() =>
+                        navigation.navigate('Flash', {
+                            screen: 'Backup',
+                            params: { bikeId: bike.id },
+                        })
+                    }
+                >
+                    <Ionicons name="cloud-download-outline" size={18} color={Colors.textPrimary} />
+                    <Text style={styles.secondaryButtonText}>Open Backups</Text>
+                </TouchableOpacity>
 
-                {/* ─── Details Card ─── */}
-                <Text style={s.sectionLabel}>SPECIFICATIONS</Text>
-                <View style={s.card}>
-                    <DetailRow icon="barcode-outline" iconColor="#3B82F6" label="VIN" value={bike.vin || 'Not Set'} />
-                    <View style={s.rowDivider} />
-                    <DetailRow icon="hardware-chip-outline" iconColor="#A855F7" label="ECU ID" value={bike.ecuId || 'Not Linked'} />
-                    <View style={s.rowDivider} />
-                    <DetailRow icon="calendar-outline" iconColor="#F59E0B" label="Year" value={String(bike.year)} />
-                    <View style={s.rowDivider} />
-                    <DetailRow icon="flash-outline" iconColor={C.primary} label="Last Flash" value="Never" />
-                </View>
-
-                {/* ─── Actions ─── */}
-                <Text style={s.sectionLabel}>ACTIONS</Text>
-                <View style={s.actionsContainer}>
-                    <TouchableOpacity
-                        style={s.primaryBtn}
-                        onPress={() => {
-                            ServiceLocator.getAnalyticsService().logEvent('ecu_identify_initiated', { bikeId: bike.id });
-                            navigation.navigate('Flash', {
-                                screen: 'ECUIdentify',
-                                params: { bikeId: bike.id },
-                            });
-                        }}
-                        activeOpacity={0.85}
-                    >
-                        <Ionicons name="scan-outline" size={20} color="#FFF" />
-                        <Text style={s.primaryBtnText}>Identify ECU</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={s.secondaryBtn}
-                        onPress={() => {
-                            navigation.navigate('Flash', {
-                                screen: 'Backup',
-                                params: { bikeId: bike.id },
-                            });
-                        }}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="cloud-download-outline" size={20} color={C.text} />
-                        <Text style={s.secondaryBtnText}>View Backups</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[s.secondaryBtn, { borderColor: 'rgba(34,197,94,0.2)', backgroundColor: 'rgba(34,197,94,0.05)' }]}
-                        onPress={() => navigation.navigate('Flash', { screen: 'Telemetry' })}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="pulse-outline" size={20} color="#22C55E" />
-                        <Text style={[s.secondaryBtnText, { color: '#22C55E' }]}>Live Telemetry</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Flash', { screen: 'Telemetry' })}>
+                    <Ionicons name="pulse-outline" size={18} color={Colors.textPrimary} />
+                    <Text style={styles.secondaryButtonText}>Live Telemetry</Text>
+                </TouchableOpacity>
+            </GlassCard>
+        </AppScreen>
     );
 };
 
-// ─── Sub-components ────────────────────────────────────────────
-const DetailRow = ({ icon, iconColor, label, value }: { icon: string; iconColor: string; label: string; value: string }) => (
-    <View style={s.detailRow}>
-        <View style={[s.detailIcon, { backgroundColor: `${iconColor}15` }]}>
+const DetailRow = ({
+    icon,
+    iconColor,
+    label,
+    value,
+}: {
+    icon: string;
+    iconColor: string;
+    label: string;
+    value: string;
+}) => (
+    <View style={styles.detailRow}>
+        <View style={[styles.detailIcon, { backgroundColor: `${iconColor}15` }]}>
             <Ionicons name={icon as any} size={18} color={iconColor} />
         </View>
-        <Text style={s.detailLabel}>{label}</Text>
-        <Text style={s.detailValue}>{value}</Text>
+        <View style={styles.detailCopy}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <Text style={styles.detailValue}>{value}</Text>
+        </View>
     </View>
 );
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    content: {
+        paddingBottom: 120,
     },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
+    loadingScreen: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-    scrollContent: { padding: 16, paddingBottom: 48 },
-
-    // Hero
+    loadingText: {
+        fontSize: 15,
+        color: Colors.textSecondary,
+    },
     heroCard: {
-        backgroundColor: C.surface, borderRadius: 20,
-        padding: 24, alignItems: 'center', marginBottom: 8,
+        marginTop: 8,
+        alignItems: 'center',
+        paddingVertical: 24,
     },
     heroIcon: {
-        width: 72, height: 72, borderRadius: 20,
-        backgroundColor: 'rgba(234,16,60,0.08)',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 16,
+        width: 72,
+        height: 72,
+        borderRadius: 24,
+        backgroundColor: 'rgba(234,16,60,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
     },
-    heroTitle: { fontSize: 24, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
-    heroSub: { fontSize: 14, color: C.muted, marginTop: 4 },
-
+    heroTitle: {
+        ...Typography.h2,
+        textAlign: 'center',
+    },
+    heroSub: {
+        ...Typography.caption,
+        marginTop: 6,
+        textAlign: 'center',
+    },
+    detailsCard: {
+        marginTop: 12,
+    },
     sectionLabel: {
-        fontSize: 11, fontWeight: '700', letterSpacing: 1.2,
-        textTransform: 'uppercase', color: C.muted,
-        marginLeft: 16, marginBottom: 8, marginTop: 24,
+        ...Typography.dataLabel,
+        marginBottom: 10,
     },
-
-    // Details card
-    card: { backgroundColor: C.surface, borderRadius: 20, overflow: 'hidden' },
     detailRow: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, minHeight: 56,
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'flex-start',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
     },
     detailIcon: {
-        width: 32, height: 32, borderRadius: 10,
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 14,
+        width: 34,
+        height: 34,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    detailLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: C.muted },
-    detailValue: { fontSize: 15, fontWeight: '600', color: C.text },
-    rowDivider: { height: 1, backgroundColor: C.divider, marginLeft: 16 },
-
-    // Actions
-    actionsContainer: { gap: 12 },
-    primaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 52, borderRadius: 26, backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+    detailCopy: {
+        flex: 1,
     },
-    primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
-    secondaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 48, borderRadius: 24, borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+    detailLabel: {
+        ...Typography.dataLabel,
+        marginBottom: 6,
     },
-    secondaryBtnText: { fontSize: 15, fontWeight: '600', color: C.text },
+    detailValue: {
+        fontSize: 14,
+        lineHeight: 20,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+    },
+    primaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 10,
+    },
+    primaryButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
+    },
+    secondaryButton: {
+        minHeight: 48,
+        borderRadius: Layout.buttonRadius,
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 10,
+    },
+    secondaryButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
 });

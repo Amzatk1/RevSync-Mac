@@ -1,21 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-    View, Text, StyleSheet, FlatList, TouchableOpacity, Share, Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-};
+const { Colors, Layout, Typography } = Theme;
 
-// ─── Live Log Collector ────────────────────────────────────────
 interface LogEntry {
     id: string;
     timestamp: string;
@@ -27,18 +17,16 @@ const logBuffer: LogEntry[] = [];
 let logIdCounter = 0;
 
 const captureLog = (level: LogEntry['level'], args: any[]) => {
-    const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+    const message = args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' ');
     logBuffer.unshift({
         id: String(++logIdCounter),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
         level,
         message,
     });
-    // Keep max 200 entries
     if (logBuffer.length > 200) logBuffer.length = 200;
 };
 
-// Intercept console methods once
 const _origLog = console.log;
 const _origWarn = console.warn;
 const _origError = console.error;
@@ -62,187 +50,191 @@ const patchConsole = () => {
     };
 };
 
-// Start capturing immediately on import
 patchConsole();
 
-// ─── Component ─────────────────────────────────────────────────
 export const LogsExportScreen = ({ navigation }: any) => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
 
     useEffect(() => {
-        // Snapshot current buffer
         setLogs([...logBuffer]);
-
-        // Refresh every 2s
-        const interval = setInterval(() => {
-            setLogs([...logBuffer]);
-        }, 2000);
-
+        const interval = setInterval(() => setLogs([...logBuffer]), 2000);
         return () => clearInterval(interval);
     }, []);
 
     const handleExport = async () => {
         if (logs.length === 0) {
-            Alert.alert('No Logs', 'No log entries captured yet.');
+            Alert.alert('No logs', 'No log entries captured yet.');
             return;
         }
-        const logContent = logs.map(l => `[${l.timestamp}] [${l.level}] ${l.message}`).join('\n');
+
+        const content = logs.map((log) => `[${log.timestamp}] [${log.level}] ${log.message}`).join('\n');
         try {
-            await Share.share({ message: logContent, title: 'RevSync App Logs' });
+            await Share.share({ message: content, title: 'RevSync App Logs' });
         } catch (e) {
             console.error('Share failed:', e);
         }
     };
 
-    const levelColor = (level: string) => {
+    const levelColor = (level: LogEntry['level']) => {
         switch (level) {
-            case 'ERROR': return '#EF4444';
-            case 'WARN': return '#F59E0B';
-            default: return '#22C55E';
+            case 'ERROR':
+                return Colors.error;
+            case 'WARN':
+                return Colors.warning;
+            default:
+                return Colors.success;
         }
     };
 
-    const renderItem = ({ item }: { item: LogEntry }) => (
-        <View style={s.logRow}>
-            <Text style={s.logTime}>{item.timestamp.slice(11)}</Text>
-            <View style={[s.levelPill, { backgroundColor: `${levelColor(item.level)}15` }]}>
-                <Text style={[s.levelText, { color: levelColor(item.level) }]}>{item.level}</Text>
-            </View>
-            <Text style={s.logMsg} numberOfLines={2}>{item.message}</Text>
-        </View>
-    );
-
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color={C.text} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>App Logs</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <AppScreen contentContainerStyle={styles.screen}>
+            <TopBar title="Session Logs" subtitle="Captured console output for support and diagnostics" onBack={() => navigation.goBack()} />
 
-            {/* ─── Console Frame ─── */}
-            <View style={s.consoleFrame}>
-                <View style={s.consoleTitleBar}>
-                    <View style={s.trafficDots}>
-                        <View style={[s.dot, { backgroundColor: '#FF5F57' }]} />
-                        <View style={[s.dot, { backgroundColor: '#FEBC2E' }]} />
-                        <View style={[s.dot, { backgroundColor: '#28C840' }]} />
-                    </View>
-                    <Text style={s.consoleTitle}>revsync — session logs</Text>
-                    <Text style={s.consoleCount}>{logs.length} entries</Text>
+            <GlassCard style={styles.consoleCard}>
+                <View style={styles.consoleHeader}>
+                    <Text style={styles.consoleTitle}>revsync-session.log</Text>
+                    <Text style={styles.consoleCount}>{logs.length} entries</Text>
                 </View>
 
                 {logs.length === 0 ? (
-                    <View style={s.emptyState}>
-                        <Ionicons name="terminal-outline" size={48} color={C.muted} />
-                        <Text style={s.emptyTitle}>No Logs Yet</Text>
-                        <Text style={s.emptySub}>Navigate around the app to generate log entries.</Text>
+                    <View style={styles.emptyState}>
+                        <Ionicons name="terminal-outline" size={36} color={Colors.textTertiary} />
+                        <Text style={styles.emptyTitle}>No logs yet</Text>
+                        <Text style={styles.emptyBody}>Use the app normally to generate log entries for export.</Text>
                     </View>
                 ) : (
                     <FlatList
                         data={logs}
                         keyExtractor={(item) => item.id}
-                        renderItem={renderItem}
-                        contentContainerStyle={s.logList}
-                        showsVerticalScrollIndicator={false}
+                        renderItem={({ item }) => (
+                            <View style={styles.logRow}>
+                                <Text style={styles.logTime}>{item.timestamp.slice(11)}</Text>
+                                <View style={[styles.levelPill, { backgroundColor: `${levelColor(item.level)}15` }]}>
+                                    <Text style={[styles.levelText, { color: levelColor(item.level) }]}>{item.level}</Text>
+                                </View>
+                                <Text style={styles.logMsg} numberOfLines={2}>
+                                    {item.message}
+                                </Text>
+                            </View>
+                        )}
+                        style={styles.logList}
                     />
                 )}
-            </View>
+            </GlassCard>
 
-            {/* ─── Info Bar ─── */}
-            <View style={s.infoBar}>
-                <Ionicons name="information-circle-outline" size={16} color={C.muted} />
-                <Text style={s.infoText}>Live session logs. Captured from console output.</Text>
-            </View>
+            <GlassCard style={styles.infoCard}>
+                <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+                <Text style={styles.infoText}>These are live session logs captured from console output and intended for support diagnostics.</Text>
+            </GlassCard>
 
-            {/* ─── Export Button ─── */}
-            <View style={s.footer}>
-                <TouchableOpacity style={s.exportBtn} onPress={handleExport} activeOpacity={0.85}>
-                    <Ionicons name="share-outline" size={20} color="#FFF" />
-                    <Text style={s.exportBtnText}>Export Logs</Text>
-                </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+            <TouchableOpacity style={styles.exportButton} onPress={handleExport}>
+                <Text style={styles.exportButtonText}>Export Logs</Text>
+            </TouchableOpacity>
+        </AppScreen>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    screen: {
+        paddingBottom: 120,
     },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
+    consoleCard: {
+        marginTop: 8,
+        flex: 1,
+        minHeight: 420,
+        backgroundColor: 'rgba(13,17,23,0.94)',
+        borderColor: 'rgba(255,255,255,0.08)',
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-
-    consoleFrame: {
-        flex: 1, margin: 16,
-        backgroundColor: '#0D1117',
-        borderRadius: 16, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    consoleHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
     },
-    consoleTitleBar: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 14, paddingVertical: 10,
-        backgroundColor: '#161B22',
-        borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
-    },
-    trafficDots: { flexDirection: 'row', gap: 6, marginRight: 12 },
-    dot: { width: 10, height: 10, borderRadius: 5 },
     consoleTitle: {
-        flex: 1, fontSize: 12, fontWeight: '600',
-        color: C.muted, fontFamily: 'Courier',
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+        fontFamily: 'Courier',
     },
-    consoleCount: { fontSize: 11, color: C.muted },
-
-    logList: { padding: 12, gap: 6 },
+    consoleCount: {
+        fontSize: 11,
+        color: Colors.textTertiary,
+    },
+    logList: {
+        flex: 1,
+    },
     logRow: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
         paddingVertical: 4,
     },
     logTime: {
-        fontSize: 11, color: '#6E7681',
-        fontFamily: 'Courier', width: 60,
-    },
-    levelPill: {
-        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
-        minWidth: 40, alignItems: 'center',
-    },
-    levelText: { fontSize: 9, fontWeight: '800', fontFamily: 'Courier' },
-    logMsg: {
-        flex: 1, fontSize: 12, color: '#C9D1D9',
+        width: 60,
+        fontSize: 11,
+        color: '#6E7681',
         fontFamily: 'Courier',
     },
-
+    levelPill: {
+        minWidth: 44,
+        alignItems: 'center',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    levelText: {
+        fontSize: 9,
+        fontWeight: '800',
+        fontFamily: 'Courier',
+    },
+    logMsg: {
+        flex: 1,
+        fontSize: 12,
+        color: '#C9D1D9',
+        fontFamily: 'Courier',
+    },
     emptyState: {
-        flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
     },
     emptyTitle: {
-        fontSize: 18, fontWeight: '700', color: C.text, marginTop: 12,
+        marginTop: 12,
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.textPrimary,
     },
-    emptySub: { fontSize: 13, color: C.muted, marginTop: 4, textAlign: 'center' },
-
-    infoBar: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        marginHorizontal: 16, marginBottom: 8,
+    emptyBody: {
+        ...Typography.caption,
+        marginTop: 8,
+        textAlign: 'center',
+        maxWidth: 260,
     },
-    infoText: { fontSize: 12, color: C.muted },
-
-    footer: { paddingHorizontal: 16, paddingBottom: 24 },
-    exportBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 52, borderRadius: 26,
-        backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+    infoCard: {
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'flex-start',
     },
-    exportBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    infoText: {
+        flex: 1,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Colors.textSecondary,
+    },
+    exportButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 14,
+    },
+    exportButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
+    },
 });

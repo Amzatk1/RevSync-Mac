@@ -34,12 +34,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userProfile = await userService.getProfile();
         if (userProfile) {
             setProfile({
-                id: String(userProfile.id),
+                id: String(userProfile.id || ''),
                 bio: userProfile.bio,
                 country: userProfile.country,
                 experience_level: userProfile.experience_level,
                 riding_style: userProfile.riding_style,
-                has_completed_onboarding: userProfile.has_completed_onboarding,
+                has_completed_onboarding: userProfile.has_completed_onboarding ?? false,
             });
         }
     };

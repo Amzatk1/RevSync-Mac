@@ -1,186 +1,167 @@
 import React, { useState } from 'react';
-import {
-    View, Text, StyleSheet, LayoutAnimation, TouchableOpacity, Linking, ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LayoutAnimation, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF',
-    muted: '#a3a3a3',
-    primary: '#ea103c',
-};
+const { Colors, Layout, Typography } = Theme;
 
 const FAQ_DATA = [
     {
         question: 'How do I connect to my ECU?',
-        answer: "Ensure your bike's ignition is on. Enable Bluetooth on your phone and select 'RevSync-ECU' from the device list. If prompted for a pin, enter 0000 or 1234.",
+        answer: "Turn the bike ignition on, enable Bluetooth, and connect to the RevSync ECU device before starting identification or flashing.",
     },
     {
-        question: 'Is remapping my engine safe?',
-        answer: 'Yes, our maps are designed within safe factory tolerances. However, pushing components beyond their limits without proper hardware upgrades carries risks. Always monitor engine temps.',
+        question: 'Is remapping safe?',
+        answer: 'RevSync is designed around signed packages, backups, and guided safety checks, but aggressive tuning still carries mechanical risk if the vehicle setup is unsuitable.',
     },
     {
-        question: 'How do I revert to factory settings?',
-        answer: 'Go to the "My Bike" tab, select your current map profile, and tap "Restore Stock Firmware". Ensure your battery is fully charged before starting this process.',
+        question: 'How do I revert to stock?',
+        answer: 'Use the recovery or backup restore path from the flash flow. A valid ECU backup must exist before this can happen safely.',
     },
     {
-        question: 'What does Error Code 404 mean?',
-        answer: "Error 404 usually indicates a connection timeout during a flash. Don't panic. Keep the ignition on, force close the app, restart it, and try the flash again immediately.",
-    },
-    {
-        question: 'Can I share my tuning maps?',
-        answer: 'Map sharing is available for Pro users. You can export your configuration as a .rsv file and share it via AirDrop or email directly from the map editor screen.',
-    },
-    {
-        question: 'Does this void my warranty?',
-        answer: 'Technically, modifying the ECU can give manufacturers grounds to deny warranty claims related to the engine. We recommend flashing back to stock before service visits.',
+        question: 'What does a verification failure mean?',
+        answer: 'Post-flash validation did not fully match the expected package or ECU state. Retry verification first, then use recovery if the ECU remains unstable.',
     },
 ];
 
 export const SupportScreen = ({ navigation }: any) => {
     const handleContactSupport = () => {
-        Linking.openURL('mailto:support@revsync.app?subject=Support Request');
+        Linking.openURL('mailto:support@revsync.app?subject=RevSync Support Request');
     };
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color={C.text} />
-                </TouchableOpacity>
-                <View style={{ width: 40 }} />
-            </View>
+        <AppScreen scroll contentContainerStyle={styles.content}>
+            <TopBar title="Support" subtitle="Help, FAQs, and escalation paths" onBack={() => navigation.goBack()} />
 
-            {/* ─── Title ─── */}
-            <View style={s.titleSection}>
-                <Text style={s.title}>Help & Support</Text>
-                <Text style={s.subtitle}>Frequently Asked Questions</Text>
-            </View>
+            <GlassCard style={styles.heroCard}>
+                <Text style={styles.kicker}>Support Center</Text>
+                <Text style={styles.heroTitle}>Guidance for connection, verification, and recovery workflows.</Text>
+                <Text style={styles.heroBody}>This screen exists to resolve real operator issues quickly, not to act as a generic marketing FAQ.</Text>
+            </GlassCard>
 
-            {/* ─── FAQ List ─── */}
-            <ScrollView
-                contentContainerStyle={s.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {FAQ_DATA.map((item, i) => (
-                    <FAQItem key={i} question={item.question} answer={item.answer} />
+            <View style={styles.stack}>
+                {FAQ_DATA.map((item) => (
+                    <FAQItem key={item.question} question={item.question} answer={item.answer} />
                 ))}
-                {/* spacer for fixed CTA */}
-                <View style={{ height: 220 }} />
-            </ScrollView>
-
-            {/* ─── Fixed Bottom CTA ─── */}
-            <View style={s.ctaContainer}>
-                <View style={s.ctaCard}>
-                    {/* decorative blur */}
-                    <View style={s.ctaGlow} />
-                    <View style={s.ctaIconCircle}>
-                        <Ionicons name="chatbubble-outline" size={28} color={C.primary} />
-                    </View>
-                    <Text style={s.ctaTitle}>Still need help?</Text>
-                    <Text style={s.ctaSubtitle}>
-                        Our support team is available 24/7 to assist with your tuning needs.
-                    </Text>
-                    <TouchableOpacity style={s.ctaButton} onPress={handleContactSupport} activeOpacity={0.85}>
-                        <Ionicons name="headset-outline" size={20} color="#FFF" />
-                        <Text style={s.ctaButtonText}>Contact Support</Text>
-                    </TouchableOpacity>
-                </View>
             </View>
-        </SafeAreaView>
+
+            <GlassCard style={styles.ctaCard}>
+                <View style={styles.ctaIcon}>
+                    <Ionicons name="chatbubble-outline" size={22} color={Colors.primary} />
+                </View>
+                <Text style={styles.ctaTitle}>Still need help?</Text>
+                <Text style={styles.ctaBody}>Use email support when the guided flow cannot resolve the issue or when you need human review of logs and recovery state.</Text>
+                <TouchableOpacity style={styles.primaryButton} onPress={handleContactSupport}>
+                    <Text style={styles.primaryButtonText}>Contact Support</Text>
+                </TouchableOpacity>
+            </GlassCard>
+        </AppScreen>
     );
 };
 
-// ─── FAQ Accordion Item ────────────────────────────────────────
 const FAQItem = ({ question, answer }: { question: string; answer: string }) => {
     const [expanded, setExpanded] = useState(false);
 
     const toggle = () => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setExpanded(!expanded);
+        setExpanded((prev) => !prev);
     };
 
     return (
-        <TouchableOpacity onPress={toggle} activeOpacity={0.8} style={s.faqCard}>
-            <View style={s.faqHeader}>
-                <Text style={s.faqQuestion}>{question}</Text>
-                <Ionicons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={expanded ? C.primary : C.muted}
-                />
-            </View>
-            {expanded && <Text style={s.faqAnswer}>{answer}</Text>}
+        <TouchableOpacity onPress={toggle} activeOpacity={0.8}>
+            <GlassCard style={styles.faqCard}>
+                <View style={styles.faqHeader}>
+                    <Text style={styles.faqQuestion}>{question}</Text>
+                    <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={expanded ? Colors.accent : Colors.textSecondary} />
+                </View>
+                {expanded && <Text style={styles.faqAnswer}>{answer}</Text>}
+            </GlassCard>
         </TouchableOpacity>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
+const styles = StyleSheet.create({
+    content: {
+        paddingBottom: 120,
     },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    titleSection: { paddingHorizontal: 16, marginBottom: 24 },
-    title: { fontSize: 30, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
-    subtitle: { fontSize: 16, fontWeight: '500', color: C.muted, marginTop: 4 },
-
-    scrollContent: { paddingHorizontal: 16, gap: 12 },
-
-    faqCard: {
-        backgroundColor: C.surface,
-        borderRadius: 16, overflow: 'hidden',
-    },
-    faqHeader: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        padding: 16,
-    },
-    faqQuestion: { fontSize: 15, fontWeight: '700', color: C.text, flex: 1, marginRight: 16 },
-    faqAnswer: { fontSize: 14, color: C.muted, lineHeight: 22, paddingHorizontal: 16, paddingBottom: 16 },
-
-    // Fixed bottom CTA
-    ctaContainer: {
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 48,
-        // gradient fade via background
-    },
-    ctaCard: {
-        backgroundColor: C.surface,
-        borderRadius: 24, padding: 20,
-        alignItems: 'center',
-        borderWidth: 1, borderColor: C.border,
-        overflow: 'hidden',
-    },
-    ctaGlow: {
-        position: 'absolute', top: -40, right: -40,
-        width: 128, height: 128, borderRadius: 64,
-        backgroundColor: 'rgba(234,16,60,0.1)',
-    },
-    ctaIconCircle: {
-        width: 56, height: 56, borderRadius: 28,
-        backgroundColor: 'rgba(234,16,60,0.1)',
-        alignItems: 'center', justifyContent: 'center',
+    heroCard: {
+        marginTop: 8,
         marginBottom: 12,
     },
-    ctaTitle: { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 4 },
-    ctaSubtitle: { fontSize: 14, color: C.muted, textAlign: 'center', marginBottom: 20, maxWidth: 260 },
-    ctaButton: {
-        width: '100%', height: 48, borderRadius: 24,
-        backgroundColor: C.primary,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+    kicker: {
+        ...Typography.dataLabel,
+        color: Colors.accent,
+        marginBottom: 8,
     },
-    ctaButtonText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    heroTitle: {
+        ...Typography.h2,
+    },
+    heroBody: {
+        ...Typography.caption,
+        marginTop: 8,
+        lineHeight: 20,
+    },
+    stack: {
+        gap: 10,
+    },
+    faqCard: {},
+    faqHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 10,
+    },
+    faqQuestion: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    faqAnswer: {
+        marginTop: 10,
+        fontSize: 13,
+        lineHeight: 20,
+        color: Colors.textSecondary,
+    },
+    ctaCard: {
+        marginTop: 12,
+        alignItems: 'center',
+        paddingVertical: 22,
+    },
+    ctaIcon: {
+        width: 52,
+        height: 52,
+        borderRadius: 18,
+        backgroundColor: 'rgba(234,16,60,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    ctaTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+    },
+    ctaBody: {
+        ...Typography.caption,
+        textAlign: 'center',
+        marginTop: 8,
+        maxWidth: 280,
+    },
+    primaryButton: {
+        minHeight: 48,
+        minWidth: 180,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 16,
+        paddingHorizontal: 20,
+    },
+    primaryButtonText: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: Colors.white,
+    },
 });

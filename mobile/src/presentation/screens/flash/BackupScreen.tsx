@@ -1,36 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, BackHandler, Alert, TouchableOpacity, Animated, Easing } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, BackHandler, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
-import { useAppStore } from '../../store/useAppStore';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-    success: '#22C55E',
-    warning: '#F97316',
-    error: '#EF4444',
-};
+const { Colors, Layout, Typography } = Theme;
 
 export const BackupScreen = ({ navigation, route }: any) => {
-    const { tuneId, ecuData } = route.params || {};
+    const { tuneId } = route.params || {};
     const [status, setStatus] = useState<'idle' | 'reading' | 'uploading' | 'completed' | 'failed'>('idle');
     const [progress, setProgress] = useState(0);
     const [backupPath, setBackupPath] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    // Prevent accidental back navigation during critical operations
     useEffect(() => {
         const onBackPress = () => {
             if (status === 'reading' || status === 'uploading') {
-                Alert.alert('Backup in Progress', 'Please do not interrupt the backup process.');
+                Alert.alert('Backup in progress', 'Do not interrupt the ECU backup process.');
                 return true;
             }
             return false;
@@ -44,12 +32,12 @@ export const BackupScreen = ({ navigation, route }: any) => {
         if (status === 'completed') {
             Animated.loop(
                 Animated.sequence([
-                    Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-                    Animated.timing(pulseAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-                ])
+                    Animated.timing(pulseAnim, { toValue: 1.08, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+                ]),
             ).start();
         }
-    }, [status]);
+    }, [pulseAnim, status]);
 
     const startBackup = async () => {
         setStatus('reading');
@@ -58,16 +46,10 @@ export const BackupScreen = ({ navigation, route }: any) => {
 
         try {
             const ecuService = ServiceLocator.getECUService();
-
-            const path = await ecuService.readECU((pct) => {
-                setProgress(pct);
-            });
-
+            const path = await ecuService.readECU((pct: number) => setProgress(pct));
             setBackupPath(path);
-
             setStatus('uploading');
-            await new Promise(r => setTimeout(r, 1500));
-
+            await new Promise((resolve) => setTimeout(resolve, 1500));
             setStatus('completed');
         } catch (e: any) {
             setError(e.message || 'Backup failed');
@@ -75,216 +57,226 @@ export const BackupScreen = ({ navigation, route }: any) => {
         }
     };
 
-    const handleNext = () => {
-        navigation.navigate('FlashWizard', { tuneId, backupPath });
-    };
+    const handleNext = () => navigation.navigate('FlashWizard', { tuneId, backupPath });
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <TouchableOpacity
-                    style={s.backBtn}
-                    onPress={() => {
-                        if (status === 'reading' || status === 'uploading') {
-                            Alert.alert('Backup in Progress', 'Please do not interrupt the backup process.');
-                        } else {
-                            navigation.goBack();
-                        }
-                    }}
-                >
-                    <Ionicons name="arrow-back" size={24} color={C.text} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>ECU Backup</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <AppScreen contentContainerStyle={styles.content}>
+            <TopBar
+                title="ECU Backup"
+                subtitle="Create a restore point before any write operation"
+                onBack={() => {
+                    if (status === 'reading' || status === 'uploading') {
+                        Alert.alert('Backup in progress', 'Do not interrupt the ECU backup process.');
+                        return;
+                    }
+                    navigation.goBack();
+                }}
+            />
 
-            <View style={s.content}>
-                {/* ─── Idle State ─── */}
+            {status === 'idle' && (
+                <>
+                    <GlassCard style={styles.heroCard}>
+                        <View style={styles.heroIcon}>
+                            <Ionicons name="save-outline" size={28} color={Colors.primary} />
+                        </View>
+                        <Text style={styles.heroTitle}>Create a safety restore point before flashing.</Text>
+                        <Text style={styles.heroBody}>RevSync requires a backup so the ECU can be restored if the write fails or the resulting calibration is unusable.</Text>
+                    </GlassCard>
+
+                    <GlassCard style={styles.warningCard}>
+                        <Ionicons name="warning" size={18} color={Colors.warning} />
+                        <Text style={styles.warningText}>Keep the device connected and maintain stable battery power while the backup is being read.</Text>
+                    </GlassCard>
+                </>
+            )}
+
+            {(status === 'reading' || status === 'uploading') && (
+                <>
+                    <GlassCard style={styles.heroCard}>
+                        <Text style={styles.kicker}>{status === 'reading' ? 'Reading ECU' : 'Syncing Backup'}</Text>
+                        <Text style={styles.heroTitle}>{status === 'reading' ? 'Reading the current ECU state...' : 'Uploading the restore point...'}</Text>
+                    </GlassCard>
+
+                    <GlassCard>
+                        <View style={styles.progressHeader}>
+                            <Text style={styles.sectionLabel}>Progress</Text>
+                            <Text style={styles.progressValue}>{Math.round(progress)}%</Text>
+                        </View>
+                        <View style={styles.progressTrack}>
+                            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                        </View>
+                        <Text style={styles.progressText}>Do not disconnect power or exit the app during this step.</Text>
+                    </GlassCard>
+                </>
+            )}
+
+            {status === 'completed' && (
+                <>
+                    <GlassCard style={styles.completedCard}>
+                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                            <Ionicons name="checkmark-circle" size={62} color={Colors.success} />
+                        </Animated.View>
+                        <Text style={styles.completedTitle}>Backup secure</Text>
+                        {!!backupPath && <Text style={styles.completedPath}>{backupPath}</Text>}
+                        <Text style={styles.completedBody}>The original ECU state is stored. You can now continue to the flash wizard with a restore path available.</Text>
+                    </GlassCard>
+                </>
+            )}
+
+            {status === 'failed' && (
+                <GlassCard style={styles.errorCard}>
+                    <Ionicons name="alert-circle" size={18} color={Colors.error} />
+                    <Text style={styles.errorText}>{error || 'An unexpected error occurred.'}</Text>
+                </GlassCard>
+            )}
+
+            <View style={styles.actions}>
                 {status === 'idle' && (
-                    <View style={s.centerSection}>
-                        <View style={s.heroCircle}>
-                            <Ionicons name="save-outline" size={48} color={C.primary} />
-                        </View>
-                        <Text style={s.title}>Create Safety Restore Point</Text>
-                        <Text style={s.subtitle}>
-                            Before flashing, we must create a full backup of your current ECU state.
-                            This allows you to revert to stock if anything goes wrong.
-                        </Text>
-
-                        <View style={s.warningCard}>
-                            <View style={[s.iconCircle, { backgroundColor: 'rgba(249,115,22,0.1)' }]}>
-                                <Ionicons name="warning" size={20} color={C.warning} />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={s.warningTitle}>Do not unplug</Text>
-                                <Text style={s.warningText}>
-                                    Ensure your device stays connected and your bike battery is charged.
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-                )}
-
-                {/* ─── Reading / Uploading State ─── */}
-                {(status === 'reading' || status === 'uploading') && (
-                    <View style={s.centerSection}>
-                        <View style={s.progressCircle}>
-                            <Ionicons
-                                name={status === 'reading' ? 'hardware-chip-outline' : 'cloud-upload-outline'}
-                                size={40}
-                                color={C.primary}
-                            />
-                        </View>
-                        <Text style={s.progressPhase}>
-                            {status === 'reading' ? 'Reading ECU Memory...' : 'Syncing to Cloud...'}
-                        </Text>
-                        <Text style={s.progressPercent}>{Math.round(progress)}%</Text>
-                        <View style={s.progressBarContainer}>
-                            <View style={[s.progressBarFill, { width: `${progress}%` }]} />
-                        </View>
-                        <Text style={s.waitText}>Please wait...</Text>
-                    </View>
-                )}
-
-                {/* ─── Success State ─── */}
-                {status === 'completed' && (
-                    <View style={s.centerSection}>
-                        <Animated.View style={[s.successGlow, { transform: [{ scale: pulseAnim }] }]} />
-                        <View style={s.successIcon}>
-                            <Ionicons name="checkmark-circle" size={64} color={C.success} />
-                        </View>
-                        <Text style={s.successTitle}>Backup Secure</Text>
-                        {backupPath && (
-                            <View style={s.pathPill}>
-                                <Text style={s.pathText} numberOfLines={1}>{backupPath}</Text>
-                            </View>
-                        )}
-                        <Text style={s.successSub}>
-                            Your original ECU data is safe. We can now proceed to flash the new tune.
-                        </Text>
-                    </View>
-                )}
-
-                {/* ─── Failed State ─── */}
-                {status === 'failed' && (
-                    <View style={s.centerSection}>
-                        <View style={[s.heroCircle, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-                            <Ionicons name="alert-circle" size={48} color={C.error} />
-                        </View>
-                        <Text style={[s.title, { color: C.error }]}>Backup Failed</Text>
-                        <Text style={s.subtitle}>{error || 'An unexpected error occurred'}</Text>
-                    </View>
-                )}
-            </View>
-
-            {/* ─── Footer ─── */}
-            <View style={s.footer}>
-                {status === 'idle' && (
-                    <TouchableOpacity style={s.primaryBtn} onPress={startBackup} activeOpacity={0.85}>
-                        <Ionicons name="cloud-upload-outline" size={20} color="#FFF" />
-                        <Text style={s.primaryBtnText}>Start Backup</Text>
+                    <TouchableOpacity style={styles.primaryButton} onPress={startBackup}>
+                        <Text style={styles.primaryButtonText}>Start Backup</Text>
                     </TouchableOpacity>
                 )}
                 {status === 'completed' && (
-                    <TouchableOpacity style={[s.primaryBtn, { backgroundColor: C.success }]} onPress={handleNext} activeOpacity={0.85}>
-                        <Text style={s.primaryBtnText}>Continue to Flash</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                    <TouchableOpacity style={[styles.primaryButton, { backgroundColor: Colors.success }]} onPress={handleNext}>
+                        <Text style={styles.primaryButtonText}>Continue to Flash</Text>
                     </TouchableOpacity>
                 )}
                 {status === 'failed' && (
-                    <TouchableOpacity style={s.primaryBtn} onPress={startBackup} activeOpacity={0.85}>
-                        <Ionicons name="refresh" size={20} color="#FFF" />
-                        <Text style={s.primaryBtnText}>Retry Backup</Text>
+                    <TouchableOpacity style={styles.primaryButton} onPress={startBackup}>
+                        <Text style={styles.primaryButtonText}>Retry Backup</Text>
                     </TouchableOpacity>
                 )}
             </View>
-        </SafeAreaView>
+        </AppScreen>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    content: {
+        paddingBottom: 120,
     },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
+    heroCard: {
+        marginTop: 8,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-
-    content: { flex: 1, justifyContent: 'center', paddingHorizontal: 16 },
-
-    centerSection: { alignItems: 'center', padding: 16 },
-
-    heroCircle: {
-        width: 96, height: 96, borderRadius: 48,
-        backgroundColor: 'rgba(234,16,60,0.08)',
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: 24,
+    heroIcon: {
+        width: 54,
+        height: 54,
+        borderRadius: 18,
+        backgroundColor: 'rgba(234,16,60,0.10)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
     },
-    title: { fontSize: 24, fontWeight: '900', color: C.text, textAlign: 'center', marginBottom: 12 },
-    subtitle: { fontSize: 15, color: C.muted, textAlign: 'center', lineHeight: 22, maxWidth: 300, marginBottom: 24 },
-
+    kicker: {
+        ...Typography.dataLabel,
+        color: Colors.accent,
+        marginBottom: 8,
+    },
+    heroTitle: {
+        ...Typography.h2,
+    },
+    heroBody: {
+        ...Typography.caption,
+        marginTop: 8,
+        lineHeight: 20,
+    },
     warningCard: {
-        flexDirection: 'row', alignItems: 'center', gap: 14,
-        backgroundColor: 'rgba(249,115,22,0.06)',
-        borderRadius: 16, padding: 16, width: '100%',
-        borderWidth: 1, borderColor: 'rgba(249,115,22,0.2)',
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'flex-start',
+        borderColor: 'rgba(255,184,92,0.22)',
+        backgroundColor: 'rgba(255,184,92,0.08)',
     },
-    iconCircle: {
-        width: 36, height: 36, borderRadius: 10,
-        alignItems: 'center', justifyContent: 'center',
+    warningText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 19,
+        color: Colors.warning,
     },
-    warningTitle: { color: C.warning, fontWeight: '700', fontSize: 14, marginBottom: 2 },
-    warningText: { color: C.muted, fontSize: 13, lineHeight: 18 },
-
-    progressCircle: {
-        width: 96, height: 96, borderRadius: 48,
-        backgroundColor: 'rgba(234,16,60,0.08)',
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: 24,
+    progressHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
     },
-    progressPhase: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 8 },
-    progressPercent: { fontSize: 36, fontWeight: '900', color: C.primary, marginBottom: 16 },
-    progressBarContainer: {
-        width: '100%', height: 8,
-        backgroundColor: C.surface, borderRadius: 4,
+    sectionLabel: {
+        ...Typography.dataLabel,
+    },
+    progressValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    progressTrack: {
+        height: 8,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.08)',
         overflow: 'hidden',
     },
-    progressBarFill: {
-        height: '100%', backgroundColor: C.primary, borderRadius: 4,
+    progressFill: {
+        height: '100%',
+        borderRadius: 999,
+        backgroundColor: Colors.primary,
     },
-    waitText: { fontSize: 14, color: C.muted, marginTop: 16 },
-
-    successGlow: {
-        position: 'absolute', top: -20,
-        width: 120, height: 120, borderRadius: 60,
-        backgroundColor: 'rgba(34,197,94,0.15)',
+    progressText: {
+        marginTop: 10,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Colors.textSecondary,
     },
-    successIcon: { marginBottom: 16, zIndex: 1 },
-    successTitle: { fontSize: 26, fontWeight: '900', color: C.success, marginBottom: 12, zIndex: 1 },
-    pathPill: {
-        backgroundColor: C.surface,
-        paddingHorizontal: 16, paddingVertical: 8,
-        borderRadius: 12, marginBottom: 12,
+    completedCard: {
+        marginTop: 12,
+        alignItems: 'center',
+        paddingVertical: 24,
     },
-    pathText: { fontSize: 11, fontFamily: 'monospace', color: C.muted },
-    successSub: { fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 20, maxWidth: 280, zIndex: 1 },
-
-    footer: {
-        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12,
-        borderTopWidth: 1, borderTopColor: C.border,
+    completedTitle: {
+        marginTop: 14,
+        fontSize: 22,
+        fontWeight: '800',
+        color: Colors.success,
     },
-    primaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 52, borderRadius: 26, backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+    completedPath: {
+        marginTop: 10,
+        fontSize: 11,
+        fontFamily: 'Courier',
+        color: Colors.textSecondary,
+        textAlign: 'center',
     },
-    primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    completedBody: {
+        ...Typography.caption,
+        marginTop: 10,
+        textAlign: 'center',
+        maxWidth: 300,
+    },
+    errorCard: {
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'flex-start',
+        borderColor: 'rgba(255,107,121,0.22)',
+        backgroundColor: 'rgba(255,107,121,0.08)',
+    },
+    errorText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 19,
+        color: Colors.error,
+    },
+    actions: {
+        gap: 10,
+        marginTop: 14,
+    },
+    primaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    primaryButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
+    },
 });

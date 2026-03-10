@@ -1,27 +1,26 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../lib/api';
 import type { TuneListing } from '../lib/types';
 
-// Generate realistic fuel map data
 function generateMapData(): number[][] {
-    const rows = 16; // RPM (1000-9000)
-    const cols = 16; // TPS (0-100%)
+    const rows = 16;
+    const cols = 16;
     const data: number[][] = [];
-    for (let r = 0; r < rows; r++) {
-        const row: number[] = [];
-        for (let c = 0; c < cols; c++) {
-            // Realistic fuel enrichment curve
-            const base = 10 + (r * 2.5) + (c * 1.8);
-            const variation = Math.sin(r * 0.5) * 3 + Math.cos(c * 0.4) * 2;
-            row.push(Math.round((base + variation) * 10) / 10);
+    for (let row = 0; row < rows; row += 1) {
+        const nextRow: number[] = [];
+        for (let column = 0; column < cols; column += 1) {
+            const base = 10 + row * 2.5 + column * 1.8;
+            const variation = Math.sin(row * 0.5) * 3 + Math.cos(column * 0.4) * 2;
+            nextRow.push(Math.round((base + variation) * 10) / 10);
         }
-        data.push(row);
+        data.push(nextRow);
     }
     return data;
 }
 
 const RPM_LABELS = ['1000', '1500', '2000', '2500', '3000', '3500', '4000', '4500', '5000', '5500', '6000', '6500', '7000', '7500', '8000', '8500'];
 const TPS_LABELS = ['0', '6', '13', '19', '25', '31', '38', '44', '50', '56', '63', '69', '75', '81', '88', '100'];
+const CHANNELS = ['Base fuel', 'Transient enrichment', 'Ignition trim', 'Throttle strategy'];
 
 type UndoEntry = { data: number[][]; desc: string };
 
@@ -35,285 +34,358 @@ export default function MapEditorPage() {
     const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
     const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
     const [modified, setModified] = useState(false);
+    const [activeChannel, setActiveChannel] = useState(CHANNELS[0]);
+    const [activityLog, setActivityLog] = useState<string[]>([
+        'Map editor ready.',
+        'Select a table cell to inspect and modify the active calibration channel.',
+    ]);
 
     useEffect(() => {
         api.get<any>('/v1/marketplace/browse/')
-            .then(res => { const arr = Array.isArray(res) ? res : res?.results || []; if (arr.length) setListing(arr[0]); })
-            .catch(() => { });
+            .then((res) => {
+                const results = Array.isArray(res) ? res : res?.results || [];
+                if (results.length) setListing(results[0]);
+            })
+            .catch(() => undefined);
     }, []);
 
-    // Cell color based on value
-    const getCellColor = useCallback((val: number): string => {
-        const min = 8, max = 65;
-        const pct = Math.min(1, Math.max(0, (val - min) / (max - min)));
-        if (pct < 0.33) return `rgba(59, 130, 246, ${0.3 + pct * 1.5})`; // blue
-        if (pct < 0.66) return `rgba(34, 197, 94, ${0.3 + (pct - 0.33) * 1.5})`; // green
-        return `rgba(234, 16, 60, ${0.3 + (pct - 0.66) * 1.5})`; // red
+    const addLog = useCallback((message: string) => {
+        setActivityLog((current) => [...current.slice(-15), message]);
     }, []);
 
-    // Push to undo stack
-    const pushUndo = useCallback((desc: string) => {
-        setUndoStack(prev => [...prev.slice(-20), { data: mapData.map(r => [...r]), desc }]);
-        setRedoStack([]);
-        setModified(true);
-    }, [mapData]);
+    const getCellColor = useCallback((value: number): string => {
+        const min = 8;
+        const max = 65;
+        const pct = Math.min(1, Math.max(0, (value - min) / (max - min)));
+        if (pct < 0.33) return `rgba(99, 199, 255, ${0.22 + pct * 1.25})`;
+        if (pct < 0.66) return `rgba(46, 211, 154, ${0.24 + (pct - 0.33) * 1.35})`;
+        return `rgba(234, 16, 60, ${0.22 + (pct - 0.66) * 1.4})`;
+    }, []);
 
-    // Undo
+    const pushUndo = useCallback(
+        (description: string) => {
+            setUndoStack((current) => [...current.slice(-20), { data: mapData.map((row) => [...row]), desc: description }]);
+            setRedoStack([]);
+            setModified(true);
+        },
+        [mapData]
+    );
+
     const undo = useCallback(() => {
-        if (undoStack.length === 0) return;
-        const prev = undoStack[undoStack.length - 1];
-        setRedoStack(r => [...r, { data: mapData.map(row => [...row]), desc: 'redo' }]);
-        setMapData(prev.data);
-        setUndoStack(u => u.slice(0, -1));
-    }, [undoStack, mapData]);
+        if (!undoStack.length) return;
+        const previous = undoStack[undoStack.length - 1];
+        setRedoStack((current) => [...current, { data: mapData.map((row) => [...row]), desc: previous.desc }]);
+        setMapData(previous.data);
+        setUndoStack((current) => current.slice(0, -1));
+        addLog(`Undo: ${previous.desc}`);
+    }, [undoStack, mapData, addLog]);
 
-    // Redo
     const redo = useCallback(() => {
-        if (redoStack.length === 0) return;
+        if (!redoStack.length) return;
         const next = redoStack[redoStack.length - 1];
-        setUndoStack(u => [...u, { data: mapData.map(row => [...row]), desc: 'undo' }]);
+        setUndoStack((current) => [...current, { data: mapData.map((row) => [...row]), desc: next.desc }]);
         setMapData(next.data);
-        setRedoStack(r => r.slice(0, -1));
-    }, [redoStack, mapData]);
+        setRedoStack((current) => current.slice(0, -1));
+        addLog(`Redo: ${next.desc}`);
+    }, [redoStack, mapData, addLog]);
 
-    // Edit cell
-    const startEdit = useCallback((r: number, c: number) => {
-        setSelectedCell([r, c]);
-        setEditValue(String(mapData[r][c]));
-        setIsEditing(true);
-    }, [mapData]);
+    const startEdit = useCallback(
+        (row: number, column: number) => {
+            setSelectedCell([row, column]);
+            setEditValue(String(mapData[row][column]));
+            setIsEditing(true);
+        },
+        [mapData]
+    );
 
     const commitEdit = useCallback(() => {
         if (!selectedCell || !isEditing) return;
-        const [r, c] = selectedCell;
-        const val = parseFloat(editValue);
-        if (!isNaN(val)) {
-            pushUndo(`Edit [${r},${c}]`);
-            setMapData(prev => {
-                const next = prev.map(row => [...row]);
-                next[r][c] = Math.round(val * 10) / 10;
+        const [row, column] = selectedCell;
+        const nextValue = parseFloat(editValue);
+        if (!Number.isNaN(nextValue)) {
+            pushUndo(`Manual edit R${row + 1} C${column + 1}`);
+            setMapData((current) => {
+                const next = current.map((item) => [...item]);
+                next[row][column] = Math.round(nextValue * 10) / 10;
                 return next;
             });
+            addLog(`Updated ${activeChannel} cell at ${RPM_LABELS[row]} RPM / ${TPS_LABELS[column]}% TPS.`);
         }
         setIsEditing(false);
-    }, [selectedCell, isEditing, editValue, pushUndo]);
+    }, [selectedCell, isEditing, editValue, pushUndo, addLog, activeChannel]);
 
-    // Adjust selected cell
-    const adjustSelected = useCallback((delta: number) => {
-        if (!selectedCell) return;
-        const [r, c] = selectedCell;
-        pushUndo(`Adjust [${r},${c}]`);
-        setMapData(prev => {
-            const next = prev.map(row => [...row]);
-            next[r][c] = Math.round((next[r][c] + delta) * 10) / 10;
-            return next;
-        });
-    }, [selectedCell, pushUndo]);
+    const adjustSelected = useCallback(
+        (delta: number) => {
+            if (!selectedCell) return;
+            const [row, column] = selectedCell;
+            pushUndo(`Adjust R${row + 1} C${column + 1}`);
+            setMapData((current) => {
+                const next = current.map((item) => [...item]);
+                next[row][column] = Math.round((next[row][column] + delta) * 10) / 10;
+                return next;
+            });
+            addLog(`Adjusted ${activeChannel} by ${delta > 0 ? '+' : ''}${delta.toFixed(1)} at ${RPM_LABELS[row]} RPM / ${TPS_LABELS[column]}% TPS.`);
+        },
+        [selectedCell, pushUndo, addLog, activeChannel]
+    );
 
-    // Interpolate row/col
     const interpolateRow = useCallback(() => {
         if (!selectedCell) return;
-        const [r] = selectedCell;
-        pushUndo('Interpolate row');
-        setMapData(prev => {
-            const next = prev.map(row => [...row]);
-            const first = next[r][0], last = next[r][15];
-            for (let c = 1; c < 15; c++) {
-                next[r][c] = Math.round((first + (last - first) * (c / 15)) * 10) / 10;
+        const [row] = selectedCell;
+        pushUndo(`Interpolate row ${row + 1}`);
+        setMapData((current) => {
+            const next = current.map((item) => [...item]);
+            const first = next[row][0];
+            const last = next[row][15];
+            for (let column = 1; column < 15; column += 1) {
+                next[row][column] = Math.round((first + (last - first) * (column / 15)) * 10) / 10;
             }
             return next;
         });
-    }, [selectedCell, pushUndo]);
+        addLog(`Interpolated row at ${RPM_LABELS[row]} RPM.`);
+    }, [selectedCell, pushUndo, addLog]);
 
-    // Reset to default
     const resetMap = useCallback(() => {
-        pushUndo('Reset to default');
+        pushUndo('Reset to generated baseline');
         setMapData(generateMapData());
         setModified(false);
-    }, [pushUndo]);
+        addLog('Map reset to generated baseline values.');
+    }, [pushUndo, addLog]);
 
-    // Stats
     const stats = useMemo(() => {
         const flat = mapData.flat();
+        const average = flat.reduce((sum, value) => sum + value, 0) / flat.length;
         return {
             min: Math.min(...flat).toFixed(1),
             max: Math.max(...flat).toFixed(1),
-            avg: (flat.reduce((a, b) => a + b, 0) / flat.length).toFixed(1),
+            avg: average.toFixed(1),
+            cells: flat.length,
         };
     }, [mapData]);
 
-    return (
-        <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Toolbar */}
-            <div className="h-12 bg-panel-dark border-b border-border-dark flex items-center justify-between px-4 shrink-0">
-                <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>map</span>
-                    <h2 className="text-sm font-bold text-white">{listing?.title || 'Fuel Map'}</h2>
-                    {modified && <span className="w-2 h-2 rounded-full bg-amber-400" title="Unsaved changes" />}
-                </div>
-                <div className="flex items-center gap-1">
-                    <button onClick={undo} disabled={undoStack.length === 0}
-                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="Undo">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>undo</span>
-                    </button>
-                    <button onClick={redo} disabled={redoStack.length === 0}
-                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="Redo">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>redo</span>
-                    </button>
-                    <div className="w-px h-5 bg-border-dark mx-1" />
-                    <button onClick={() => adjustSelected(0.5)} disabled={!selectedCell}
-                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="+0.5">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
-                    </button>
-                    <button onClick={() => adjustSelected(-0.5)} disabled={!selectedCell}
-                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="-0.5">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>remove</span>
-                    </button>
-                    <button onClick={interpolateRow} disabled={!selectedCell}
-                        className="p-1.5 rounded text-text-muted hover:text-white hover:bg-white/10 disabled:opacity-30 transition-colors" title="Interpolate Row">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>straighten</span>
-                    </button>
-                    <div className="w-px h-5 bg-border-dark mx-1" />
-                    <button onClick={() => setView3D(v => !v)}
-                        className={`p-1.5 rounded transition-colors ${view3D ? 'text-primary bg-primary/10' : 'text-text-muted hover:text-white hover:bg-white/10'}`} title="Toggle 3D View">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>view_in_ar</span>
-                    </button>
-                    <button onClick={resetMap}
-                        className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors" title="Reset Map">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span>
-                    </button>
-                </div>
-            </div>
+    const selectedValue = selectedCell ? mapData[selectedCell[0]][selectedCell[1]] : null;
 
-            <div className="flex-1 flex overflow-hidden">
-                {/* ─── 2D Heatmap ──────────────────── */}
-                <div className={`flex-1 overflow-auto p-4 ${view3D ? 'hidden' : ''}`}>
-                    <div className="inline-block">
-                        {/* TPS header */}
-                        <div className="flex ml-14 mb-1">
-                            {TPS_LABELS.map((label, i) => (
-                                <div key={i} className="w-12 text-center text-[9px] text-text-muted font-mono">{label}%</div>
-                            ))}
-                        </div>
-                        {/* Rows */}
-                        {mapData.map((row, r) => (
-                            <div key={r} className="flex items-center">
-                                <div className="w-14 text-right pr-2 text-[10px] text-text-muted font-mono">{RPM_LABELS[r]}</div>
-                                {row.map((val, c) => (
-                                    <button key={c}
-                                        onClick={() => startEdit(r, c)}
-                                        onDoubleClick={() => startEdit(r, c)}
-                                        className={`w-12 h-7 text-[10px] font-mono font-medium border border-black/20 heatmap-cell ${selectedCell?.[0] === r && selectedCell?.[1] === c ? 'ring-2 ring-white z-10' : ''
-                                            }`}
-                                        style={{ background: getCellColor(val) }}>
-                                        {val.toFixed(1)}
+    return (
+        <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 flex-col gap-6 overflow-hidden p-6">
+                <div className="flex items-start justify-between gap-6">
+                    <div className="max-w-3xl">
+                        <p className="rs-section-label m-0">Map Editor</p>
+                        <h1 className="mt-2 text-2xl font-black text-[var(--rs-text-primary)]">Calibration table editing with deterministic value control</h1>
+                        <p className="mt-3 text-sm text-[var(--rs-text-secondary)]">
+                            Edit table cells, compare distribution, and keep undo-safe calibration changes inside a workbench flow that stays legible under dense technical data.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className={`rs-badge ${modified ? 'border-[var(--rs-warning)]/25 bg-[var(--rs-warning)]/10 text-[var(--rs-warning)]' : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300'}`}>
+                            <span className="material-symbols-outlined text-sm">{modified ? 'edit' : 'verified'}</span>
+                            {modified ? 'Unsaved Changes' : 'Baseline Synced'}
+                        </span>
+                        <button onClick={resetMap} className="rs-button-secondary px-4 py-2 text-sm font-semibold">
+                            Reset Table
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 overflow-hidden">
+                    <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[var(--rs-stroke-strong)] bg-[linear-gradient(180deg,var(--rs-surface-2),var(--rs-surface-1))] shadow-[var(--rs-shadow-rest)]">
+                        <div className="flex items-center justify-between border-b border-[var(--rs-stroke-soft)] px-5 py-4">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[var(--rs-accent)]">grid_view</span>
+                                <div>
+                                    <p className="text-sm font-semibold text-[var(--rs-text-primary)]">{listing?.title || 'Fuel Table'}</p>
+                                    <p className="mt-1 text-xs text-[var(--rs-text-secondary)]">{listing ? `${listing.vehicle_make} ${listing.vehicle_model} • v${listing.latest_version_number}` : 'Generated baseline calibration'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {CHANNELS.map((channel) => (
+                                    <button key={channel} onClick={() => setActiveChannel(channel)} data-active={activeChannel === channel} className="rs-toolbar-button px-3 text-xs font-bold">
+                                        {channel}
                                     </button>
                                 ))}
+                                <button onClick={() => setView3D((current) => !current)} data-active={view3D} className="rs-toolbar-button px-3 text-xs font-bold">
+                                    <span className="material-symbols-outlined text-sm">view_in_ar</span>
+                                    {view3D ? '2D View' : '3D View'}
+                                </button>
                             </div>
-                        ))}
-                        <div className="flex ml-14 mt-2">
-                            <div className="text-[10px] text-text-muted text-center w-full">← TPS (Throttle Position %) →</div>
                         </div>
-                    </div>
-                </div>
 
-                {/* ─── 3D View ─────────────────────── */}
-                {view3D && (
-                    <div className="flex-1 flex items-center justify-center p-4 grid-3d">
-                        <div className="grid-3d-plane">
-                            <svg viewBox="0 0 400 300" className="w-full max-w-lg">
-                                {mapData.map((row, r) =>
-                                    row.map((val, c) => {
-                                        const x = 20 + c * 22;
-                                        const y = 260 - r * 14 - val * 1.5;
-                                        const opacity = 0.3 + (val / 65) * 0.7;
-                                        const hue = val < 25 ? 220 : val < 40 ? 120 : 0;
-                                        return (
-                                            <rect key={`${r}-${c}`} x={x} y={y} width={20} height={val * 1.5}
-                                                fill={`hsla(${hue}, 70%, 50%, ${opacity})`}
-                                                stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"
-                                                className="hover:opacity-100 cursor-pointer transition-opacity"
-                                                onClick={() => { setSelectedCell([r, c]); setView3D(false); }} />
-                                        );
-                                    })
-                                )}
-                            </svg>
+                        <div className="flex items-center justify-between border-b border-[var(--rs-stroke-soft)] px-5 py-3">
+                            <div className="flex items-center gap-2">
+                                <button onClick={undo} disabled={!undoStack.length} className="rs-button-secondary px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40">
+                                    Undo
+                                </button>
+                                <button onClick={redo} disabled={!redoStack.length} className="rs-button-secondary px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40">
+                                    Redo
+                                </button>
+                                <button onClick={() => adjustSelected(0.5)} disabled={!selectedCell} className="rs-button-secondary px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40">
+                                    +0.5
+                                </button>
+                                <button onClick={() => adjustSelected(-0.5)} disabled={!selectedCell} className="rs-button-secondary px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40">
+                                    -0.5
+                                </button>
+                                <button onClick={interpolateRow} disabled={!selectedCell} className="rs-button-secondary px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40">
+                                    Interpolate Row
+                                </button>
+                            </div>
+                            <div className="text-xs text-[var(--rs-text-tertiary)]">
+                                {selectedCell ? `Selection: ${RPM_LABELS[selectedCell[0]]} RPM / ${TPS_LABELS[selectedCell[1]]}% TPS` : 'Select a cell to edit'}
+                            </div>
                         </div>
-                    </div>
-                )}
 
-                {/* ─── Right sidebar ───────────────── */}
-                <aside className="w-64 bg-[#0e0e11] border-l border-border-dark p-4 flex flex-col gap-4 shrink-0 overflow-y-auto">
-                    {/* Cell Editor */}
-                    <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
-                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Cell Editor</h3>
-                        {selectedCell ? (
-                            <div className="space-y-2">
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <div><span className="text-text-muted">RPM:</span> <span className="text-white font-bold">{RPM_LABELS[selectedCell[0]]}</span></div>
-                                    <div><span className="text-text-muted">TPS:</span> <span className="text-white font-bold">{TPS_LABELS[selectedCell[1]]}%</span></div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-text-muted uppercase">Value</label>
-                                    <div className="flex gap-1 mt-1">
-                                        <input value={isEditing ? editValue : mapData[selectedCell[0]][selectedCell[1]].toFixed(1)}
-                                            onChange={e => { setEditValue(e.target.value); setIsEditing(true); }}
-                                            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); }}
-                                            onBlur={commitEdit}
-                                            className="flex-1 h-8 px-2 bg-bg-dark border border-border-dark rounded text-sm text-white font-mono focus:outline-none focus:border-primary" />
-                                        <button onClick={() => adjustSelected(0.5)} className="w-8 h-8 bg-bg-dark border border-border-dark rounded text-text-muted hover:text-white text-sm">+</button>
-                                        <button onClick={() => adjustSelected(-0.5)} className="w-8 h-8 bg-bg-dark border border-border-dark rounded text-text-muted hover:text-white text-sm">−</button>
+                        {!view3D ? (
+                            <div className="flex-1 overflow-auto px-5 py-4">
+                                <div className="inline-block min-w-full">
+                                    <div className="ml-16 flex mb-2">
+                                        {TPS_LABELS.map((label) => (
+                                            <div key={label} className="w-12 text-center text-[10px] font-mono text-[var(--rs-text-tertiary)]">
+                                                {label}%
+                                            </div>
+                                        ))}
                                     </div>
+                                    {mapData.map((row, rowIndex) => (
+                                        <div key={RPM_LABELS[rowIndex]} className="flex items-center">
+                                            <div className="w-16 pr-3 text-right text-[10px] font-mono text-[var(--rs-text-tertiary)]">{RPM_LABELS[rowIndex]}</div>
+                                            {row.map((value, columnIndex) => (
+                                                <button
+                                                    key={`${rowIndex}-${columnIndex}`}
+                                                    onClick={() => startEdit(rowIndex, columnIndex)}
+                                                    onDoubleClick={() => startEdit(rowIndex, columnIndex)}
+                                                    className={`heatmap-cell relative h-8 w-12 border border-black/20 text-[10px] font-mono font-semibold ${
+                                                        selectedCell?.[0] === rowIndex && selectedCell?.[1] === columnIndex ? 'z-10 ring-2 ring-white/80' : ''
+                                                    }`}
+                                                    style={{ background: getCellColor(value) }}
+                                                >
+                                                    {value.toFixed(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-xs text-text-muted italic">Click a cell to edit</p>
-                        )}
-                    </div>
-
-                    {/* Map Stats */}
-                    <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
-                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Map Statistics</h3>
-                        <div className="space-y-2 text-xs">
-                            {[
-                                { label: 'Min', value: stats.min, color: 'text-blue-400' },
-                                { label: 'Max', value: stats.max, color: 'text-red-400' },
-                                { label: 'Average', value: stats.avg, color: 'text-green-400' },
-                                { label: 'Cells', value: '256', color: 'text-white' },
-                                { label: 'Undo History', value: String(undoStack.length), color: 'text-amber-400' },
-                            ].map(s => (
-                                <div key={s.label} className="flex justify-between">
-                                    <span className="text-text-muted">{s.label}</span>
-                                    <span className={`font-bold ${s.color}`}>{s.value}</span>
+                            <div className="grid-3d flex flex-1 items-center justify-center overflow-hidden px-5 py-4">
+                                <div className="grid-3d-plane">
+                                    <svg viewBox="0 0 400 300" className="w-full max-w-3xl">
+                                        {mapData.map((row, rowIndex) =>
+                                            row.map((value, columnIndex) => {
+                                                const x = 20 + columnIndex * 22;
+                                                const y = 260 - rowIndex * 14 - value * 1.5;
+                                                const opacity = 0.3 + (value / 65) * 0.7;
+                                                const hue = value < 25 ? 210 : value < 40 ? 155 : 350;
+                                                return (
+                                                    <rect
+                                                        key={`${rowIndex}-${columnIndex}`}
+                                                        x={x}
+                                                        y={y}
+                                                        width={20}
+                                                        height={value * 1.5}
+                                                        fill={`hsla(${hue}, 72%, 56%, ${opacity})`}
+                                                        stroke="rgba(0,0,0,0.35)"
+                                                        strokeWidth="0.5"
+                                                        className="cursor-pointer transition-opacity hover:opacity-100"
+                                                        onClick={() => {
+                                                            setSelectedCell([rowIndex, columnIndex]);
+                                                            setView3D(false);
+                                                            addLog(`Focused 3D cell at ${RPM_LABELS[rowIndex]} RPM / ${TPS_LABELS[columnIndex]}% TPS.`);
+                                                        }}
+                                                    />
+                                                );
+                                            })
+                                        )}
+                                    </svg>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                            </div>
+                        )}
+                    </section>
 
-                    {/* Map Info */}
-                    {listing && (
-                        <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
-                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">Tune Info</h3>
-                            <div className="space-y-1 text-xs">
-                                <p className="text-white font-medium">{listing.title}</p>
-                                <p className="text-text-muted">v{listing.latest_version_number}</p>
-                                <p className="text-text-muted">{listing.vehicle_make} {listing.vehicle_model}</p>
-                                <p className="text-text-muted">{listing.tuner?.business_name}</p>
+                    <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+                        <div className="rs-panel rounded-[20px] p-4">
+                            <p className="rs-section-label m-0">Cell Inspector</p>
+                            {selectedCell ? (
+                                <div className="mt-4 space-y-4">
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div className="rs-surface-muted rounded-[14px] p-3">
+                                            <p className="rs-data-label">RPM</p>
+                                            <p className="mt-2 font-semibold text-[var(--rs-text-primary)]">{RPM_LABELS[selectedCell[0]]}</p>
+                                        </div>
+                                        <div className="rs-surface-muted rounded-[14px] p-3">
+                                            <p className="rs-data-label">TPS</p>
+                                            <p className="mt-2 font-semibold text-[var(--rs-text-primary)]">{TPS_LABELS[selectedCell[1]]}%</p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="rs-data-label">Value</label>
+                                        <div className="mt-2 flex gap-2">
+                                            <input
+                                                value={isEditing ? editValue : selectedValue?.toFixed(1) || ''}
+                                                onChange={(event) => {
+                                                    setEditValue(event.target.value);
+                                                    setIsEditing(true);
+                                                }}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter') commitEdit();
+                                                }}
+                                                onBlur={commitEdit}
+                                                className="rs-input font-mono"
+                                            />
+                                            <button onClick={() => adjustSelected(0.5)} className="rs-button-secondary px-3 py-2 text-sm font-bold">+</button>
+                                            <button onClick={() => adjustSelected(-0.5)} className="rs-button-secondary px-3 py-2 text-sm font-bold">-</button>
+                                        </div>
+                                    </div>
+                                    <div className="rs-surface-muted rounded-[14px] p-3">
+                                        <p className="rs-data-label">Edit note</p>
+                                        <p className="mt-2 text-sm text-[var(--rs-text-secondary)]">
+                                            Changes affect <span className="text-[var(--rs-text-primary)]">{activeChannel}</span> only. Validate interpolation and compare before publish.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="mt-3 text-sm text-[var(--rs-text-secondary)]">Select a table cell to inspect its RPM, load axis, and current value.</p>
+                            )}
+                        </div>
+
+                        <div className="rs-panel rounded-[20px] p-4">
+                            <p className="rs-section-label m-0">Map Summary</p>
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                                {[
+                                    { label: 'Min', value: stats.min },
+                                    { label: 'Max', value: stats.max },
+                                    { label: 'Average', value: stats.avg },
+                                    { label: 'Cells', value: String(stats.cells) },
+                                    { label: 'Undo Stack', value: String(undoStack.length) },
+                                    { label: 'Redo Stack', value: String(redoStack.length) },
+                                ].map((item) => (
+                                    <div key={item.label} className="rs-surface-muted rounded-[14px] p-3">
+                                        <p className="rs-data-label">{item.label}</p>
+                                        <p className="mt-2 text-sm font-semibold text-[var(--rs-text-primary)]">{item.value}</p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    )}
 
-                    {/* Color Legend */}
-                    <div className="bg-surface-dark border border-border-dark rounded-lg p-3">
-                        <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">Legend</h3>
-                        <div className="flex items-center gap-1">
-                            <div className="h-3 flex-1 rounded" style={{ background: 'linear-gradient(to right, rgba(59,130,246,0.8), rgba(34,197,94,0.8), rgba(234,16,60,0.8))' }} />
+                        <div className="rs-panel rounded-[20px] p-4">
+                            <p className="rs-section-label m-0">Color Interpretation</p>
+                            <div className="mt-4 h-3 rounded-full" style={{ background: 'linear-gradient(90deg, rgba(99,199,255,0.9), rgba(46,211,154,0.85), rgba(234,16,60,0.85))' }} />
+                            <div className="mt-2 flex justify-between text-[10px] uppercase tracking-[0.16em] text-[var(--rs-text-tertiary)]">
+                                <span>Lean</span>
+                                <span>Balanced</span>
+                                <span>Rich</span>
+                            </div>
                         </div>
-                        <div className="flex justify-between text-[9px] text-text-muted mt-1">
-                            <span>Lean</span><span>Stoich</span><span>Rich</span>
+
+                        <div className="rs-panel rounded-[20px] p-4">
+                            <p className="rs-section-label m-0">Editor Log</p>
+                            <div className="mt-3 space-y-2 font-mono text-[11px]">
+                                {activityLog.map((line, index) => (
+                                    <div key={`${line}-${index}`} className="leading-relaxed text-sky-300/85">
+                                        {line}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                </aside>
+                    </aside>
+                </div>
             </div>
         </div>
     );

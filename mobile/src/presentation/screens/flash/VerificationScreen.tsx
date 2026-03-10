@@ -1,22 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated, Easing, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceLocator } from '../../../di/ServiceLocator';
-import * as Haptics from 'expo-haptics';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-    success: '#22C55E',
-    error: '#EF4444',
-    pending: '#52525B',
-};
+const { Colors, Layout, Motion, Spacing, Typography } = Theme;
 
 interface VerifyStep {
     label: string;
@@ -27,23 +17,22 @@ interface VerifyStep {
 export const VerificationScreen = ({ navigation, route }: any) => {
     const { tuneId, deviceId, flashJobId } = route.params || {};
     const [steps, setSteps] = useState<VerifyStep[]>([
-        { label: 'Read-back Checksum', status: 'pending' },
-        { label: 'Signature Match', status: 'pending' },
-        { label: 'Memory Integrity', status: 'pending' },
-        { label: 'Clear Diagnostic Codes', status: 'pending' },
-        { label: 'Application Boot Test', status: 'pending' },
+        { label: 'Read-back checksum', status: 'pending' },
+        { label: 'Signature match', status: 'pending' },
+        { label: 'Memory integrity', status: 'pending' },
+        { label: 'Clear diagnostic codes', status: 'pending' },
+        { label: 'Application boot test', status: 'pending' },
     ]);
     const [overall, setOverall] = useState<'running' | 'pass' | 'fail'>('running');
     const [error, setError] = useState<string | null>(null);
 
     const checkAnim = useRef(new Animated.Value(0)).current;
-    const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         if (tuneId) {
             runVerificationSequence();
         } else {
-            setError('Missing Tune ID');
+            setError('Missing tune identifier.');
             setOverall('fail');
         }
     }, [tuneId]);
@@ -51,19 +40,16 @@ export const VerificationScreen = ({ navigation, route }: any) => {
     useEffect(() => {
         if (overall === 'pass') {
             Animated.spring(checkAnim, {
-                toValue: 1, friction: 4, tension: 60, useNativeDriver: true,
+                toValue: 1,
+                friction: 5,
+                tension: 70,
+                useNativeDriver: true,
             }).start();
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-                    Animated.timing(pulseAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-                ])
-            ).start();
         }
-    }, [overall]);
+    }, [checkAnim, overall]);
 
     const updateStep = (index: number, update: Partial<VerifyStep>) => {
-        setSteps(prev => prev.map((s, i) => i === index ? { ...s, ...update } : s));
+        setSteps((prev) => prev.map((step, currentIndex) => (currentIndex === index ? { ...step, ...update } : step)));
     };
 
     const runVerificationSequence = async () => {
@@ -73,58 +59,49 @@ export const VerificationScreen = ({ navigation, route }: any) => {
             if (!tune) throw new Error('Tune details not found');
 
             const ecuService = ServiceLocator.getECUService();
-
             if (deviceId && 'setConnectedDevice' in ecuService) {
                 (ecuService as any).setConnectedDevice(deviceId);
             }
 
-            // Step 1: Read-back checksum
             updateStep(0, { status: 'running' });
             const verified = await ecuService.verifyFlash(tune);
             updateStep(0, {
                 status: verified ? 'pass' : 'fail',
-                detail: verified ? 'SHA-256 checksum matches' : 'Checksum mismatch detected',
+                detail: verified ? 'SHA-256 checksum matches the staged package' : 'Checksum mismatch detected',
             });
             if (!verified) throw new Error('Read-back checksum mismatch');
 
-            // Step 2: Signature match
             updateStep(1, { status: 'running' });
             const ecuInfo = await ecuService.identifyECU();
-            const sigMatch = !!ecuInfo.calibrationId;
             updateStep(1, {
-                status: sigMatch ? 'pass' : 'pass',
-                detail: ecuInfo.calibrationId
-                    ? `Calibration: ${ecuInfo.calibrationId}`
-                    : `FW: ${ecuInfo.firmwareVersion}`,
+                status: 'pass',
+                detail: ecuInfo.calibrationId ? `Calibration ${ecuInfo.calibrationId}` : `Firmware ${ecuInfo.firmwareVersion}`,
             });
 
-            // Step 3: Memory integrity
             updateStep(2, { status: 'running' });
             const checksumB64 = await ecuService.readChecksum(0x0000, 4096);
             const memOk = checksumB64.length > 0;
             updateStep(2, {
                 status: memOk ? 'pass' : 'fail',
-                detail: memOk ? 'First 4KB verified' : 'Memory read failed',
+                detail: memOk ? 'Initial 4KB memory block verified' : 'Memory read failed',
             });
             if (!memOk) throw new Error('Memory integrity check failed');
 
-            // Step 4: Clear DTCs
             updateStep(3, { status: 'running' });
             await ecuService.clearDTCs();
-            updateStep(3, { status: 'pass', detail: 'All codes cleared' });
+            updateStep(3, { status: 'pass', detail: 'Diagnostic codes cleared' });
 
-            // Step 5: Application boot test
             updateStep(4, { status: 'running' });
             const bootCheck = await ecuService.identifyECU();
             updateStep(4, {
                 status: bootCheck.ecuId ? 'pass' : 'fail',
-                detail: bootCheck.ecuId ? `ECU responds: ${bootCheck.ecuId}` : 'No response',
+                detail: bootCheck.ecuId ? `ECU responded with ID ${bootCheck.ecuId}` : 'ECU did not respond after boot',
             });
+            if (!bootCheck.ecuId) throw new Error('Application boot test failed');
 
             setOverall('pass');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-            // Record flash job as completed on server
             try {
                 const { ApiClient } = await import('../../../data/http/ApiClient');
                 if (flashJobId) {
@@ -134,14 +111,14 @@ export const VerificationScreen = ({ navigation, route }: any) => {
                         checksum_matched: true,
                     });
                 }
-            } catch { /* offline — will sync later */ }
-
+            } catch {
+                // Offline sync later.
+            }
         } catch (e: any) {
-            setError(e.message || 'Verification Failed');
+            setError(e.message || 'Verification failed');
             setOverall('fail');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
-            // Record verification failure on server
             try {
                 const { ApiClient } = await import('../../../data/http/ApiClient');
                 if (flashJobId) {
@@ -150,202 +127,263 @@ export const VerificationScreen = ({ navigation, route }: any) => {
                         error_message: e.message,
                     });
                 }
-            } catch { /* offline */ }
+            } catch {
+                // Offline sync later.
+            }
         }
     };
 
-    const handleFinish = () => {
-        navigation.reset({ index: 0, routes: [{ name: 'Garage' }] });
-    };
+    const handleFinish = () => navigation.reset({ index: 0, routes: [{ name: 'Garage' }] });
+    const passCount = steps.filter((step) => step.status === 'pass').length;
 
-    const passCount = steps.filter(s => s.status === 'pass').length;
-
-    // ─── Running / Fail / Steps View ──────────────────────────
-    if (overall === 'running' || overall === 'fail') {
+    if (overall === 'pass') {
         return (
-            <SafeAreaView style={s.root} edges={['top']}>
-                <View style={s.header}>
-                    <View style={{ width: 40 }} />
-                    <Text style={s.headerTitle}>Post-Flash Verification</Text>
-                    <View style={{ width: 40 }} />
+            <AppScreen contentContainerStyle={styles.successScreen}>
+                <TopBar title="Verification" subtitle="Post-flash checks complete" />
+                <View style={styles.successContent}>
+                    <Animated.View style={[styles.successBadge, { transform: [{ scale: checkAnim }], opacity: checkAnim }]}>
+                        <Ionicons name="shield-checkmark" size={68} color={Colors.success} />
+                    </Animated.View>
+                    <Text style={styles.successTitle}>Verification passed</Text>
+                    <Text style={styles.successText}>The tune was written successfully, integrity checks passed, and the ECU is responding normally.</Text>
+                    <GlassCard style={styles.successCard}>
+                        <Text style={styles.successCardLabel}>Checks passed</Text>
+                        <Text style={styles.successCardValue}>
+                            {passCount}/{steps.length}
+                        </Text>
+                    </GlassCard>
+                    <TouchableOpacity style={styles.primaryButton} onPress={handleFinish}>
+                        <Text style={styles.primaryButtonText}>Back to Garage</Text>
+                    </TouchableOpacity>
                 </View>
-
-                <ScrollView contentContainerStyle={s.scrollContent}>
-                    <Text style={s.sectionLabel}>Verification Steps</Text>
-                    <View style={s.card}>
-                        {steps.map((step, i) => (
-                            <View key={i}>
-                                <View style={s.stepRow}>
-                                    <View style={[s.stepIcon, {
-                                        backgroundColor:
-                                            step.status === 'pass' ? 'rgba(34,197,94,0.1)' :
-                                                step.status === 'fail' ? 'rgba(239,68,68,0.1)' :
-                                                    step.status === 'running' ? 'rgba(234,16,60,0.1)' :
-                                                        'rgba(82,82,91,0.1)',
-                                    }]}>
-                                        {step.status === 'pending' && <Ionicons name="ellipse-outline" size={18} color={C.pending} />}
-                                        {step.status === 'running' && <Ionicons name="sync-outline" size={18} color={C.primary} />}
-                                        {step.status === 'pass' && <Ionicons name="checkmark" size={18} color={C.success} />}
-                                        {step.status === 'fail' && <Ionicons name="close" size={18} color={C.error} />}
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[s.stepLabel, {
-                                            color: step.status === 'fail' ? C.error :
-                                                step.status === 'pass' ? C.text : C.muted,
-                                        }]}>
-                                            {step.label}
-                                        </Text>
-                                        {step.detail && <Text style={s.stepDetail}>{step.detail}</Text>}
-                                    </View>
-                                </View>
-                                {i < steps.length - 1 && <View style={s.divider} />}
-                            </View>
-                        ))}
-                    </View>
-
-                    {error && (
-                        <View style={s.errorBanner}>
-                            <Ionicons name="alert-circle" size={18} color={C.error} />
-                            <Text style={s.errorText}>{error}</Text>
-                            <TouchableOpacity onPress={runVerificationSequence} style={s.retryPill}>
-                                <Text style={s.retryText}>Retry</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {overall === 'running' && (
-                        <View style={s.runningInfo}>
-                            <Ionicons name="lock-closed-outline" size={16} color={C.muted} />
-                            <Text style={s.runningText}>Almost there. Do not disconnect.</Text>
-                        </View>
-                    )}
-                </ScrollView>
-
-                {overall === 'fail' && (
-                    <View style={s.footer}>
-                        <TouchableOpacity style={s.secondaryBtn} onPress={handleFinish}>
-                            <Text style={s.secondaryBtnText}>Skip & Return to Garage</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </SafeAreaView>
+            </AppScreen>
         );
     }
 
-    // ─── Success ───────────────────────────────────────────────
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
-                <Animated.View style={[s.successGlow, { transform: [{ scale: pulseAnim }] }]} />
-                <Animated.View style={{ transform: [{ scale: checkAnim }], opacity: checkAnim }}>
-                    <Ionicons name="shield-checkmark" size={96} color={C.success} />
-                </Animated.View>
-                <Text style={s.successTitle}>All Systems Go</Text>
-                <Text style={s.successText}>
-                    Tune verified and diagnostic codes cleared.{'\n'}
-                    Your bike is ready to ride.
+        <AppScreen scroll contentContainerStyle={styles.content}>
+            <TopBar title="Verification" subtitle={overall === 'running' ? 'Post-flash integrity checks in progress' : 'Verification failed'} />
+
+            <GlassCard style={styles.heroCard}>
+                <Text style={styles.kicker}>{overall === 'running' ? 'Running checks' : 'Blocked state'}</Text>
+                <Text style={styles.heroTitle}>{overall === 'running' ? 'Do not disconnect the device while verification is active.' : 'Verification needs attention before this session can be treated as complete.'}</Text>
+                <Text style={styles.heroSubtitle}>
+                    {overall === 'running'
+                        ? 'The app is validating checksum, signature, memory integrity, DTC state, and ECU response.'
+                        : error || 'One or more post-flash checks failed.'}
                 </Text>
-                <View style={s.statsPill}>
-                    <Ionicons name="checkmark-circle" size={16} color={C.success} />
-                    <Text style={s.statsText}>{passCount}/{steps.length} checks passed</Text>
-                </View>
-            </View>
-            <View style={s.footer}>
-                <TouchableOpacity style={s.primaryBtn} onPress={handleFinish} activeOpacity={0.85}>
-                    <Text style={s.primaryBtnText}>Back to Garage</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
-                </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+            </GlassCard>
+
+            <Text style={styles.sectionLabel}>Verification Steps</Text>
+            <GlassCard>
+                {steps.map((step, index) => (
+                    <View key={step.label} style={[styles.stepRow, index < steps.length - 1 && styles.stepDivider]}>
+                        <View
+                            style={[
+                                styles.stepIcon,
+                                step.status === 'running'
+                                    ? styles.stepIconRunning
+                                    : step.status === 'pass'
+                                      ? styles.stepIconPass
+                                      : step.status === 'fail'
+                                        ? styles.stepIconFail
+                                        : styles.stepIconPending,
+                            ]}
+                        >
+                            {step.status === 'running' ? (
+                                <ActivityIndicator size="small" color={Colors.accent} />
+                            ) : (
+                                <Ionicons
+                                    name={
+                                        step.status === 'pass'
+                                            ? 'checkmark'
+                                            : step.status === 'fail'
+                                              ? 'close'
+                                              : 'ellipse-outline'
+                                    }
+                                    size={16}
+                                    color={step.status === 'pass' ? Colors.success : step.status === 'fail' ? Colors.error : Colors.textTertiary}
+                                />
+                            )}
+                        </View>
+                        <View style={styles.stepCopy}>
+                            <Text style={styles.stepTitle}>{step.label}</Text>
+                            {!!step.detail && <Text style={styles.stepDetail}>{step.detail}</Text>}
+                        </View>
+                    </View>
+                ))}
+            </GlassCard>
+
+            {overall === 'fail' && (
+                <>
+                    <GlassCard style={styles.errorCard}>
+                        <Ionicons name="alert-circle" size={18} color={Colors.error} />
+                        <Text style={styles.errorText}>{error}</Text>
+                    </GlassCard>
+
+                    <View style={styles.actions}>
+                        <TouchableOpacity style={styles.primaryButton} onPress={runVerificationSequence}>
+                            <Text style={styles.primaryButtonText}>Retry Verification</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.secondaryButton} onPress={handleFinish}>
+                            <Text style={styles.secondaryButtonText}>Return to Garage</Text>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            )}
+        </AppScreen>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    content: {
+        paddingBottom: 120,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
-    scrollContent: { padding: 16, paddingBottom: 100 },
-
+    heroCard: {
+        marginTop: 8,
+        marginBottom: 18,
+    },
+    kicker: {
+        ...Typography.dataLabel,
+        color: Colors.accent,
+        marginBottom: 8,
+    },
+    heroTitle: {
+        ...Typography.h2,
+    },
+    heroSubtitle: {
+        ...Typography.caption,
+        marginTop: 8,
+        lineHeight: 20,
+    },
     sectionLabel: {
-        fontSize: 11, fontWeight: '700', letterSpacing: 1.2,
-        textTransform: 'uppercase', color: C.muted,
-        marginLeft: 16, marginBottom: 8, marginTop: 8,
+        ...Typography.dataLabel,
+        marginLeft: 4,
+        marginBottom: 8,
     },
-
-    card: { backgroundColor: C.surface, borderRadius: 20, overflow: 'hidden' },
     stepRow: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, minHeight: 60,
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'flex-start',
+        paddingVertical: 12,
+    },
+    stepDivider: {
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
     },
     stepIcon: {
-        width: 32, height: 32, borderRadius: 10,
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 14,
+        width: 28,
+        height: 28,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 2,
     },
-    stepLabel: { fontSize: 15, fontWeight: '600' },
-    stepDetail: { fontSize: 12, color: C.muted, marginTop: 2 },
-    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.04)', marginLeft: 16 },
-
-    errorBanner: {
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-        backgroundColor: 'rgba(239,68,68,0.1)',
-        padding: 16, borderRadius: 16, marginTop: 16,
-        borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
+    stepIconPending: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
     },
-    errorText: { flex: 1, color: C.error, fontSize: 13, fontWeight: '500' },
-    retryPill: {
-        backgroundColor: C.primary,
-        paddingHorizontal: 14, paddingVertical: 6,
-        borderRadius: 12,
+    stepIconRunning: {
+        backgroundColor: Colors.accentSoft,
     },
-    retryText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-
-    runningInfo: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        justifyContent: 'center', marginTop: 24,
+    stepIconPass: {
+        backgroundColor: 'rgba(46,211,154,0.12)',
     },
-    runningText: { color: C.muted, fontSize: 14 },
-
-    // success
-    successGlow: {
-        position: 'absolute',
-        width: 160, height: 160, borderRadius: 80,
-        backgroundColor: 'rgba(34,197,94,0.12)',
+    stepIconFail: {
+        backgroundColor: 'rgba(255,107,121,0.12)',
+    },
+    stepCopy: {
+        flex: 1,
+    },
+    stepTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    stepDetail: {
+        marginTop: 4,
+        fontSize: 12,
+        lineHeight: 18,
+        color: Colors.textSecondary,
+    },
+    errorCard: {
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'flex-start',
+        borderColor: 'rgba(255,107,121,0.22)',
+        backgroundColor: 'rgba(255,107,121,0.08)',
+    },
+    errorText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 19,
+        color: Colors.error,
+    },
+    actions: {
+        gap: 10,
+        marginTop: 14,
+    },
+    primaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    primaryButtonText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors.white,
+    },
+    secondaryButton: {
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+    },
+    successScreen: {
+        paddingBottom: 80,
+    },
+    successContent: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+    },
+    successBadge: {
+        marginTop: 40,
+        marginBottom: 22,
     },
     successTitle: {
-        fontSize: 28, fontWeight: '900', color: C.text,
-        marginTop: 24, marginBottom: 12, letterSpacing: -0.3,
+        ...Typography.h1,
+        textAlign: 'center',
     },
     successText: {
-        textAlign: 'center', fontSize: 15, color: C.muted, lineHeight: 24,
+        ...Typography.body,
+        textAlign: 'center',
+        maxWidth: 320,
+        marginTop: 10,
     },
-    statsPill: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        marginTop: 16, paddingHorizontal: 16, paddingVertical: 8,
-        borderRadius: 12, backgroundColor: 'rgba(34,197,94,0.08)',
+    successCard: {
+        marginTop: 20,
+        width: '100%',
+        alignItems: 'center',
     },
-    statsText: { fontSize: 13, color: C.success, fontWeight: '600' },
-
-    footer: {
-        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12,
-        borderTopWidth: 1, borderTopColor: C.border,
+    successCardLabel: {
+        ...Typography.dataLabel,
     },
-    primaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 52, borderRadius: 26, backgroundColor: C.success,
-        shadowColor: C.success, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+    successCardValue: {
+        marginTop: 8,
+        fontSize: 28,
+        fontWeight: '800',
+        color: Colors.textPrimary,
     },
-    primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
-    secondaryBtn: {
-        height: 48, borderRadius: 24, borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    secondaryBtnText: { fontSize: 15, fontWeight: '600', color: C.muted },
 });

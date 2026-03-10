@@ -111,6 +111,7 @@ class CreatePaymentIntentView(views.APIView):
                 'paymentIntentId': intent['id'],
                 'amount': str(listing.price),
                 'currency': 'usd',
+                'publishableKey': getattr(settings, 'STRIPE_PUBLISHABLE_KEY', ''),
             })
 
         except stripe.error.StripeError as e:

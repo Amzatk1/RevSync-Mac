@@ -29,7 +29,7 @@ export const legalService = {
      * Backend: POST /api/v1/legal/accept/
      */
     async acceptDocument(
-        type: 'TERMS' | 'PRIVACY' | 'SAFETY' | 'ANALYTICS',
+        type: 'TERMS' | 'PRIVACY' | 'SAFETY' | 'ANALYTICS' | 'REFUND',
         version: string
     ): Promise<any> {
         return ApiClient.getInstance().post('/v1/legal/accept/', {

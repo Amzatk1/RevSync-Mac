@@ -43,14 +43,14 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background-dark px-4 py-10">
-            <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.14]" />
-            <div className="hero-orb -top-24 left-[-120px] h-[420px] w-[420px] bg-primary/28" />
-            <div className="hero-orb bottom-[-180px] right-[-120px] h-[460px] w-[460px] bg-orange-500/20" />
+        <div className="app-shell relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+            <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.1]" />
+            <div className="hero-orb -top-24 left-[-120px] h-[420px] w-[420px] bg-sky-400/14" />
+            <div className="hero-orb bottom-[-180px] right-[-120px] h-[460px] w-[460px] bg-primary/16" />
 
-            <div className="relative z-10 w-full max-w-3xl rounded-[30px] border border-white/10 bg-[linear-gradient(160deg,rgba(20,20,28,0.92),rgba(10,10,14,0.9))] p-6 sm:p-10">
+            <div className="app-panel-raised relative z-10 w-full max-w-3xl rounded-[30px] p-6 sm:p-10">
                 <Link href="/" className="mb-8 inline-flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-red-500 to-orange-400 text-lg font-black text-white">R</div>
+                    <div className="app-panel flex h-11 w-11 items-center justify-center rounded-xl text-lg font-black text-white">R</div>
                     <div>
                         <p className="text-xl font-extrabold text-white">RevSync</p>
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Create Account</p>
@@ -58,7 +58,7 @@ export default function RegisterPage() {
                 </Link>
 
                 <div className="mb-7">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Get Started</p>
+                    <p className="section-kicker">Get Started</p>
                     <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">Build your tuning workspace</h1>
                     <p className="mt-2 text-sm text-text-muted">Create your account to browse, buy, and flash with confidence.</p>
                 </div>
@@ -78,7 +78,7 @@ export default function RegisterPage() {
                                 type="text"
                                 value={form.first_name}
                                 onChange={(e) => set('first_name', e.target.value)}
-                                className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
+                                className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
                                 placeholder="Alex"
                             />
                         </div>
@@ -88,7 +88,7 @@ export default function RegisterPage() {
                                 type="text"
                                 value={form.last_name}
                                 onChange={(e) => set('last_name', e.target.value)}
-                                className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
+                                className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
                                 placeholder="Rider"
                             />
                         </div>
@@ -101,7 +101,7 @@ export default function RegisterPage() {
                             required
                             value={form.username}
                             onChange={(e) => set('username', e.target.value)}
-                            className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
+                            className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
                             placeholder="alexrider"
                         />
                     </div>
@@ -111,25 +111,25 @@ export default function RegisterPage() {
                             <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">Email</label>
                             <input
                                 type="email"
-                                required
-                                value={form.email}
-                                onChange={(e) => set('email', e.target.value)}
-                                className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
-                                placeholder="you@example.com"
-                            />
-                        </div>
+                            required
+                            value={form.email}
+                            onChange={(e) => set('email', e.target.value)}
+                            className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
+                            placeholder="you@example.com"
+                        />
+                    </div>
                         <div>
                             <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">Password</label>
                             <input
                                 type="password"
                                 required
-                                minLength={8}
-                                value={form.password}
-                                onChange={(e) => set('password', e.target.value)}
-                                className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-primary/45 focus:outline-none"
-                                placeholder="Min. 8 characters"
-                            />
-                        </div>
+                            minLength={8}
+                            value={form.password}
+                            onChange={(e) => set('password', e.target.value)}
+                            className="h-12 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 text-sm text-white placeholder:text-text-muted/60 focus:border-sky-400/45 focus:outline-none"
+                            placeholder="Min. 8 characters"
+                        />
+                    </div>
                     </div>
 
                     <div>
@@ -145,11 +145,11 @@ export default function RegisterPage() {
                                     onClick={() => set('role', role)}
                                     className={`rounded-2xl border px-4 py-4 text-left transition-all ${
                                         form.role === role
-                                            ? 'border-primary/45 bg-primary/12 shadow-[0_0_26px_rgba(234,16,60,0.2)]'
+                                            ? 'border-sky-400/35 bg-sky-400/10 shadow-[0_0_26px_rgba(99,199,255,0.15)]'
                                             : 'border-white/12 bg-white/[0.02] hover:border-white/25'
                                     }`}
                                 >
-                                    <span className="material-symbols-outlined mb-2 block text-[20px] text-primary">{icon}</span>
+                                    <span className={`material-symbols-outlined mb-2 block text-[20px] ${form.role === role ? 'text-sky-300' : 'text-text-muted'}`}>{icon}</span>
                                     <p className="text-sm font-bold text-white">{label}</p>
                                     <p className="mt-1 text-xs text-text-muted">{desc}</p>
                                 </button>
@@ -160,7 +160,7 @@ export default function RegisterPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-primary to-red-600 text-sm font-bold text-white shadow-[0_12px_30px_rgba(234,16,60,0.35)] hover:from-red-600 hover:to-primary disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rs-button-primary mt-2 inline-flex h-12 w-full items-center justify-center rounded-xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {loading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : 'Create Account'}
                     </button>

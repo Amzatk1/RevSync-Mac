@@ -21,10 +21,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-revsync-dev-key')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-
-
 def _env_list(name: str, default: str = '') -> list[str]:
     raw = os.environ.get(name, default)
     return [item.strip() for item in raw.split(',') if item.strip()]
@@ -35,6 +31,10 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = _env_bool('DEBUG', True)
 
 
 configured_allowed_hosts = _env_list(
@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'drf_spectacular', # For OpenAPI
     
@@ -241,7 +242,7 @@ STORAGES = {
 # Celery / async processing
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
-CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False') == 'True'
+CELERY_TASK_ALWAYS_EAGER = _env_bool('CELERY_TASK_ALWAYS_EAGER', False)
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_DEFAULT_QUEUE = 'revsync'
 CELERY_TASK_ROUTES = {
@@ -256,3 +257,15 @@ REVSYNC_SIGNING_KEY_ID = os.environ.get('REVSYNC_SIGNING_KEY_ID', 'rev-1')
 # Stripe
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+
+# Email / account recovery
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@revsync.app')
+PASSWORD_RESET_URL_TEMPLATE = os.environ.get(
+    'PASSWORD_RESET_URL_TEMPLATE',
+    'revsync://reset-password?uid={uid}&token={token}',
+)

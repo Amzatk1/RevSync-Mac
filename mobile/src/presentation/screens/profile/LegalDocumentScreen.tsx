@@ -1,60 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { StorageAdapter } from '../../../data/services/StorageAdapter';
+import { legalService } from '../../../services/legalService';
+import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
+import { Theme } from '../../theme';
 
-const ACCEPTANCE_KEY_PREFIX = 'legal_accepted_';
+const { Colors, Layout, Typography } = Theme;
 
-// Documents that require explicit acceptance
-const REQUIRED_DOCS = ['Terms & Conditions', 'Privacy Policy', 'Safety Disclaimer'];
+const REQUIRED_DOCS = ['Terms & Conditions', 'Privacy Policy', 'ECU Flashing Safety Disclaimer'];
+
+const DOCUMENT_TYPE_MAP: Record<string, 'TERMS' | 'PRIVACY' | 'SAFETY' | 'REFUND' | undefined> = {
+    'Terms & Conditions': 'TERMS',
+    'Privacy Policy': 'PRIVACY',
+    'ECU Flashing Safety Disclaimer': 'SAFETY',
+    'Refund Policy': 'REFUND',
+};
 
 interface AcceptanceRecord {
     acceptedAt: string;
     version: string;
 }
 
-// ─── Color Tokens ──────────────────────────────────────────────
-const C = {
-    bg: '#1a1a1a',
-    surface: '#252525',
-    border: 'rgba(255,255,255,0.05)',
-    text: '#FFFFFF',
-    muted: '#9ca3af',
-    primary: '#ea103c',
-    success: '#22C55E',
-};
-
 export const LegalDocumentScreen = ({ route, navigation }: any) => {
     const { title, content } = route.params;
     const [acceptance, setAcceptance] = useState<AcceptanceRecord | null>(null);
     const [accepting, setAccepting] = useState(false);
-    const isRequired = REQUIRED_DOCS.some(d => title.includes(d));
+    const isRequired = REQUIRED_DOCS.some((doc) => title.includes(doc));
+    const documentType = DOCUMENT_TYPE_MAP[title];
 
     useEffect(() => {
         loadAcceptance();
-    }, []);
+    }, [title]);
 
     const loadAcceptance = async () => {
-        const key = ACCEPTANCE_KEY_PREFIX + title.replace(/\s+/g, '_').toLowerCase();
-        const stored = await StorageAdapter.get<AcceptanceRecord>(key);
-        if (stored) {
-            setAcceptance(stored);
+        if (!documentType) {
+            setAcceptance(null);
+            return;
+        }
+        const history = await legalService.getHistory();
+        const match = history.find((item) => item.document_type === documentType);
+        if (match) {
+            setAcceptance({
+                acceptedAt: match.accepted_at,
+                version: match.version,
+            });
+        } else {
+            setAcceptance(null);
         }
     };
 
     const handleAccept = async () => {
+        if (!documentType) return;
         setAccepting(true);
         try {
-            const record: AcceptanceRecord = {
-                acceptedAt: new Date().toISOString(),
-                version: '1.0',
-            };
-            const key = ACCEPTANCE_KEY_PREFIX + title.replace(/\s+/g, '_').toLowerCase();
-            await StorageAdapter.set(key, record);
+            const response = await legalService.acceptDocument(documentType, '1.0');
+            const acceptedAt = response?.accepted_at || new Date().toISOString();
+            const version = response?.version || '1.0';
+            const record: AcceptanceRecord = { acceptedAt, version };
             setAcceptance(record);
-        } catch (e) {
-            Alert.alert('Error', 'Failed to save acceptance.');
+        } catch {
+            Alert.alert('Unable to save acceptance', 'Try again in a moment.');
         } finally {
             setAccepting(false);
         }
@@ -62,128 +67,127 @@ export const LegalDocumentScreen = ({ route, navigation }: any) => {
 
     const formattedDate = acceptance
         ? new Date(acceptance.acceptedAt).toLocaleDateString('en-GB', {
-            day: 'numeric', month: 'short', year: 'numeric',
-        })
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+          })
         : null;
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
-            {/* ─── Header ─── */}
-            <View style={s.header}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color={C.text} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
-                <View style={{ width: 40 }} />
-            </View>
+        <AppScreen contentContainerStyle={styles.screen}>
+            <TopBar title={title} subtitle="Legal content and acceptance state" onBack={() => navigation.goBack()} />
 
-            {/* ─── Meta Row ─── */}
-            <View style={s.metaRow}>
-                <View style={s.versionPill}>
-                    <Text style={s.versionText}>v1.0</Text>
-                </View>
+            <View style={styles.metaRow}>
+                <GlassCard style={styles.metaPill}>
+                    <Text style={styles.metaPillText}>Version 1.0</Text>
+                </GlassCard>
                 {acceptance && (
-                    <View style={s.acceptedPill}>
-                        <Ionicons name="checkmark-circle" size={14} color={C.success} />
-                        <Text style={s.acceptedText}>Accepted {formattedDate}</Text>
-                    </View>
+                    <GlassCard style={styles.metaPill}>
+                        <View style={styles.acceptedRow}>
+                            <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                            <Text style={styles.acceptedText}>Accepted {formattedDate}</Text>
+                        </View>
+                    </GlassCard>
                 )}
             </View>
 
-            {/* ─── Content ─── */}
-            <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-                <View style={s.contentCard}>
-                    <Text style={s.documentText}>{content}</Text>
-                </View>
-            </ScrollView>
+            <GlassCard style={styles.documentCard}>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={styles.documentText}>{content}</Text>
+                </ScrollView>
+            </GlassCard>
 
-            {/* ─── Footer ─── */}
-            {isRequired && (
-                <View style={s.footer}>
+            {isRequired && documentType && (
+                <View style={styles.footer}>
                     {acceptance ? (
-                        <View style={s.confirmedCard}>
-                            <Ionicons name="shield-checkmark" size={24} color={C.success} />
-                            <View style={{ flex: 1, marginLeft: 14 }}>
-                                <Text style={s.confirmedTitle}>Accepted</Text>
-                                <Text style={s.confirmedDate}>
+                        <GlassCard style={styles.acceptedCard}>
+                            <Ionicons name="shield-checkmark" size={20} color={Colors.success} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.acceptedTitle}>Accepted</Text>
+                                <Text style={styles.acceptedMeta}>
                                     Version {acceptance.version} • {formattedDate}
                                 </Text>
                             </View>
-                        </View>
+                        </GlassCard>
                     ) : (
-                        <TouchableOpacity
-                            style={s.acceptButton}
-                            onPress={handleAccept}
-                            disabled={accepting}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="shield-checkmark-outline" size={20} color="#FFF" />
-                            <Text style={s.acceptButtonText}>
-                                {accepting ? 'Saving...' : `I Accept ${title}`}
-                            </Text>
+                        <TouchableOpacity style={styles.acceptButton} onPress={handleAccept} disabled={accepting}>
+                            <Text style={styles.acceptButtonText}>{accepting ? 'Saving Acceptance...' : `Accept ${title}`}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             )}
-        </SafeAreaView>
+        </AppScreen>
     );
 };
 
-// ─── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, height: 56,
-        borderBottomWidth: 1, borderBottomColor: C.border,
+const styles = StyleSheet.create({
+    screen: {
+        paddingBottom: 120,
     },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { fontSize: 17, fontWeight: '700', color: C.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
-
     metaRow: {
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-        paddingHorizontal: 16, paddingVertical: 12,
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 8,
+        marginBottom: 12,
     },
-    versionPill: {
-        backgroundColor: C.surface,
-        paddingHorizontal: 12, paddingVertical: 4,
-        borderRadius: 12,
+    metaPill: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
     },
-    versionText: { fontSize: 12, fontWeight: '600', color: C.muted },
-    acceptedPill: {
-        flexDirection: 'row', alignItems: 'center', gap: 4,
+    metaPillText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
     },
-    acceptedText: { fontSize: 12, color: C.success, fontWeight: '500' },
-
-    scrollContent: { padding: 16, paddingBottom: 120 },
-    contentCard: {
-        backgroundColor: C.surface,
-        borderRadius: 16, padding: 20,
-        borderWidth: 1, borderColor: C.border,
+    acceptedRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
-    documentText: { fontSize: 14, lineHeight: 22, color: C.muted },
-
+    acceptedText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.success,
+    },
+    documentCard: {
+        flex: 1,
+        minHeight: 360,
+    },
+    documentText: {
+        fontSize: 14,
+        lineHeight: 22,
+        color: Colors.textSecondary,
+    },
     footer: {
-        paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12,
-        borderTopWidth: 1, borderTopColor: C.border,
+        marginTop: 12,
     },
-    confirmedCard: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: 'rgba(34,197,94,0.08)',
-        borderRadius: 16, padding: 16,
-        borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
+    acceptedCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
-    confirmedTitle: { fontSize: 16, fontWeight: '700', color: C.success },
-    confirmedDate: { fontSize: 12, color: C.muted, marginTop: 2 },
+    acceptedTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors.success,
+    },
+    acceptedMeta: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+        marginTop: 2,
+    },
     acceptButton: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 52, borderRadius: 26,
-        backgroundColor: C.primary,
-        shadowColor: C.primary, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5, shadowRadius: 20,
+        minHeight: 50,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    acceptButtonText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    acceptButtonText: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: Colors.white,
+        textAlign: 'center',
+        paddingHorizontal: 12,
+    },
 });

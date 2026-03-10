@@ -1,30 +1,26 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
-    View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, Animated, KeyboardAvoidingView, Platform, StatusBar,
+    Alert,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '../../store/useAppStore';
+import { Theme } from '../../theme';
+import { ServiceLocator } from '../../../di/ServiceLocator';
 
-// ── Design Tokens ──
-const C = {
-    primary: '#ea103c',
-    bg: '#1a1a1a',
-    surface: '#2d2d2d',
-    border: '#404040',
-    neutral100: '#f5f5f5',
-    neutral400: '#a3a3a3',
-    neutral500: '#a3a3a3',
-    neutral700: '#525252',
-    neutral800: '#404040',
-    white: '#ffffff',
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
-};
+const { Colors, Layout, Motion, Spacing, Typography } = Theme;
 
-// ── Password strength utility ──
 const getPasswordStrength = (pwd: string): { level: 'weak' | 'fair' | 'strong'; score: number; color: string } => {
     let score = 0;
     if (pwd.length >= 8) score++;
@@ -32,128 +28,178 @@ const getPasswordStrength = (pwd: string): { level: 'weak' | 'fair' | 'strong'; 
     if (/[A-Z]/.test(pwd)) score++;
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
-    if (score <= 1) return { level: 'weak', score: 0.33, color: C.error };
-    if (score <= 3) return { level: 'fair', score: 0.66, color: C.warning };
-    return { level: 'strong', score: 1, color: C.success };
+    if (score <= 1) return { level: 'weak', score: 0.33, color: Colors.error };
+    if (score <= 3) return { level: 'fair', score: 0.66, color: Colors.warning };
+    return { level: 'strong', score: 1, color: Colors.success };
 };
 
-// ════════════════════════════════════════════════════════════════════
-//  SIGN IN
-// ════════════════════════════════════════════════════════════════════
-export const SignInScreen = ({ navigation }: any) => {
+const AuthShell = ({
+    title,
+    subtitle,
+    children,
+    footer,
+}: {
+    title: string;
+    subtitle: string;
+    children: React.ReactNode;
+    footer?: React.ReactNode;
+}) => {
     const insets = useSafeAreaInsets();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const { signIn, isLoading } = useAppStore();
-
-    const handleSignIn = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password.');
-            return;
-        }
-        const success = await signIn(email, password);
-        if (!success) {
-            Alert.alert('Login Failed', 'Invalid credentials. Try demo@revsync.com / garage');
-        }
-    };
 
     return (
-        <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-            <StatusBar barStyle="light-content" />
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
             >
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Sign In</Text>
-                        <Text style={styles.subtitle}>Welcome back to RevSync.</Text>
-                    </View>
+                <View style={styles.background}>
+                    <LinearGradient colors={[Colors.shell, Colors.surfaceMuted, Colors.shellAlt]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                    <LinearGradient colors={[Colors.accentSoft, 'rgba(99,199,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.orbTop} />
+                    <LinearGradient colors={['rgba(234,16,60,0.12)', 'rgba(234,16,60,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.orbBottom} />
+                </View>
 
-                    {/* Form */}
-                    <View style={styles.form}>
-                        {/* Email Input */}
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="mail-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter your email"
-                                placeholderTextColor={C.neutral500}
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
+                <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    <View style={styles.brandWrap}>
+                        <View style={styles.logoBadge}>
+                            <Text style={styles.logoText}>R</Text>
                         </View>
-
-                        {/* Password Input */}
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter your password"
-                                placeholderTextColor={C.neutral500}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
-                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.neutral500} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Forgot Password */}
-                        <TouchableOpacity
-                            style={styles.forgotRow}
-                            onPress={() => Alert.alert('Forgot Password', 'Please check your email to reset your password.')}
-                        >
-                            <Text style={styles.forgotText}>Forgot password?</Text>
-                        </TouchableOpacity>
-
-                        {/* Sign In Button */}
-                        <TouchableOpacity
-                            style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
-                            onPress={handleSignIn}
-                            activeOpacity={0.85}
-                            disabled={isLoading}
-                        >
-                            <Text style={styles.primaryBtnText}>
-                                {isLoading ? 'Signing In...' : 'Sign In'}
-                            </Text>
-                            {!isLoading && <Ionicons name="arrow-forward" size={20} color={C.white} />}
-                        </TouchableOpacity>
-
-                        {/* Create Account Link */}
-                        <View style={styles.switchRow}>
-                            <Text style={styles.switchText}>Don't have an account?</Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                                <Text style={styles.switchLink}> Create account</Text>
-                            </TouchableOpacity>
+                        <View>
+                            <Text style={styles.brandTitle}>RevSync Mobile</Text>
+                            <Text style={styles.brandSubtitle}>Guided, safety-critical ECU workflows</Text>
                         </View>
                     </View>
 
-                    {/* Footer */}
-                    <Text style={styles.termsFooter}>
-                        By signing in, you agree to our Terms of Service and Privacy Policy.
-                    </Text>
+                    <View style={styles.heroCopy}>
+                        <Text style={styles.kicker}>Operator Access</Text>
+                        <Text style={styles.heroTitle}>{title}</Text>
+                        <Text style={styles.heroSubtitle}>{subtitle}</Text>
+                    </View>
+
+                    <View style={styles.trustRow}>
+                        {['Signed releases', 'Backup-first flashing', 'Recovery guidance'].map((item) => (
+                            <View key={item} style={styles.trustChip}>
+                                <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
+                                <Text style={styles.trustChipText}>{item}</Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    <View style={styles.card}>{children}</View>
+
+                    {footer}
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };
 
-// ════════════════════════════════════════════════════════════════════
-//  SIGN UP
-// ════════════════════════════════════════════════════════════════════
+const Field = ({
+    icon,
+    placeholder,
+    value,
+    onChangeText,
+    secureTextEntry,
+    keyboardType,
+    right,
+}: {
+    icon: keyof typeof Ionicons.glyphMap;
+    placeholder: string;
+    value: string;
+    onChangeText: (value: string) => void;
+    secureTextEntry?: boolean;
+    keyboardType?: 'default' | 'email-address';
+    right?: React.ReactNode;
+}) => (
+    <View style={styles.inputContainer}>
+        <Ionicons name={icon} size={18} color={Colors.textTertiary} style={styles.inputIcon} />
+        <TextInput
+            style={styles.input}
+            placeholder={placeholder}
+            placeholderTextColor={Colors.textTertiary}
+            value={value}
+            onChangeText={onChangeText}
+            autoCapitalize="none"
+            keyboardType={keyboardType}
+            secureTextEntry={secureTextEntry}
+        />
+        {right}
+    </View>
+);
+
+export const SignInScreen = ({ navigation }: any) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const { signIn, isLoading } = useAppStore();
+    const [resettingPassword, setResettingPassword] = useState(false);
+
+    const handleSignIn = async () => {
+        if (!email || !password) {
+            Alert.alert('Missing details', 'Enter both email and password to continue.');
+            return;
+        }
+        const success = await signIn(email, password);
+        if (!success) {
+            Alert.alert('Sign in failed', 'Invalid credentials. Try demo@revsync.com / garage.');
+        }
+    };
+
+    const handlePasswordReset = async () => {
+        if (!email) {
+            Alert.alert('Email required', 'Enter your account email first so reset instructions can be sent.');
+            return;
+        }
+        setResettingPassword(true);
+        try {
+            const success = await ServiceLocator.getAuthService().resetPassword(email);
+            Alert.alert(
+                success ? 'Reset requested' : 'Reset unavailable',
+                success
+                    ? 'If an account exists for that email, reset instructions have been sent.'
+                    : 'Unable to start password reset right now.'
+            );
+        } finally {
+            setResettingPassword(false);
+        }
+    };
+
+    return (
+        <AuthShell title="Sign in to continue" subtitle="Resume flashing, downloads, and garage workflows without losing your current safety state.">
+            <Field icon="mail-outline" placeholder="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" />
+            <Field
+                icon="lock-closed-outline"
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                right={
+                    <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.inputAction}>
+                        <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color={Colors.textTertiary} />
+                    </TouchableOpacity>
+                }
+            />
+
+            <TouchableOpacity onPress={handlePasswordReset} style={styles.inlineAction} disabled={resettingPassword}>
+                <Text style={styles.inlineActionText}>{resettingPassword ? 'Sending reset...' : 'Forgot password?'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.primaryButton, isLoading && styles.buttonDisabled]} onPress={handleSignIn} disabled={isLoading} activeOpacity={0.88}>
+                <Text style={styles.primaryButtonText}>{isLoading ? 'Signing in...' : 'Sign In'}</Text>
+                {!isLoading && <Ionicons name="arrow-forward" size={18} color={Colors.white} />}
+            </TouchableOpacity>
+
+            <View style={styles.switchRow}>
+                <Text style={styles.switchText}>Don&apos;t have an account?</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                    <Text style={styles.switchLink}>Create account</Text>
+                </TouchableOpacity>
+            </View>
+        </AuthShell>
+    );
+};
+
 export const SignUpScreen = ({ navigation }: any) => {
-    const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -177,313 +223,324 @@ export const SignUpScreen = ({ navigation }: any) => {
     const handleSignUp = async () => {
         if (!email || !password || !confirmPassword) {
             shake();
-            Alert.alert('Error', 'Please fill all fields.');
+            Alert.alert('Missing details', 'Fill all fields before continuing.');
             return;
         }
         if (password !== confirmPassword) {
             shake();
-            Alert.alert('Error', 'Passwords do not match.');
+            Alert.alert('Password mismatch', 'The confirmation password does not match.');
             return;
         }
         if (!termsAccepted) {
             shake();
-            Alert.alert('Error', 'Please accept the Terms & Conditions to continue.');
+            Alert.alert('Agreement required', 'Accept the terms and privacy policy to create an account.');
             return;
         }
         const success = await signUp(email, password);
         if (!success) {
-            Alert.alert('Error', 'Failed to create account.');
+            Alert.alert('Account creation failed', 'Unable to create account right now.');
         }
     };
 
     return (
-        <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-            <StatusBar barStyle="light-content" />
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardView}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-            >
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Create Account</Text>
-                        <Text style={styles.subtitle}>Join the RevSync community.</Text>
+        <AuthShell
+            title="Create a RevSync account"
+            subtitle="Set up access for guided mobile workflows, entitlement-backed downloads, and safety-gated flashing."
+            footer={<Text style={styles.footerCopy}>Account creation keeps legal acceptance and safety onboarding explicit before any flashing action.</Text>}
+        >
+            <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+                <Field icon="mail-outline" placeholder="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" />
+                <Field
+                    icon="lock-closed-outline"
+                    placeholder="Create password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    right={
+                        <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.inputAction}>
+                            <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color={Colors.textTertiary} />
+                        </TouchableOpacity>
+                    }
+                />
+
+                {password.length > 0 && (
+                    <View style={styles.strengthWrap}>
+                        <View style={styles.strengthTrack}>
+                            <View style={[styles.strengthFill, { width: `${strength.score * 100}%`, backgroundColor: strength.color }]} />
+                        </View>
+                        <Text style={[styles.strengthLabel, { color: strength.color }]}>{strength.level}</Text>
                     </View>
+                )}
 
-                    <Animated.View style={[styles.form, { transform: [{ translateX: shakeAnim }] }]}>
-                        {/* Email */}
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="mail-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter your email"
-                                placeholderTextColor={C.neutral500}
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
+                <Field icon="shield-checkmark-outline" placeholder="Confirm password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
 
-                        {/* Password */}
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Min 8 characters"
-                                placeholderTextColor={C.neutral500}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
-                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={C.neutral500} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Strength meter */}
-                        {password.length > 0 && (
-                            <View style={styles.strengthRow}>
-                                <View style={styles.strengthTrack}>
-                                    <View style={[styles.strengthFill, { width: `${strength.score * 100}%`, backgroundColor: strength.color }]} />
-                                </View>
-                                <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                                    {strength.level.charAt(0).toUpperCase() + strength.level.slice(1)}
-                                </Text>
-                            </View>
-                        )}
-
-                        {/* Confirm Password */}
-                        <View style={styles.inputContainer}>
-                            <Ionicons name="lock-closed-outline" size={20} color={C.neutral500} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Re-enter password"
-                                placeholderTextColor={C.neutral500}
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                secureTextEntry
-                            />
-                        </View>
-
-                        {/* Terms checkbox */}
-                        <TouchableOpacity style={styles.termsRow} onPress={() => setTermsAccepted(!termsAccepted)} activeOpacity={0.7}>
-                            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                                {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
-                            </View>
-                            <Text style={styles.termsText}>
-                                I agree to the <Text style={styles.termsLink}>Terms & Conditions</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>
-                            </Text>
-                        </TouchableOpacity>
-
-                        {/* Sign Up Button */}
-                        <TouchableOpacity
-                            style={[styles.primaryBtn, (!termsAccepted || isLoading) && { opacity: 0.5 }]}
-                            onPress={handleSignUp}
-                            activeOpacity={0.85}
-                            disabled={!termsAccepted || isLoading}
-                        >
-                            <Text style={styles.primaryBtnText}>
-                                {isLoading ? 'Creating Account...' : 'Create Account'}
-                            </Text>
-                            {!isLoading && <Ionicons name="arrow-forward" size={20} color={C.white} />}
-                        </TouchableOpacity>
-
-                        {/* Switch to Sign In */}
-                        <View style={styles.switchRow}>
-                            <Text style={styles.switchText}>Already have an account?</Text>
-                            <TouchableOpacity onPress={() => navigation.goBack()}>
-                                <Text style={styles.switchLink}> Sign In</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </Animated.View>
-
-                    <Text style={styles.termsFooter}>
-                        By creating an account, you agree to our Terms of Service and Privacy Policy.
+                <Pressable style={styles.checkboxRow} onPress={() => setTermsAccepted((prev) => !prev)}>
+                    <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                        {termsAccepted && <Ionicons name="checkmark" size={14} color={Colors.white} />}
+                    </View>
+                    <Text style={styles.checkboxText}>
+                        I agree to the <Text style={styles.checkboxLink}>Terms</Text> and <Text style={styles.checkboxLink}>Privacy Policy</Text>
                     </Text>
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+                </Pressable>
+
+                <TouchableOpacity
+                    style={[styles.primaryButton, (!termsAccepted || isLoading) && styles.buttonDisabled]}
+                    onPress={handleSignUp}
+                    disabled={!termsAccepted || isLoading}
+                    activeOpacity={0.88}
+                >
+                    <Text style={styles.primaryButtonText}>{isLoading ? 'Creating account...' : 'Create Account'}</Text>
+                    {!isLoading && <Ionicons name="arrow-forward" size={18} color={Colors.white} />}
+                </TouchableOpacity>
+
+                <View style={styles.switchRow}>
+                    <Text style={styles.switchText}>Already have an account?</Text>
+                    <TouchableOpacity onPress={() => navigation.goBack()}>
+                        <Text style={styles.switchLink}>Sign in</Text>
+                    </TouchableOpacity>
+                </View>
+            </Animated.View>
+        </AuthShell>
     );
 };
 
-// ════════════════════════════════════════════════════════════════════
-//  STYLES
-// ════════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-    root: {
+    safe: {
         flex: 1,
-        backgroundColor: C.bg,
+        backgroundColor: Colors.shell,
     },
     keyboardView: {
         flex: 1,
     },
+    background: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    orbTop: {
+        position: 'absolute',
+        width: 360,
+        height: 360,
+        borderRadius: 360,
+        top: -160,
+        left: -150,
+    },
+    orbBottom: {
+        position: 'absolute',
+        width: 320,
+        height: 320,
+        borderRadius: 320,
+        right: -120,
+        bottom: -140,
+    },
     scrollContent: {
-        flexGrow: 1,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.xxl,
+        paddingBottom: Spacing.max,
+    },
+    brandWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    logoBadge: {
+        width: 46,
+        height: 46,
+        borderRadius: 16,
+        backgroundColor: Colors.surface2,
+        borderWidth: 1,
+        borderColor: Colors.strokeStrong,
+        alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 24,
-        paddingVertical: 24,
     },
-
-    // ── Header ──
-    header: {
-        marginBottom: 40,
-    },
-    title: {
-        fontSize: 36,
+    logoText: {
+        color: Colors.textPrimary,
+        fontSize: 20,
         fontWeight: '800',
-        color: C.white,
-        letterSpacing: -0.5,
-        marginBottom: 6,
     },
-    subtitle: {
+    brandTitle: {
+        color: Colors.textPrimary,
         fontSize: 18,
-        color: C.neutral500,
+        fontWeight: '800',
     },
-
-    // ── Form ──
-    form: {
-        gap: 16,
+    brandSubtitle: {
+        color: Colors.textSecondary,
+        fontSize: 12,
+        marginTop: 2,
+    },
+    heroCopy: {
+        marginTop: Spacing.hero,
+        marginBottom: Spacing.xl,
+    },
+    kicker: {
+        ...Typography.dataLabel,
+        color: Colors.accent,
+        marginBottom: 8,
+    },
+    heroTitle: {
+        ...Typography.display,
+    },
+    heroSubtitle: {
+        ...Typography.body,
+        marginTop: 10,
+        maxWidth: 340,
+    },
+    trustRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: Spacing.xl,
+    },
+    trustChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+    },
+    trustChipText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+    },
+    card: {
+        borderRadius: Layout.radiusXl,
+        backgroundColor: 'rgba(18,25,37,0.88)',
+        borderWidth: 1,
+        borderColor: Colors.strokeSoft,
+        padding: Spacing.xl,
+        gap: 14,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: C.surface,
-        borderRadius: 16,
+        borderRadius: Layout.radiusMd,
         borderWidth: 1,
-        borderColor: C.border,
-        overflow: 'hidden',
+        borderColor: Colors.strokeSoft,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        minHeight: 54,
     },
     inputIcon: {
-        paddingLeft: 16,
+        marginLeft: 14,
     },
     input: {
         flex: 1,
-        paddingVertical: 16,
         paddingHorizontal: 12,
-        color: C.white,
-        fontSize: 16,
+        paddingVertical: 14,
+        color: Colors.textPrimary,
+        fontSize: 15,
     },
-    eyeBtn: {
-        paddingRight: 16,
-        paddingVertical: 16,
+    inputAction: {
+        paddingHorizontal: 14,
+        paddingVertical: 12,
     },
-
-    // ── Forgot ──
-    forgotRow: {
-        alignSelf: 'flex-end',
+    inlineAction: {
+        alignSelf: 'flex-start',
+        paddingVertical: 4,
     },
-    forgotText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: C.neutral500,
+    inlineActionText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.accent,
     },
-
-    // ── Primary Button ──
-    primaryBtn: {
+    primaryButton: {
+        minHeight: 52,
+        borderRadius: Layout.buttonRadius,
+        backgroundColor: Colors.primary,
+        borderWidth: 1,
+        borderColor: 'rgba(255,122,147,0.18)',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: C.primary,
-        paddingVertical: 16,
-        borderRadius: 16,
         marginTop: 8,
-        // glow
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 15,
-        elevation: 6,
     },
-    primaryBtnText: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: C.white,
+    primaryButtonText: {
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: '800',
     },
-
-    // ── Switch row ──
+    buttonDisabled: {
+        opacity: 0.55,
+    },
     switchRow: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 24,
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 10,
     },
     switchText: {
-        color: C.neutral500,
-        fontSize: 15,
+        fontSize: 13,
+        color: Colors.textSecondary,
     },
     switchLink: {
-        color: C.primary,
+        fontSize: 13,
         fontWeight: '700',
-        fontSize: 15,
+        color: Colors.accent,
     },
-
-    // ── Terms footer ──
-    termsFooter: {
+    footerCopy: {
+        ...Typography.small,
+        marginTop: 14,
         textAlign: 'center',
-        fontSize: 11,
-        color: C.neutral800,
-        lineHeight: 16,
-        marginTop: 24,
+        lineHeight: 18,
+        color: Colors.textTertiary,
     },
-
-    // ── Password strength ──
-    strengthRow: {
+    strengthWrap: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginTop: -8,
+        gap: 10,
+        marginTop: 10,
+        marginBottom: 2,
     },
     strengthTrack: {
         flex: 1,
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: 2,
+        height: 6,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.08)',
         overflow: 'hidden',
     },
     strengthFill: {
         height: '100%',
-        borderRadius: 2,
+        borderRadius: 999,
     },
     strengthLabel: {
+        minWidth: 48,
+        textTransform: 'capitalize',
         fontSize: 12,
-        fontWeight: '600',
-        width: 48,
+        fontWeight: '700',
     },
-
-    // ── Terms checkbox ──
-    termsRow: {
+    checkboxRow: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 12,
-        paddingVertical: 4,
+        marginTop: 6,
     },
     checkbox: {
-        width: 22,
-        height: 22,
-        borderRadius: 4,
-        borderWidth: 2,
-        borderColor: C.neutral500,
+        width: 20,
+        height: 20,
+        marginTop: 2,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: Colors.strokeStrong,
+        backgroundColor: 'rgba(255,255,255,0.03)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     checkboxChecked: {
-        backgroundColor: C.primary,
-        borderColor: C.primary,
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
     },
-    termsText: {
+    checkboxText: {
         flex: 1,
         fontSize: 13,
-        color: C.neutral500,
-        lineHeight: 18,
+        lineHeight: 19,
+        color: Colors.textSecondary,
     },
-    termsLink: {
-        color: C.primary,
-        fontWeight: '600',
+    checkboxLink: {
+        color: Colors.accent,
+        fontWeight: '700',
     },
 });

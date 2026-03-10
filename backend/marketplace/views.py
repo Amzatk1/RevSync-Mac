@@ -43,14 +43,8 @@ logger = logging.getLogger(__name__)
 # Permissions
 # ─────────────────────────────────────────────────────────────────────
 
-class IsTuner(permissions.BasePermission):
-    """User must have an active (non-suspended) TunerProfile."""
-    def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and hasattr(request.user, 'tuner_profile')
-            and not request.user.tuner_profile.is_suspended
-        )
+class IsTuner(CoreIsTuner):
+    """User must have active tuner access according to the shared permission policy."""
 
 
 class IsListingOwner(permissions.BasePermission):
@@ -231,7 +225,7 @@ class TunerVersionViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        is_trusted = request.user.tuner_profile.tier == 'TRUSTED'
+        is_trusted = request.user.tuner_profile.tier == TunerProfile.Tier.TRUSTED
 
         if is_trusted:
             version.status = TuneVersion.State.PUBLISHED
