@@ -5,6 +5,9 @@ import { ApiClient } from '../http/ApiClient';
 const BIKES_LIST_KEY = 'bikes_list';
 const ACTIVE_BIKE_KEY = 'active_bike_id';
 
+const isOfflineLikeError = (error: any) =>
+    error?.code === 'NETWORK_ERROR' || error?.code === 'TIMEOUT';
+
 /**
  * Bike service with backend sync + local fallback.
  *
@@ -14,14 +17,35 @@ const ACTIVE_BIKE_KEY = 'active_bike_id';
  *  - setActiveBike: local-only (UI concern, not persisted server-side)
  */
 export class ApiBikeService implements BikeService {
+    private async fetchAllVehicles(): Promise<any[]> {
+        const firstPage = await ApiClient.getInstance().get<{ results?: any[]; next?: string | null } | any[]>('/v1/garage/', {
+            params: { page: 1 },
+        });
+
+        if (Array.isArray(firstPage)) {
+            return firstPage;
+        }
+
+        const vehicles = [...(firstPage.results || [])];
+        let page = 2;
+        let next = firstPage.next;
+
+        while (next) {
+            const response = await ApiClient.getInstance().get<{ results?: any[]; next?: string | null }>('/v1/garage/', {
+                params: { page },
+            });
+            vehicles.push(...(response.results || []));
+            next = response.next;
+            page += 1;
+        }
+
+        return vehicles;
+    }
 
     async getBikes(): Promise<Bike[]> {
         // Try backend first
         try {
-            const response = await ApiClient.getInstance().get<{ results?: any[]; } | any[]>('/v1/garage/');
-
-            // DRF may return paginated { results: [...] } or flat array
-            const vehicles = Array.isArray(response) ? response : (response.results || []);
+            const vehicles = await this.fetchAllVehicles();
 
             const bikes: Bike[] = vehicles.map((v: any) => ({
                 id: String(v.id),
@@ -86,10 +110,13 @@ export class ApiBikeService implements BikeService {
             console.log('ApiBikeService: Bike saved to backend + local', newBike);
             return newBike;
         } catch (e) {
-            console.warn('ApiBikeService: Backend save failed, saving locally only', e);
+            if (!isOfflineLikeError(e)) {
+                throw e;
+            }
+            console.warn('ApiBikeService: Backend unavailable, saving locally for offline continuity', e);
         }
 
-        // Fallback: local-only
+        // Fallback: local-only for offline continuity
         const id = 'bike_' + Math.random().toString(36).substring(2, 11);
         const newBike: Bike = { ...bike, id };
         const bikes = await StorageAdapter.get<Bike[]>(BIKES_LIST_KEY) || [];
@@ -111,7 +138,10 @@ export class ApiBikeService implements BikeService {
             });
             console.log('ApiBikeService: Bike updated on backend', response);
         } catch (e) {
-            console.warn('ApiBikeService: Backend update failed', e);
+            if (!isOfflineLikeError(e)) {
+                throw e;
+            }
+            console.warn('ApiBikeService: Backend unavailable, updating local cache only', e);
         }
 
         // Update local cache

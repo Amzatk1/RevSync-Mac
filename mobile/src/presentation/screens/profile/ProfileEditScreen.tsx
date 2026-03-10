@@ -40,6 +40,9 @@ export const ProfileEditScreen = ({ navigation }: any) => {
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(true);
 
+    const isOfflineLikeError = (error: any) =>
+        error?.code === 'NETWORK_ERROR' || error?.code === 'TIMEOUT';
+
     // Load profile from backend on mount
     useEffect(() => {
         (async () => {
@@ -62,6 +65,8 @@ export const ProfileEditScreen = ({ navigation }: any) => {
 
     const handleSave = async () => {
         setSaving(true);
+        let profileSaved = false;
+        let userSaved = false;
         try {
             // Save to backend profile
             await ApiClient.getInstance().patch('/v1/profile/me/', {
@@ -69,20 +74,32 @@ export const ProfileEditScreen = ({ navigation }: any) => {
                 riding_style: ridingStyle,
                 country,
             });
+            profileSaved = true;
 
             // Save user name
             await ApiClient.getInstance().patch('/v1/users/me/', {
                 first_name: firstName,
                 last_name: lastName,
             });
+            userSaved = true;
 
             Alert.alert('Saved', 'Your profile has been updated.');
             navigation.goBack();
-        } catch (e) {
-            console.warn('ProfileEdit: Backend save failed, saving locally', e);
-            // Still show success for offline mode — data will sync later
-            Alert.alert('Saved Locally', 'Your profile is saved on-device. It will sync when the backend is available.');
-            navigation.goBack();
+        } catch (e: any) {
+            console.warn('ProfileEdit: Backend save failed', e);
+            if (profileSaved || userSaved) {
+                Alert.alert(
+                    'Partially saved',
+                    'Some profile changes were saved, but not all updates completed. Reopen this screen and verify your details before continuing.'
+                );
+            } else if (isOfflineLikeError(e)) {
+                Alert.alert(
+                    'Unable to save while offline',
+                    'Profile changes could not be saved because the backend is unavailable. Reconnect and try again.'
+                );
+            } else {
+                Alert.alert('Unable to save profile', e.uiMessage || e.message || 'Profile update failed.');
+            }
         } finally {
             setSaving(false);
         }

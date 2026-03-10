@@ -36,11 +36,11 @@ export const SupportScreen = ({ navigation }: any) => {
         const loadSupportContext = async () => {
             try {
                 const [flashJobs, backups] = await Promise.all([
-                    garageService.getFlashJobs(),
-                    garageService.getBackups(),
+                    garageService.getAllFlashJobs(),
+                    garageService.getAllBackups(),
                 ]);
-                setFlashJobCount(flashJobs.results.length);
-                setBackupCount(backups.results.length);
+                setFlashJobCount(flashJobs.length);
+                setBackupCount(backups.length);
             } catch {
                 setFlashJobCount(0);
                 setBackupCount(0);

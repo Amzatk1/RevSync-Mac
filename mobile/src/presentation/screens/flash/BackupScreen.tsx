@@ -96,6 +96,7 @@ export const BackupScreen = ({ navigation, route }: any) => {
                 file_size_kb: fileSizeKb,
                 notes: 'Captured on mobile via ECU read',
             });
+            await garageService.registerLocalBackupPath(backup.id, path, backup.storage_key);
 
             setBackupId(backup.id);
             setStatus('completed');
@@ -105,7 +106,15 @@ export const BackupScreen = ({ navigation, route }: any) => {
         }
     };
 
-    const handleNext = () => navigation.navigate('FlashWizard', { tuneId, versionId, deviceId, backupPath, backupId });
+    const handleNext = () =>
+        navigation.navigate('FlashWizard', {
+            tuneId,
+            versionId,
+            deviceId,
+            bikeId: targetBike?.id || activeBike?.id,
+            backupPath,
+            backupId,
+        });
 
     return (
         <AppScreen contentContainerStyle={styles.content}>

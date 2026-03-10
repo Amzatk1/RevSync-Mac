@@ -68,11 +68,11 @@ export const LogsExportScreen = ({ navigation }: any) => {
         const loadSupportContext = async () => {
             try {
                 const [flashJobs, backups] = await Promise.all([
-                    garageService.getFlashJobs(),
-                    garageService.getBackups(),
+                    garageService.getAllFlashJobs(),
+                    garageService.getAllBackups(),
                 ]);
-                setFlashSessionCount(flashJobs.results.length);
-                setBackupCount(backups.results.length);
+                setFlashSessionCount(flashJobs.length);
+                setBackupCount(backups.length);
             } catch {
                 setFlashSessionCount(0);
                 setBackupCount(0);
@@ -90,22 +90,22 @@ export const LogsExportScreen = ({ navigation }: any) => {
         let supportSnapshot = '';
         try {
             const [flashJobs, backups] = await Promise.all([
-                garageService.getFlashJobs(),
-                garageService.getBackups(),
+                garageService.getAllFlashJobs(),
+                garageService.getAllBackups(),
             ]);
 
-            const flashLines = flashJobs.results.slice(0, 10).map((job) =>
+            const flashLines = flashJobs.slice(0, 10).map((job) =>
                 `[${job.created_at}] ${job.status} ${job.progress ?? 0}% ${job.tune_detail?.title || job.tune_detail?.name || 'Untitled Tune'}`
             );
-            const backupLines = backups.results.slice(0, 10).map((backup) =>
+            const backupLines = backups.slice(0, 10).map((backup) =>
                 `[${backup.created_at}] backup#${backup.id} ${backup.file_size_kb}KB ${backup.checksum.slice(0, 12)}...`
             );
 
             supportSnapshot = [
                 '=== Backend Support Snapshot ===',
-                `Flash jobs: ${flashJobs.results.length}`,
+                `Flash jobs: ${flashJobs.length}`,
                 ...flashLines,
-                `Backups: ${backups.results.length}`,
+                `Backups: ${backups.length}`,
                 ...backupLines,
                 '',
             ].join('\n');

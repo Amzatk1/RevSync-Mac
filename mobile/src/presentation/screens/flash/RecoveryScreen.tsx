@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getInfoAsync } from 'expo-file-system/legacy';
 import { ServiceLocator } from '../../../di/ServiceLocator';
 import { AppScreen, GlassCard, TopBar } from '../../components/AppUI';
 import { Theme } from '../../theme';
@@ -15,6 +16,7 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
     const [log, setLog] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [backupRecord, setBackupRecord] = useState<any | null>(null);
+    const [resolvedBackupPath, setResolvedBackupPath] = useState<string | null>(backupPath || null);
     const scrollRef = useRef<ScrollView>(null);
 
     useEffect(() => {
@@ -38,25 +40,49 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         const loadBackupRecord = async () => {
             if (!backupId) {
                 setBackupRecord(null);
+                setResolvedBackupPath(backupPath || null);
                 return;
             }
-            const record = await garageService.getBackup(backupId);
-            setBackupRecord(record);
-            if (!record) {
-                setError('The selected verified backup record is no longer available.');
+            try {
+                const record = await garageService.getBackup(backupId);
+                setBackupRecord(record);
+                if (!record) {
+                    setError('The selected verified backup record is no longer available.');
+                    setResolvedBackupPath(null);
+                    return;
+                }
+
+                const candidatePath = backupPath
+                    || record.local_path
+                    || (await garageService.resolveLocalBackupPath(record.id, record.storage_key));
+
+                if (!candidatePath) {
+                    setResolvedBackupPath(null);
+                    setError('Recovery is blocked until this device has a local copy of the verified backup.');
+                    return;
+                }
+
+                const info = await getInfoAsync(candidatePath);
+                if ((info as any)?.exists) {
+                    setResolvedBackupPath(candidatePath);
+                    setError(null);
+                } else {
+                    setResolvedBackupPath(null);
+                    setError('Recovery is blocked because the local backup file is no longer available on this device.');
+                }
+            } catch {
+                setBackupRecord(null);
+                setResolvedBackupPath(null);
+                setError('Could not load the verified backup record.');
             }
         };
         loadBackupRecord();
-    }, [backupId]);
+    }, [backupId, backupPath]);
 
     const addLog = (message: string) => setLog((prev) => [...prev, message]);
 
     const startRecovery = async () => {
-        if (!backupPath) {
-            setError('No backup file provided.');
-            return;
-        }
-        if (!backupId || !backupRecord) {
+        if (!backupId || !backupRecord || !resolvedBackupPath) {
             setError('Recovery is blocked until a verified backup record is available.');
             return;
         }
@@ -66,7 +92,7 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
         setError(null);
         setLog([]);
         addLog('Initializing recovery mode...');
-        addLog(`Backup file detected: ${backupPath.split('/').pop()}`);
+        addLog(`Backup file detected: ${resolvedBackupPath.split('/').pop()}`);
         addLog(`Verified backup record #${backupRecord.id} loaded`);
 
         try {
@@ -84,7 +110,7 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
             }
 
             addLog('Writing backup to ECU...');
-            await ecuService.restoreBackup(backupPath, (pct: number, message?: string) => {
+            await ecuService.restoreBackup(resolvedBackupPath, (pct: number, message?: string) => {
                 setProgress(pct);
                 if (message) addLog(message);
                 if (flashJobId && (pct === 100 || Math.floor(pct) % 10 === 0)) {
@@ -237,22 +263,22 @@ export const RecoveryScreen = ({ navigation, route }: any) => {
 
             <GlassCard>
                 <Text style={styles.sectionLabel}>Backup Authority</Text>
-                <Text style={styles.backupFileName}>{backupPath ? backupPath.split('/').pop() : 'No backup available'}</Text>
+                <Text style={styles.backupFileName}>{resolvedBackupPath ? resolvedBackupPath.split('/').pop() : backupRecord?.storage_key || 'No backup available'}</Text>
                 {backupRecord && (
                     <Text style={styles.backupMeta}>
                         Record #{backupRecord.id} • {backupRecord.file_size_kb} KB • {backupRecord.checksum.slice(0, 12)}...
                     </Text>
                 )}
-                {(!backupPath || !backupRecord) && (
+                {(!resolvedBackupPath || !backupRecord) && (
                     <View style={styles.warningInline}>
                         <Ionicons name="alert-circle" size={16} color={Colors.error} />
-                        <Text style={styles.warningInlineText}>Recovery is blocked until a valid backup file and verified backup record are available.</Text>
+                        <Text style={styles.warningInlineText}>Recovery is blocked until a verified backup record and its local backup file are available on this device.</Text>
                     </View>
                 )}
             </GlassCard>
 
             <View style={styles.actions}>
-                <TouchableOpacity style={[styles.primaryButton, (!backupPath || !backupRecord) && styles.buttonDisabled]} onPress={startRecovery} disabled={!backupPath || !backupRecord}>
+                <TouchableOpacity style={[styles.primaryButton, (!resolvedBackupPath || !backupRecord) && styles.buttonDisabled]} onPress={startRecovery} disabled={!resolvedBackupPath || !backupRecord}>
                     <Text style={styles.primaryButtonText}>Start Recovery</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>

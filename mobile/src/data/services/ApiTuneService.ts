@@ -35,6 +35,13 @@ interface RawEntitlement {
     created_at: string;
 }
 
+interface PaginatedResponse<T> {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: T[];
+}
+
 function toNumber(value: unknown, fallback: number): number {
     const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
     return Number.isFinite(n) ? n : fallback;
@@ -91,6 +98,33 @@ function mapEntitlement(raw: RawEntitlement): Entitlement {
 }
 
 export class ApiTuneService implements TuneService {
+    private async getAllEntitlements(): Promise<RawEntitlement[]> {
+        const firstPage = await ApiClient.getInstance().get<PaginatedResponse<RawEntitlement> | RawEntitlement[]>(
+            '/v1/marketplace/entitlements/',
+            { params: { page: 1 } }
+        );
+
+        if (Array.isArray(firstPage)) {
+            return firstPage;
+        }
+
+        const results = [...(firstPage.results || [])];
+        let next = firstPage.next;
+        let page = 2;
+
+        while (next) {
+            const response = await ApiClient.getInstance().get<PaginatedResponse<RawEntitlement>>(
+                '/v1/marketplace/entitlements/',
+                { params: { page } }
+            );
+            results.push(...(response.results || []));
+            next = response.next;
+            page += 1;
+        }
+
+        return results;
+    }
+
     async getTunes(filter?: TuneFilter, page: number = 1): Promise<Tune[]> {
         try {
             const params: Record<string, string | number | boolean | undefined> = { page };
@@ -206,7 +240,7 @@ export class ApiTuneService implements TuneService {
 
     async getEntitlements(): Promise<Entitlement[]> {
         try {
-            const raw = await ApiClient.getInstance().get<RawEntitlement[]>('/v1/marketplace/entitlements/');
+            const raw = await this.getAllEntitlements();
             const entitlements = raw.map(mapEntitlement);
             await StorageAdapter.set(CACHE_KEYS.ENTITLEMENTS, entitlements);
             return entitlements;

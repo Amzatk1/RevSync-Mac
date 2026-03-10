@@ -43,7 +43,7 @@ export const FlashHistoryScreen = ({ navigation, route }: any) => {
         try {
             const results: FlashJob[] = bikeId
                 ? (await garageService.getVehicleFlashJobs(bikeId) as any)
-                : ((await garageService.getFlashJobs()).results as any);
+                : (await garageService.getAllFlashJobs() as any);
             setJobs(results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         } catch {
             setJobs([]);

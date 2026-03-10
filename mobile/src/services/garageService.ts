@@ -1,4 +1,7 @@
 import { ApiClient } from '../data/http/ApiClient';
+import { StorageAdapter } from '../data/services/StorageAdapter';
+
+const LOCAL_BACKUP_PATHS_KEY = 'garage.localBackupPaths.v1';
 
 interface PaginatedResponse<T> {
     count: number;
@@ -56,6 +59,7 @@ interface EcuBackup {
     file_size_kb: number;
     created_at: string;
     notes?: string;
+    local_path?: string;
 }
 
 /**
@@ -63,6 +67,55 @@ interface EcuBackup {
  * All endpoints match the Django backend: /api/v1/garage/...
  */
 export const garageService = {
+    async getLocalBackupPathRegistry(): Promise<Record<string, string>> {
+        return (await StorageAdapter.get<Record<string, string>>(LOCAL_BACKUP_PATHS_KEY)) || {};
+    },
+
+    async registerLocalBackupPath(backupId: number | string, localPath: string, storageKey?: string): Promise<void> {
+        const current = await this.getLocalBackupPathRegistry();
+        current[`backup:${backupId}`] = localPath;
+        if (storageKey) {
+            current[`storage:${storageKey}`] = localPath;
+        }
+        await StorageAdapter.set(LOCAL_BACKUP_PATHS_KEY, current);
+    },
+
+    async resolveLocalBackupPath(backupId?: number | string | null, storageKey?: string | null): Promise<string | null> {
+        const current = await this.getLocalBackupPathRegistry();
+        if (backupId !== undefined && backupId !== null) {
+            const byId = current[`backup:${backupId}`];
+            if (byId) {
+                return byId;
+            }
+        }
+        if (storageKey) {
+            return current[`storage:${storageKey}`] || null;
+        }
+        return null;
+    },
+
+    async getAllPages<T>(path: string): Promise<T[]> {
+        const results: T[] = [];
+        let page = 1;
+        let hasNext = true;
+
+        while (hasNext) {
+            const response = await ApiClient.getInstance().get<PaginatedResponse<T>>(path, {
+                params: { page },
+            });
+
+            results.push(...(response.results || []));
+
+            if (!response.next || (response.results || []).length === 0) {
+                hasNext = false;
+            } else {
+                page += 1;
+            }
+        }
+
+        return results;
+    },
+
     /**
      * Get all vehicles for the current user.
      * Backend: GET /api/v1/garage/
@@ -129,8 +182,10 @@ export const garageService = {
 
     async getVehicleFlashJobs(vehicleId: number | string): Promise<FlashJob[]> {
         try {
-            const response = await this.getFlashJobs();
-            return response.results.filter((job) => String(job.vehicle) === String(vehicleId));
+            const results = await this.getAllPages<FlashJob>('/v1/garage/flash-jobs/');
+            return results
+                .filter((job) => String(job.vehicle) === String(vehicleId))
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         } catch {
             return [];
         }
@@ -173,8 +228,15 @@ export const garageService = {
 
     async getVehicleBackups(vehicleId: number | string): Promise<EcuBackup[]> {
         try {
-            const response = await this.getBackups();
-            return response.results.filter((backup) => String(backup.vehicle) === String(vehicleId));
+            const results = await this.getAllPages<EcuBackup>('/v1/garage/backups/');
+            const registry = await this.getLocalBackupPathRegistry();
+            return results
+                .filter((backup) => String(backup.vehicle) === String(vehicleId))
+                .map((backup) => ({
+                    ...backup,
+                    local_path: registry[`backup:${backup.id}`] || registry[`storage:${backup.storage_key}`],
+                }))
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         } catch {
             return [];
         }
@@ -182,11 +244,26 @@ export const garageService = {
 
     async getBackup(id: number | string): Promise<EcuBackup | null> {
         try {
-            const response = await this.getBackups();
-            return response.results.find((backup) => String(backup.id) === String(id)) || null;
+            const results = await this.getAllPages<EcuBackup>('/v1/garage/backups/');
+            const backup = results.find((entry) => String(entry.id) === String(id)) || null;
+            if (!backup) {
+                return null;
+            }
+            return {
+                ...backup,
+                local_path: (await this.resolveLocalBackupPath(backup.id, backup.storage_key)) || undefined,
+            };
         } catch {
             return null;
         }
+    },
+
+    async getAllFlashJobs(): Promise<FlashJob[]> {
+        return this.getAllPages<FlashJob>('/v1/garage/flash-jobs/');
+    },
+
+    async getAllBackups(): Promise<EcuBackup[]> {
+        return this.getAllPages<EcuBackup>('/v1/garage/backups/');
     },
 
     async createBackup(payload: {

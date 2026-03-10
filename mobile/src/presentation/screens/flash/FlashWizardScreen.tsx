@@ -10,6 +10,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { getInfoAsync } from 'expo-file-system/legacy';
 import { garageService } from '../../../services/garageService';
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ const C = {
 // ─── Component ─────────────────────────────────────────────────
 
 export const FlashWizardScreen = ({ navigation, route }: any) => {
-    const { tuneId, backupPath, backupId, versionId, deviceId } = route.params || {};
+    const { tuneId, backupPath, backupId, versionId, deviceId, bikeId } = route.params || {};
     const { activeBike } = useAppStore();
     const { safetyModeEnabled } = useSettingsStore();
 
@@ -57,6 +58,8 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
     const [chunkInfo, setChunkInfo] = useState({ sent: 0, total: 0 });
     const [countdown, setCountdown] = useState(5);
     const [flashJobId, setFlashJobId] = useState<number | null>(null);
+    const [resolvedBackupPath, setResolvedBackupPath] = useState<string | null>(backupPath || null);
+    const [resolvedBackupVehicleId, setResolvedBackupVehicleId] = useState<number | null>(bikeId ? Number(bikeId) : null);
 
     const progressPulse = useRef(new Animated.Value(1)).current;
     const scrollRef = useRef<ScrollView>(null);
@@ -98,7 +101,45 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }, [log]);
 
-    useEffect(() => { if (step === 'pre-checks') runPreChecks(); }, []);
+    useEffect(() => {
+        if (step === 'pre-checks') {
+            runPreChecks();
+        }
+    }, [step, resolvedBackupPath, backupId, versionId, safetyModeEnabled]);
+
+    useEffect(() => {
+        const resolveBackupAuthority = async () => {
+            if (!backupId) {
+                setResolvedBackupPath(backupPath || null);
+                setResolvedBackupVehicleId(bikeId ? Number(bikeId) : activeBike ? Number(activeBike.id) : null);
+                return;
+            }
+
+            try {
+                const backupRecord = await garageService.getBackup(backupId);
+                setResolvedBackupVehicleId(
+                    backupRecord?.vehicle ? Number(backupRecord.vehicle) : bikeId ? Number(bikeId) : activeBike ? Number(activeBike.id) : null
+                );
+
+                const candidatePath = backupPath
+                    || backupRecord?.local_path
+                    || (await garageService.resolveLocalBackupPath(backupId, backupRecord?.storage_key));
+
+                if (!candidatePath) {
+                    setResolvedBackupPath(null);
+                    return;
+                }
+
+                const info = await getInfoAsync(candidatePath);
+                setResolvedBackupPath((info as any)?.exists ? candidatePath : null);
+            } catch {
+                setResolvedBackupPath(null);
+                setResolvedBackupVehicleId(bikeId ? Number(bikeId) : activeBike ? Number(activeBike.id) : null);
+            }
+        };
+
+        resolveBackupAuthority();
+    }, [backupId, backupPath, bikeId, activeBike?.id]);
 
     const addLog = (message: string, type: FlashLog['type'] = 'info') => {
         setLog(prev => [...prev, { timestamp: Date.now(), message, type }]);
@@ -126,7 +167,7 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
         setChecks({ ...result }); setCheckMessages({ ...msgs });
 
         // 2. Backup exists
-        result.backup = !!backupPath && !!backupId;
+        result.backup = !!resolvedBackupPath && !!backupId;
         msgs.backup = result.backup
             ? `Verified backup record #${backupId} is ready`
             : 'No verified backup record — create one first';
@@ -201,8 +242,9 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
         addLog('Initializing flash session...', 'info');
         let currentFlashJobId: number | null = null;
         try {
-            if (!activeBike) throw new Error('Select an active bike before flashing.');
-            if (!backupPath || !backupId) throw new Error('Verified backup record is required before flashing.');
+            const targetVehicleId = resolvedBackupVehicleId || (activeBike ? Number(activeBike.id) : null);
+            if (!targetVehicleId) throw new Error('Select a vehicle before flashing.');
+            if (!resolvedBackupPath || !backupId) throw new Error('Verified backup record is required before flashing.');
             if (!deviceId) throw new Error('Connected device is required before flashing.');
 
             const tuneService = ServiceLocator.getTuneService();
@@ -210,7 +252,7 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
             if (!tune) throw new Error('Tune definition not found');
 
             const flashJob = await garageService.createFlashJob({
-                vehicle: Number(activeBike.id),
+                vehicle: targetVehicleId,
                 tune: tune.listingId || tune.id,
                 version: versionId,
                 backup: backupId,
@@ -234,7 +276,7 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
             addLog('Tune loaded: ' + tune.title, 'info');
             addLog('Entering bootloader mode...', 'info');
             setStep('flashing');
-            await ecuService.flashTune(tune, backupPath, (pct, msg) => {
+            await ecuService.flashTune(tune, resolvedBackupPath, (pct, msg) => {
                 setProgress(pct);
                 if (msg) {
                     const chunkMatch = msg.match(/Chunk (\d+)\/(\d+)/);
@@ -522,7 +564,7 @@ export const FlashWizardScreen = ({ navigation, route }: any) => {
                 <Text style={s.resultSubText}>Your original backup is available. Attempt Recovery?</Text>
                 <TouchableOpacity
                     style={s.primaryBtn}
-                    onPress={() => navigation.navigate('Recovery', { backupPath, backupId, deviceId, flashJobId })}
+                    onPress={() => navigation.navigate('Recovery', { backupPath: resolvedBackupPath, backupId, deviceId, flashJobId })}
                     activeOpacity={0.85}
                 >
                     <Ionicons name="medical" size={20} color="#FFF" />

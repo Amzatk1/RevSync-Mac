@@ -33,12 +33,12 @@ export const GarageScreen = ({ navigation }: any) => {
             const bikeService = ServiceLocator.getBikeService();
             const [loadedBikes, flashJobs, backups] = await Promise.all([
                 bikeService.getBikes(),
-                garageService.getFlashJobs().catch(() => ({ results: [] as any[] })),
-                garageService.getBackups().catch(() => ({ results: [] as any[] })),
+                garageService.getAllFlashJobs().catch(() => [] as any[]),
+                garageService.getAllBackups().catch(() => [] as any[]),
             ]);
             setBikes(loadedBikes);
-            setFlashJobCount(flashJobs.results.length);
-            setBackupCount(backups.results.length);
+            setFlashJobCount(flashJobs.length);
+            setBackupCount(backups.length);
         } catch (e) {
             console.warn('GarageScreen: load failed', e);
         } finally {
