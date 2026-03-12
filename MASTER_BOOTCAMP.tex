@@ -4022,6 +4022,55 @@ Most computer science fundamentals become easier when you stop seeing them as is
 When you are asked to choose a data structure, the real question is usually: ``Which operations must be fast, and which costs can I tolerate?''
 \end{intuitionbox}
 
+\section{Memory, Stack, Heap, Processes, and Threads}
+
+Before choosing data structures well, it helps to know where program data and execution contexts live conceptually.
+
+\textbf{Stack:} typically stores function call frames, local variables, and return information. It is fast and structured.
+
+\textbf{Heap:} typically stores objects and data that live longer or have dynamic size. It is flexible but less structured.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=2cm]
+    \node[warnbox, minimum width=4cm, minimum height=5.4cm, label=above:{Program memory}] (mem) {};
+    \node[flowbox, minimum width=2.8cm, minimum height=1.2cm] (stack1) at ($(mem.north)+(0,-1.0)$) {Call frame: main};
+    \node[flowbox, minimum width=2.8cm, minimum height=1.2cm, below=0.15cm of stack1] (stack2) {Call frame: helper()};
+    \node[flowbox, minimum width=2.8cm, minimum height=1.2cm, below=0.15cm of stack2] (stack3) {Local values};
+    \node[storagebox, minimum width=2.8cm, minimum height=1.7cm, below=1.2cm of stack3] (heap) {Heap objects\\lists, dicts, class instances};
+
+    \node[font=\small, left=1.8cm of stack2] {Stack};
+    \node[font=\small, left=1.8cm of heap] {Heap};
+\end{tikzpicture}
+\caption{A simplified memory intuition: stack frames above, heap objects below}
+\label{fig:stack-heap-intuition}
+\end{figure}
+
+This figure matters because many debugging and performance issues involve lifetime and ownership. Local call information behaves differently from dynamically allocated objects.
+
+\textbf{Process:} an independent running program with its own memory space.
+
+\textbf{Thread:} a unit of execution within a process that shares the process memory with other threads in that same process.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.2cm]
+    \node[warnbox, minimum width=10.8cm, minimum height=4.5cm, label=above:{One process}] (proc) {};
+    \node[storagebox, minimum width=4.2cm, minimum height=1.0cm] (shared) at ($(proc.north)+(0,-1.0)$) {Shared memory / heap};
+    \node[flowbox, minimum width=2.2cm, below left=1.2cm and 2.1cm of shared] (t1) {Thread 1};
+    \node[flowbox, minimum width=2.2cm, below=1.2cm of shared] (t2) {Thread 2};
+    \node[flowbox, minimum width=2.2cm, below right=1.2cm and 2.1cm of shared] (t3) {Thread 3};
+
+    \draw[softarrow] (shared) -- (t1);
+    \draw[softarrow] (shared) -- (t2);
+    \draw[softarrow] (shared) -- (t3);
+\end{tikzpicture}
+\caption{Threads share process memory, while separate processes do not}
+\label{fig:process-thread-intuition}
+\end{figure}
+
+Use this picture to remember the practical trade-off: threads communicate more easily because they share memory, but that same sharing makes synchronization and safety harder.
+
 \section{Arrays}
 
 An \textbf{array} is a contiguous block of memory storing elements of the same type, accessed by index.
@@ -6230,6 +6279,29 @@ my_flask_app/
     \item tests mirror the project structure more clearly
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.35cm]
+    \node[flowbox] (entry) {run.py /\\create\_app()};
+    \node[storagebox, below left=1.2cm and 1.7cm of entry] (routes) {routes};
+    \node[storagebox, below=1.2cm of entry] (services) {services};
+    \node[storagebox, below right=1.2cm and 1.7cm of entry] (models) {models};
+    \node[databox, below=1.5cm of services] (tests) {tests};
+
+    \draw[flowarrow] (entry) -- (routes);
+    \draw[flowarrow] (entry) -- (services);
+    \draw[flowarrow] (entry) -- (models);
+    \draw[softarrow] (routes) -- (services);
+    \draw[softarrow] (services) -- (models);
+    \draw[softarrow] (tests) -- (routes);
+    \draw[softarrow] (tests) -- (services);
+\end{tikzpicture}
+\caption{A maintainable Flask application structure}
+\label{fig:flask-structure}
+\end{figure}
+
+This figure is useful because Flask can feel too unstructured at first. A clean separation between routes, services, models, and tests helps small apps avoid growing into one-file tangles.
+
 \section{SQLAlchemy, Testing, and Deployment}
 
 Flask usually relies on extensions for common needs:
@@ -6809,6 +6881,28 @@ This reading order reduces overload. Instead of seeing one giant wall of SQL, yo
 
 What you are looking at here is not just database wiring. It is the domain model of the product: users own bikes, tuners author tune files, and flash logs connect a user, a bike, and a tune into one auditable event.
 
+\subsection{Join Intuition}
+
+Joins are easier when you stop seeing them as abstract SQL vocabulary and start seeing them as relationship assembly.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.7cm]
+    \node[storagebox] (left) {users\\id, email};
+    \node[storagebox, right=of left] (right) {orders\\user\_id, total};
+    \node[flowbox, right=of right] (join) {INNER JOIN\\on users.id = orders.user\_id};
+    \node[databox, right=of join] (result) {joined rows\\user + order};
+
+    \draw[flowarrow] (left) -- (join);
+    \draw[flowarrow] (right) -- (join);
+    \draw[flowarrow] (join) -- (result);
+\end{tikzpicture}
+\caption{A simple mental model for an SQL join}
+\label{fig:sql-join-intuition}
+\end{figure}
+
+The important learning point is that a join is not ``merging tables randomly.'' It is combining related rows using a shared key so the query can answer a business question.
+
 \section{Indexes and Query Performance}
 
 Indexes speed up reads, but they are not free.
@@ -6839,6 +6933,26 @@ When a query feels slow, do not guess blindly. Ask:
 \begin{notebox}
 Professional database tuning is usually less about ``write clever SQL'' and more about understanding access patterns, row counts, index selectivity, and the workload you are actually serving.
 \end{notebox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.7cm]
+    \node[storagebox] (table) {Large table\\many rows};
+    \node[flowbox, right=of table] (scan) {Full scan\\check row by row};
+    \node[warnbox, below=1.2cm of scan] (index) {Index lookup\\jump near target};
+    \node[databox, right=of scan] (result1) {Matching rows};
+    \node[databox, right=of index] (result2) {Matching rows};
+
+    \draw[flowarrow] (table) -- (scan);
+    \draw[flowarrow] (scan) -- (result1);
+    \draw[softarrow] (table) -- (index);
+    \draw[softarrow] (index) -- (result2);
+\end{tikzpicture}
+\caption{Index intuition: scanning everything versus jumping closer to the needed rows}
+\label{fig:index-intuition}
+\end{figure}
+
+This visual matters because indexing is a workload optimization, not a magic speed button. It helps when the index matches the way queries actually search or sort the data.
 
 \section{Transactions and ACID}
 
@@ -11069,6 +11183,30 @@ For a product like RevSync, a realistic early cloud setup could be:
 \end{itemize}
 \end{projectbox}
 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.25cm]
+    \node[databox] (users) {Users};
+    \node[flowbox, right=of users] (dns) {DNS / CDN};
+    \node[flowbox, right=of dns] (lb) {Load balancer};
+    \node[storagebox, right=of lb] (app) {App servers\\or containers};
+    \node[storagebox, below left=1.4cm and 1.1cm of app] (db) {RDS};
+    \node[storagebox, below=1.4cm of app] (cache) {Redis};
+    \node[storagebox, below right=1.4cm and 1.1cm of app] (s3) {S3};
+
+    \draw[flowarrow] (users) -- (dns);
+    \draw[flowarrow] (dns) -- (lb);
+    \draw[flowarrow] (lb) -- (app);
+    \draw[softarrow] (app) -- (db);
+    \draw[softarrow] (app) -- (cache);
+    \draw[softarrow] (app) -- (s3);
+\end{tikzpicture}
+\caption{A typical cloud application layout}
+\label{fig:cloud-layout}
+\end{figure}
+
+This picture reduces cloud overload by showing the core path first: traffic enters through networking components, reaches compute, and compute talks to storage and stateful services.
+
 \section{Kubernetes (K8s) Basics}
 
 Kubernetes automates deployment, scaling, and management of containerised applications.
@@ -11121,6 +11259,32 @@ spec:
 \begin{notebox}
 Kubernetes is declarative. You usually tell it the desired state, such as ``three replicas of this image,'' and the control plane works to maintain that state.
 \end{notebox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.2cm]
+    \node[databox] (ing) {Ingress};
+    \node[flowbox, right=of ing] (svc) {Service};
+    \node[storagebox, right=of svc] (dep) {Deployment};
+    \node[flowbox, below right=1.2cm and 0.8cm of dep] (pod1) {Pod 1};
+    \node[flowbox, above right=1.2cm and 0.8cm of dep] (pod2) {Pod 2};
+    \node[flowbox, right=of pod2] (pod3) {Pod 3};
+    \node[warnbox, below=1.4cm of svc] (cfg) {ConfigMap /\\Secret};
+
+    \draw[flowarrow] (ing) -- (svc);
+    \draw[flowarrow] (svc) -- (dep);
+    \draw[softarrow] (dep) -- (pod1);
+    \draw[softarrow] (dep) -- (pod2);
+    \draw[softarrow] (dep) -- (pod3);
+    \draw[softarrow] (cfg) -- (pod1);
+    \draw[softarrow] (cfg) -- (pod2);
+    \draw[softarrow] (cfg) -- (pod3);
+\end{tikzpicture}
+\caption{How core Kubernetes objects relate}
+\label{fig:kubernetes-objects}
+\end{figure}
+
+What you are looking at here is the operational structure of a typical Kubernetes app: ingress handles incoming HTTP, the service gives stable networking, the deployment manages replicas, and pods run the actual containers with configuration injected from config objects.
 
 \section{Containers, Load Balancers, and Production Placement}
 
