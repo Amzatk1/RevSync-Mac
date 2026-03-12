@@ -31,6 +31,7 @@
 \usepackage{caption}
 \usepackage{tocbibind}
 \tcbuselibrary{breakable, skins}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, calc}
 
 % ---- COLOUR DEFINITIONS ----
 \definecolor{primaryblue}{HTML}{1a73e8}
@@ -45,6 +46,56 @@
 \definecolor{cautionred}{HTML}{d32f2f}
 \definecolor{softviolet}{HTML}{6c63ff}
 \definecolor{calmgray}{HTML}{5f6368}
+
+% ---- TIKZ DIAGRAM STYLES ----
+\tikzset{
+    flowbox/.style={
+        draw=primaryblue!70,
+        rounded corners,
+        fill=primaryblue!8,
+        minimum width=2.6cm,
+        minimum height=1cm,
+        align=center,
+        font=\small
+    },
+    databox/.style={
+        draw=tipgreen!70!black,
+        rounded corners,
+        fill=tipgreen!8,
+        minimum width=2.7cm,
+        minimum height=1cm,
+        align=center,
+        font=\small
+    },
+    warnbox/.style={
+        draw=warnyellow!80!black,
+        rounded corners,
+        fill=warnyellow!12,
+        minimum width=2.7cm,
+        minimum height=1cm,
+        align=center,
+        font=\small
+    },
+    storagebox/.style={
+        draw=softviolet!80!black,
+        rounded corners,
+        fill=softviolet!10,
+        minimum width=2.8cm,
+        minimum height=1cm,
+        align=center,
+        font=\small
+    },
+    flowarrow/.style={
+        -{Latex[length=3mm,width=2mm]},
+        thick,
+        primaryblue
+    },
+    softarrow/.style={
+        -{Latex[length=2.6mm,width=1.8mm]},
+        semithick,
+        black!65
+    }
+}
 
 % ---- HYPERREF SETUP ----
 \hypersetup{
@@ -1024,6 +1075,10 @@ Every interaction between the app and server follows this pattern. The rest of t
 \textbf{Study goal:} build the mental model that makes later coding chapters feel logical rather than magical. In this chapter you are not memorising syntax yet. You are learning what a program actually is, how instructions execute, how state changes over time, and how programmers think through problems before touching a keyboard.
 \end{studybox}
 
+\begin{notebox}
+\textbf{How to read this chapter well:} keep translating everything back into plain English. If you see a line of code, ask: what information came in, what changed in memory, what decision was made, and what result came out? That habit will make later syntax much easier.
+\end{notebox}
+
 \section{Definition}
 \textbf{Programming} is the process of describing a task so precisely that a computer can perform it. A program is not just ``some code on a screen.'' It is a sequence of instructions that change the state of a machine over time.
 
@@ -1031,6 +1086,20 @@ Every interaction between the app and server follows this pattern. The rest of t
 
 \begin{intuitionbox}
 A program is best understood as a \textbf{state-changing machine}. At any moment the computer has some current state: values in memory, files on disk, text on the screen, network connections, and so on. Your code reads the current state, performs operations, and produces a new state.
+\end{intuitionbox}
+
+\section{A Four-Part Mental Model for Any Program}
+
+Almost every program, no matter how advanced, can be understood with four questions:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{What comes in?} input from a user, file, sensor, database, or API
+    \item \textbf{What is remembered?} values stored in variables or data structures
+    \item \textbf{What rules are applied?} the logic, conditions, and calculations
+    \item \textbf{What comes out?} printed text, changed files, API responses, graphics, or device actions
+\end{enumerate}
+
+\begin{intuitionbox}
+If a chapter ever feels overwhelming later, return to this model. Even a web app, AI system, or database-backed product is still taking inputs, storing state, applying rules, and producing outputs.
 \end{intuitionbox}
 
 \section{What Happens When a Program Runs?}
@@ -1051,6 +1120,27 @@ This means every program can be described using a few core questions:
     \item \textbf{Output:} What result comes out?
     \item \textbf{State:} What must be remembered while the program runs?
 \end{itemize}
+
+The diagram below turns that abstract idea into a visual loop. This matters because most later topics in the handbook are still just richer versions of this same structure.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.7cm]
+    \node[databox] (input) {Input\\user, file, API};
+    \node[flowbox, right=of input] (process) {Instructions\\and logic};
+    \node[storagebox, above=of process] (state) {State in memory\\variables, objects};
+    \node[databox, right=of process] (output) {Output\\screen, file, response};
+
+    \draw[flowarrow] (input) -- (process);
+    \draw[flowarrow] (process) -- (output);
+    \draw[softarrow] (process) -- (state);
+    \draw[softarrow] (state) -- (process);
+\end{tikzpicture}
+\caption{A program as input, state, processing, and output}
+\label{fig:program-state-flow}
+\end{figure}
+
+\textbf{What you are looking at:} input enters the program, logic processes it, the current state can be read or updated during execution, and output is produced. If you can explain a program using this diagram, you usually understand it well enough to debug and extend it.
 
 \subsection{A Tiny Mental Model}
 Suppose you write a program that asks for a user's age and decides whether they are an adult.
@@ -1075,6 +1165,10 @@ else:
 \end{enumerate}
 
 That is the essence of programming: take input, store it, inspect it, decide what to do, and produce a result.
+
+\begin{examtipbox}
+In beginner exams or interviews, do not rush to syntax first. If you can explain a tiny program line by line in plain English, you are demonstrating real understanding rather than memorization.
+\end{examtipbox}
 
 \section{Code, Languages, and Execution}
 
@@ -1241,6 +1335,27 @@ Every serious system is built by breaking one large problem into smaller ones.
 \begin{projectbox}
 This is how real engineering works. A full product such as RevSync is not built as one giant task. It is decomposed into many smaller workflows: login, package upload, validation, entitlement checks, flashing, recovery, analytics, and support.
 \end{projectbox}
+
+\section{Common Beginner Confusions About Programming}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{``The computer knows what I mean.''} It does not. It only follows the instructions actually written.
+    \item \textbf{``Code that runs is correct.''} A program can run and still be logically wrong.
+    \item \textbf{``Programming is mainly syntax.''} Syntax matters, but the deeper skill is reasoning about state, flow, and correctness.
+    \item \textbf{``Big programs are solved in one jump.''} Real systems are built by decomposition into many smaller problems.
+    \item \textbf{``Errors mean I am bad at coding.''} Errors are normal feedback. Learning to read them is part of programming.
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{Study drill:} take any tiny program from this chapter and answer:
+\begin{enumerate}[leftmargin=2em]
+    \item What is the input?
+    \item What state is stored?
+    \item What rule is applied?
+    \item What is the output?
+    \item What could go wrong if the input is unexpected?
+\end{enumerate}
+\end{exercisebox}
 
 \begin{summarybox}
 \begin{itemize}[leftmargin=2em]
@@ -3883,7 +3998,29 @@ MATLAB is particularly strong when:
 \textbf{Study goal:} see computer science as the set of mental tools that let you reason about performance, structure, and trade-offs. Do not memorise definitions only; connect each structure to when and why you would use it.
 \end{studybox}
 
+ \begin{notebox}
+\textbf{How to study this chapter well:} do not read it like a dictionary. Move in this order: (1) what problem the structure solves, (2) what operation it makes cheap, (3) what operation it makes expensive, and (4) a real programming situation where that trade-off matters.
+\end{notebox}
+
 This chapter covers the fundamental computer science knowledge that separates a coder from a software engineer. Data structures and algorithms are essential for writing efficient code and passing technical interviews.
+
+\section{A Mental Model for This Chapter}
+
+Most computer science fundamentals become easier when you stop seeing them as isolated definitions and start seeing them as \textbf{storage and access strategies}.
+
+\begin{itemize}[leftmargin=2em]
+    \item An \textbf{array} is good when you want fast indexed access.
+    \item A \textbf{linked list} is useful when structure changes often near the front.
+    \item A \textbf{stack} is good when the most recent thing matters most.
+    \item A \textbf{queue} is good when work must happen in arrival order.
+    \item A \textbf{hash map} is good when fast lookup by key matters.
+    \item A \textbf{tree} is good when data has hierarchy or sorted structure.
+    \item A \textbf{graph} is good when relationships are network-shaped, not tree-shaped.
+\end{itemize}
+
+\begin{intuitionbox}
+When you are asked to choose a data structure, the real question is usually: ``Which operations must be fast, and which costs can I tolerate?''
+\end{intuitionbox}
 
 \section{Arrays}
 
@@ -4134,6 +4271,10 @@ def merge(left, right):
 
 \textbf{Big O} describes how an algorithm's runtime or space grows as the input size $n$ increases.
 
+\begin{notebox}
+\textbf{A calmer way to read Big O:} do not ask, ``What symbol should I memorise?'' Ask instead, ``If I double or massively increase the input, how fast does the work grow?'' Big O is about growth, not stopwatch timings on your laptop.
+\end{notebox}
+
 \begin{center}
 \begin{tabular}{l l l}
 \toprule
@@ -4153,6 +4294,26 @@ $O(n!)$ & Factorial & Permutations \\
 \begin{interviewbox}
 Big O analysis is asked in \textbf{every} technical interview. For any solution you propose, you must state its time and space complexity. Practice analysing your own code.
 \end{interviewbox}
+
+\section{Common CS Mistakes Learners Make}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Memorising names without use cases.} Knowing that a heap exists is not the same as recognising a priority-queue problem.
+    \item \textbf{Ignoring constant factors entirely.} Big O matters, but for small inputs a simpler solution can still be the right engineering choice.
+    \item \textbf{Confusing tree problems with graph problems.} Trees are a special kind of graph, but graph problems often need cycle handling and visited sets.
+    \item \textbf{Using recursion without tracing it.} If you cannot explain the base case and the shrinking step, the recursion is not yet clear.
+    \item \textbf{Treating interview patterns as magic tricks.} Two pointers, BFS, DFS, and dynamic programming are reasoning tools, not memorised spells.
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{CS revision drill:}
+\begin{enumerate}[leftmargin=2em]
+    \item Pick three structures from this chapter and state one ideal use case for each.
+    \item For each one, state one operation it is bad at.
+    \item Explain one problem where a hash map changes an $O(n^2)$ idea into an $O(n)$ one.
+    \item Explain when a queue is better than a stack using a real application example.
+\end{enumerate}
+\end{exercisebox}
 
 \section{Design Patterns}
 
@@ -4211,6 +4372,38 @@ Web development is the discipline of building software that runs in the browser 
 \begin{intuitionbox}
 The browser is a runtime environment. It is not just a viewer. It parses documents, runs JavaScript, builds an in-memory DOM tree, applies CSS rules, calculates layout, paints pixels, handles events, and makes network requests.
 \end{intuitionbox}
+
+The browser pipeline is easier to remember visually than as a paragraph list. This diagram shows how structure, style, and script combine before the user sees pixels.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.4cm]
+    \node[databox] (html) {HTML};
+    \node[databox, below=of html] (css) {CSS};
+    \node[databox, below=of css] (js) {JavaScript};
+
+    \node[flowbox, right=2.3cm of html] (dom) {DOM};
+    \node[flowbox, right=2.3cm of css] (cssom) {CSS rules\\/ CSSOM};
+    \node[flowbox, right=2.3cm of js] (events) {Events\\and updates};
+
+    \node[storagebox, right=2.5cm of cssom] (render) {Render tree};
+    \node[flowbox, right=of render] (layout) {Layout};
+    \node[flowbox, right=of layout] (paint) {Paint\\to screen};
+
+    \draw[flowarrow] (html) -- (dom);
+    \draw[flowarrow] (css) -- (cssom);
+    \draw[softarrow] (js) -- (events);
+    \draw[flowarrow] (dom) -- (render);
+    \draw[flowarrow] (cssom) -- (render);
+    \draw[softarrow] (events) -- (render);
+    \draw[flowarrow] (render) -- (layout);
+    \draw[flowarrow] (layout) -- (paint);
+\end{tikzpicture}
+\caption{Simplified browser rendering flow}
+\label{fig:browser-rendering-flow}
+\end{figure}
+
+This matters because many frontend bugs are really pipeline bugs: wrong HTML structure, conflicting CSS, or JavaScript causing too many DOM updates and unnecessary layout work.
 
 \section{HTML Fundamentals}
 
@@ -4599,6 +4792,29 @@ React becomes much easier when you understand two rules:
 \begin{intuitionbox}
 In React, rendering is not a failure or an emergency. It is the normal mechanism by which UI stays in sync with state.
 \end{intuitionbox}
+
+The diagram below captures the normal React feedback loop. It is useful because beginners often treat state, props, and events as separate ideas rather than one flow.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.8cm]
+    \node[storagebox] (state) {Parent state};
+    \node[flowbox, right=of state] (render) {Render component};
+    \node[databox, right=of render] (ui) {UI on screen};
+    \node[warnbox, below=of ui] (event) {User event\\click, type, submit};
+    \node[flowbox, left=of event] (update) {\texttt{setState}\\or handler logic};
+
+    \draw[flowarrow] (state) -- node[above, font=\small]{props / values} (render);
+    \draw[flowarrow] (render) -- (ui);
+    \draw[flowarrow] (ui) -- (event);
+    \draw[flowarrow] (event) -- (update);
+    \draw[flowarrow] (update) -- node[left, font=\small]{new state} (state);
+\end{tikzpicture}
+\caption{React data flow and re-render loop}
+\label{fig:react-data-flow}
+\end{figure}
+
+\textbf{Why this matters:} React becomes much easier once you stop thinking ``the DOM changed'' and start thinking ``an event changed state, so React recalculated the UI.'' That is the real engineering mental model.
 
 \section{Key Hooks}
 
@@ -5421,6 +5637,34 @@ Django is a high-level Python web framework. DRF (Django REST Framework) extends
 Django is often described as ``batteries included.'' That means it gives you strong defaults for the repetitive infrastructure most applications need: routing, ORM, forms, admin, auth, templating, settings, and project structure.
 \end{intuitionbox}
 
+The lifecycle diagram below shows how Django and DRF connect those pieces. It helps because many learners understand each file separately but not how a request travels through the whole stack.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.5cm]
+    \node[databox] (client) {Browser / Mobile\\client};
+    \node[flowbox, right=of client] (urls) {URL router};
+    \node[flowbox, right=of urls] (middleware) {Middleware};
+    \node[flowbox, right=of middleware] (view) {View / ViewSet};
+    \node[storagebox, above=of view] (serializer) {Form / Serializer};
+    \node[storagebox, below=of view] (model) {Model / ORM\\/ database};
+    \node[databox, right=of view] (response) {HTML or JSON\\response};
+
+    \draw[flowarrow] (client) -- (urls);
+    \draw[flowarrow] (urls) -- (middleware);
+    \draw[flowarrow] (middleware) -- (view);
+    \draw[softarrow] (view) -- (serializer);
+    \draw[softarrow] (serializer) -- (view);
+    \draw[softarrow] (view) -- (model);
+    \draw[softarrow] (model) -- (view);
+    \draw[flowarrow] (view) -- (response);
+\end{tikzpicture}
+\caption{Simplified Django / DRF request lifecycle}
+\label{fig:django-request-lifecycle}
+\end{figure}
+
+Read this as a system, not as isolated files. The router decides where the request goes, middleware applies shared policies, the view orchestrates the workflow, serializers or forms validate shape, and models handle stored data.
+
 \section{Django Project Structure}
 
 \begin{lstlisting}[language=bash, caption={Django project setup}]
@@ -6158,6 +6402,38 @@ Express becomes much easier once you see middleware as a chain of responsibility
 In Express, middleware is not a side feature. It is one of the main architectural tools. Good Express code feels like a clean pipeline of small steps rather than one huge route handler doing everything.
 \end{intuitionbox}
 
+That pipeline idea is easier to remember visually:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.2cm]
+    \node[databox] (req) {Incoming\\request};
+    \node[flowbox, right=of req] (parse) {Parse body};
+    \node[flowbox, right=of parse] (log) {Logger};
+    \node[flowbox, right=of log] (auth) {Auth};
+    \node[flowbox, right=of auth] (validate) {Validation};
+    \node[flowbox, right=of validate] (controller) {Controller\\/ service};
+    \node[databox, right=of controller] (res) {Response};
+    \node[warnbox, below=1.5cm of controller] (error) {Global error\\handler};
+
+    \draw[flowarrow] (req) -- (parse);
+    \draw[flowarrow] (parse) -- (log);
+    \draw[flowarrow] (log) -- (auth);
+    \draw[flowarrow] (auth) -- (validate);
+    \draw[flowarrow] (validate) -- (controller);
+    \draw[flowarrow] (controller) -- (res);
+    \draw[softarrow] (parse) -- (error);
+    \draw[softarrow] (log) -- (error);
+    \draw[softarrow] (auth) -- (error);
+    \draw[softarrow] (validate) -- (error);
+    \draw[softarrow] (controller) -- (error);
+\end{tikzpicture}
+\caption{Express as a middleware pipeline}
+\label{fig:express-middleware-flow}
+\end{figure}
+
+This matters because Express stays maintainable only when responsibilities are split cleanly. If all of these steps are collapsed into one handler, the codebase becomes hard to test and reason about.
+
 \section{Common Express Mistakes}
 
 \begin{itemize}[leftmargin=2em]
@@ -6359,8 +6635,28 @@ This chapter focuses on practical database \textbf{design}---how to structure sc
 \textbf{Study goal:} move beyond writing isolated SQL queries and learn how databases are designed as long-lived system components. Good schema design affects correctness, performance, developer productivity, and even product features.
 \end{studybox}
 
+\begin{notebox}
+\textbf{How to study this chapter:} do not read it as a list of SQL features. Read it as a chapter about promises and trade-offs. A schema is promising what data exists, what relationships are valid, what values are allowed, and what operations will stay fast enough as the product grows.
+\end{notebox}
+
 \begin{intuitionbox}
 A database schema is a set of promises about your system. It says what entities exist, how they relate, what values are allowed, and what the application can trust to be true.
+\end{intuitionbox}
+
+\section{A Beginner-Friendly Way to Think About Schemas}
+
+Many learners first imagine a database as ``a big spreadsheet.'' That is a useful starting point, but it becomes limiting quickly.
+
+\begin{itemize}[leftmargin=2em]
+    \item A spreadsheet is mainly for human editing and visual inspection.
+    \item A database is built for correctness, relationships, concurrency, and querying at scale.
+    \item A table is not just a grid. It represents one kind of entity in your system.
+    \item A row is not just a line of values. It represents one real record.
+    \item A foreign key is not just another column. It is a formal relationship between records.
+\end{itemize}
+
+\begin{intuitionbox}
+When designing a schema, think less about screens and more about the real-world things your product must remember correctly over time.
 \end{intuitionbox}
 
 \section{Schema Design Process}
@@ -6375,6 +6671,10 @@ A database schema is a set of promises about your system. It says what entities 
     \item \textbf{Add indexes:} On columns used in WHERE, JOIN, and ORDER BY.
     \item \textbf{Add constraints:} NOT NULL, UNIQUE, CHECK, DEFAULT.
 \end{enumerate}
+
+\begin{examtipbox}
+When asked to design a schema, start with entities and relationships before talking about column types. That produces a more mature answer than jumping straight into SQL syntax.
+\end{examtipbox}
 
 \section{Primary Keys, Foreign Keys, and Constraints}
 
@@ -6474,6 +6774,41 @@ CREATE INDEX idx_tunes_status ON tune_files(status);
 CREATE INDEX idx_flash_user ON flash_logs(user_id);
 \end{lstlisting}
 
+\section{How to Read a Schema Without Getting Lost}
+
+When you look at a schema, scan it in this order:
+\begin{enumerate}[leftmargin=2em]
+    \item identify the main business entities
+    \item identify which table owns which relationship
+    \item identify the keys and constraints that protect integrity
+    \item identify the fields likely used in search, filtering, sorting, or joins
+    \item identify which workflows will read and write these tables together
+\end{enumerate}
+
+\begin{notebox}
+This reading order reduces overload. Instead of seeing one giant wall of SQL, you start seeing product concepts, safety rules, and workload patterns.
+\end{notebox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=2cm]
+    \node[storagebox] (users) {users};
+    \node[storagebox, below left=of users] (bikes) {bikes};
+    \node[storagebox, below right=of users] (tunes) {tune\_files};
+    \node[storagebox, below=2cm of users] (logs) {flash\_logs};
+
+    \draw[flowarrow] (users) -- node[left, font=\small]{owns} (bikes);
+    \draw[flowarrow] (users) -- node[right, font=\small]{authors} (tunes);
+    \draw[flowarrow] (users) -- node[right, font=\small]{initiates} (logs);
+    \draw[flowarrow] (bikes) -- node[left, font=\small]{target bike} (logs);
+    \draw[flowarrow] (tunes) -- node[right, font=\small]{flashed tune} (logs);
+\end{tikzpicture}
+\caption{Relationship map for the RevSync schema}
+\label{fig:revsync-schema-relationships}
+\end{figure}
+
+What you are looking at here is not just database wiring. It is the domain model of the product: users own bikes, tuners author tune files, and flash logs connect a user, a bike, and a tune into one auditable event.
+
 \section{Indexes and Query Performance}
 
 Indexes speed up reads, but they are not free.
@@ -6530,6 +6865,16 @@ Most modern applications do not edit the database manually every time a schema c
 \begin{notebox}
 The best engineers use ORMs comfortably \emph{and} still think in joins, indexes, query plans, and constraints. An ORM is a productivity layer, not a replacement for database literacy.
 \end{notebox}
+
+\section{Common Database Design Confusions}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{``If the app validates it, the database does not need to.''} Wrong. App validation can be bypassed; constraints protect truth at the data layer.
+    \item \textbf{``More indexes always means faster.''} Wrong. Indexes improve some reads but increase write cost and storage.
+    \item \textbf{``Normalisation is always best.''} Wrong. It is the clean starting point, but some read-heavy systems benefit from careful denormalisation.
+    \item \textbf{``ORM means I do not need SQL knowledge.''} Wrong. ORMs help productivity, but performance and correctness still depend on database understanding.
+    \item \textbf{``A schema only exists for today’s UI.''} Wrong. A schema should serve the domain, future workflows, analytics, and integrity constraints too.
+\end{itemize}
 
 \section{Schema Review Checklist}
 
@@ -7060,6 +7405,17 @@ Both tools are used in business analytics roles. Power BI is more common in Micr
 
 This chapter covers the essential mathematics you need to understand AI and machine learning. You do not need a maths degree, but you do need to understand \emph{why} these concepts matter and \emph{how} they connect to real ML systems. We will build intuition first, then formalise.
 
+\begin{notebox}
+\textbf{How to study this chapter without getting overwhelmed:}
+\begin{enumerate}[leftmargin=2em]
+    \item read the plain-English explanation first
+    \item work through the tiny numerical example
+    \item only then look at the formula
+    \item finally connect it to the Python code
+\end{enumerate}
+If the symbols feel heavy, slow down and return to the meaning of each part rather than pushing ahead mechanically.
+\end{notebox}
+
 \section{Why Maths Matters in ML}
 
 Every machine learning algorithm is, at its core, a mathematical optimisation problem: find the parameters that minimise a loss function. To understand what your model is doing, debug it when it fails, and choose the right algorithm, you need these mathematical foundations.
@@ -7067,6 +7423,34 @@ Every machine learning algorithm is, at its core, a mathematical optimisation pr
 \begin{notebox}
 You do not need to memorise proofs. You need to understand what each concept \emph{means}, how to \emph{read} formulas, and how to \emph{connect} the maths to the code you write.
 \end{notebox}
+
+\section{How to Read a Formula Without Panicking}
+
+Many learners freeze when they see notation. Use this sequence every time:
+\begin{enumerate}[leftmargin=2em]
+    \item identify the symbols
+    \item say what each symbol represents in words
+    \item ask what the formula is trying to measure or compute
+    \item test it on a tiny example
+\end{enumerate}
+
+\textbf{Example:}
+\[
+\hat{y} = w_1x_1 + w_2x_2 + b
+\]
+
+\textbf{Read it like this:}
+\begin{itemize}[leftmargin=2em]
+    \item $\hat{y}$ means the model's prediction
+    \item $x_1$ and $x_2$ are input features
+    \item $w_1$ and $w_2$ are learned weights
+    \item $b$ is a bias term
+    \item the formula says: ``multiply each input by its importance, add them together, then shift by a bias''
+\end{itemize}
+
+\begin{intuitionbox}
+Most formulas become less scary once you translate them back into a sentence. Do that before worrying about memorisation.
+\end{intuitionbox}
 
 \section{Linear Algebra}
 
@@ -7286,6 +7670,26 @@ samples = np.random.normal(loc=170, scale=10, size=1000)
 \textbf{Common interview question:} ``What loss function would you use for a binary classification problem?'' Answer: Binary cross-entropy. ``What about multi-class?'' Categorical cross-entropy with softmax. ``Regression?'' MSE or MAE (mean absolute error). Always explain \emph{why}---MSE penalises outliers more; MAE is more robust.
 \end{interviewbox}
 
+\section{Common Maths Confusions in ML}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Derivative vs gradient:} a derivative is for one variable; a gradient is the vector of partial derivatives for many variables.
+    \item \textbf{Vector vs matrix:} one data point is often a vector; a full dataset is often a matrix.
+    \item \textbf{Loss vs accuracy:} loss is the training objective; accuracy is one evaluation metric.
+    \item \textbf{Probability vs confidence:} model probabilities are estimates, not proof.
+    \item \textbf{Formula recognition vs understanding:} knowing the shape of an equation is not the same as understanding what it is doing.
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{Revision drill:} pick one formula from this chapter and do four things:
+\begin{enumerate}[leftmargin=2em]
+    \item define every symbol
+    \item explain the formula in one sentence
+    \item compute a tiny numerical example
+    \item state where it appears in code or model training
+\end{enumerate}
+\end{exercisebox}
+
 \begin{tipbox}
 \textbf{Key takeaway:} Linear algebra gives you the language of data. Calculus gives you the method to learn (gradient descent). Probability gives you the framework for uncertainty. Loss functions define what ``correct'' means. Together, these form the mathematical backbone of every ML system.
 \end{tipbox}
@@ -7320,6 +7724,40 @@ samples = np.random.normal(loc=170, scale=10, size=1000)
 \begin{studybox}
 \textbf{How to study this chapter:} do not treat the algorithms as isolated recipes. First build the mathematical intuition, then connect each algorithm to the kind of pattern it is trying to learn, and only then memorise library usage.
 \end{studybox}
+
+\begin{notebox}
+\textbf{Recommended study order for this chapter:}
+\begin{enumerate}[leftmargin=2em]
+    \item understand the task type (classification, regression, clustering)
+    \item learn what kind of pattern each algorithm assumes
+    \item compare two or three baseline models
+    \item then learn tuning, pipelines, and evaluation
+\end{enumerate}
+This chapter is much easier if you think in decisions rather than in a giant list of algorithms.
+\end{notebox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.2cm]
+    \node[databox] (data) {Raw data};
+    \node[flowbox, right=of data] (split) {Train / val / test};
+    \node[flowbox, right=of split] (prep) {Preprocess};
+    \node[flowbox, right=of prep] (train) {Train model};
+    \node[flowbox, right=of train] (eval) {Evaluate};
+    \node[storagebox, below=1.45cm of train] (deploy) {Deploy\\and monitor};
+
+    \draw[flowarrow] (data) -- (split);
+    \draw[flowarrow] (split) -- (prep);
+    \draw[flowarrow] (prep) -- (train);
+    \draw[flowarrow] (train) -- (eval);
+    \draw[flowarrow] (eval) -- (deploy);
+    \draw[softarrow] (deploy) -| (prep);
+\end{tikzpicture}
+\caption{A practical machine learning workflow}
+\label{fig:ml-workflow}
+\end{figure}
+
+This diagram matters because ML is not one step called ``train a model.'' It is a pipeline where preprocessing, evaluation, and monitoring are as important as the algorithm itself.
 
 \section{Mathematics Foundations for AI and Machine Learning}
 
@@ -7506,6 +7944,11 @@ ML type questions are extremely common. You should be able to: (1) classify any 
 \end{interviewbox}
 
 \section{Core ML Algorithms Explained}
+
+Before diving into each algorithm, keep one framing question in mind:
+\begin{center}
+\textit{``What kind of pattern is this model trying to learn, and what kind of mistake is it likely to make?''}
+\end{center}
 
 \subsection{Linear Regression}
 
@@ -7741,6 +8184,15 @@ Unlabelled grouping task & K-Means & Simple clustering baseline & Must choose \(
 \begin{intuitionbox}
 Model selection is rarely about finding the fanciest algorithm. It is about matching the algorithm to the data, the cost of errors, interpretability requirements, and the engineering constraints of the project.
 \end{intuitionbox}
+
+\section{How to Revise ML Effectively}
+
+\begin{itemize}[leftmargin=2em]
+    \item group models by task type instead of memorising them randomly
+    \item always pair an algorithm with: best use case, limitation, and metric
+    \item compare baseline vs stronger model rather than studying one model in isolation
+    \item explain one full pipeline aloud: split $\to$ preprocess $\to$ train $\to$ evaluate
+\end{itemize}
 
 \section{Feature Engineering}
 
@@ -7989,6 +8441,17 @@ Your \textbf{Breast Cancer Detection} project applies this entire workflow: load
 \textbf{Study goal:} understand deep learning as stacked function approximation trained by gradient-based optimisation. Focus on what the model is doing, why training becomes unstable, and how architecture choices relate to data type.
 \end{studybox}
 
+\begin{notebox}
+\textbf{How to keep this chapter manageable:}
+\begin{enumerate}[leftmargin=2em]
+    \item first understand one neuron
+    \item then understand one layer
+    \item then understand a small network
+    \item only after that worry about CNNs, transfer learning, and sequence models
+\end{enumerate}
+If deep learning feels overwhelming, it is usually because too many ideas are being learned at once.
+\end{notebox}
+
 \section{What Is Deep Learning?}
 
 \textbf{Deep learning} is a subset of machine learning that uses \textbf{neural networks with many layers} (hence ``deep'') to learn complex patterns from data. While traditional ML requires you to manually engineer features, deep learning can learn features automatically from raw data (images, text, audio).
@@ -8038,6 +8501,38 @@ $$\text{output} = \text{activation}(\mathbf{w} \cdot \mathbf{x} + b)$$
     \item \textbf{Epoch:} One complete pass through the entire training dataset.
     \item \textbf{Batch size:} Number of samples processed before weights are updated. Common: 32, 64, 128. Larger batches = faster but may generalise worse.
 \end{itemize}
+
+\begin{intuitionbox}
+The easiest mental model is this: a neural network repeatedly makes a guess, measures how wrong it was, and nudges its weights so the next guess is a little better.
+\end{intuitionbox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.7cm]
+    \node[circle, draw, fill=primaryblue!12, inner sep=3pt, label=left:{x$_1$}] (i1) {};
+    \node[circle, draw, fill=primaryblue!12, inner sep=3pt, below=0.8cm of i1, label=left:{x$_2$}] (i2) {};
+    \node[circle, draw, fill=primaryblue!12, inner sep=3pt, below=0.8cm of i2, label=left:{x$_3$}] (i3) {};
+
+    \node[circle, draw, fill=tipgreen!15, inner sep=4pt, right=2cm of i1, yshift=-0.8cm] (h1) {};
+    \node[circle, draw, fill=tipgreen!15, inner sep=4pt, below=1cm of h1] (h2) {};
+
+    \node[circle, draw, fill=softviolet!15, inner sep=4pt, right=2cm of h1, yshift=-0.5cm, label=right:{prediction}] (o1) {};
+
+    \draw[softarrow] (i1) -- (h1);
+    \draw[softarrow] (i1) -- (h2);
+    \draw[softarrow] (i2) -- (h1);
+    \draw[softarrow] (i2) -- (h2);
+    \draw[softarrow] (i3) -- (h1);
+    \draw[softarrow] (i3) -- (h2);
+    \draw[flowarrow] (h1) -- (o1);
+    \draw[flowarrow] (h2) -- (o1);
+    \draw[softarrow, dashed] (o1.south) to[bend right=35] node[below, font=\small]{error signal back} (h2.south);
+\end{tikzpicture}
+\caption{A tiny neural network with forward prediction and backward learning}
+\label{fig:tiny-neural-network}
+\end{figure}
+
+The visual simplifies the story: data flows forward to produce a prediction, and the training signal flows backward so the weights can be updated.
 
 \subsection{Network Architecture Types}
 
@@ -8362,6 +8857,26 @@ When a deep learning model performs poorly, do not guess randomly. Diagnose it.
 \begin{examtipbox}
 If asked how to debug a failing neural network, answer in layers: check data quality, input normalisation, label correctness, learning rate, model capacity, regularisation, and train/validation curves.
 \end{examtipbox}
+
+\section{Common Deep Learning Confusions}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{More layers does not always mean better.}
+    \item \textbf{Lower training loss does not guarantee better generalization.}
+    \item \textbf{A larger model does not fix poor data quality.}
+    \item \textbf{Transfer learning is not a shortcut because you are lazy; it is usually the correct default.}
+    \item \textbf{GPU training speeds up training, but it does not fix conceptual mistakes in data, labels, or evaluation.}
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{Revision drill:} after reading this chapter, explain these four aloud without notes:
+\begin{enumerate}[leftmargin=2em]
+    \item what one neuron computes
+    \item why activations are needed
+    \item why CNNs work well on images
+    \item why transfer learning is usually preferred over training from scratch
+\end{enumerate}
+\end{exercisebox}
 
 \begin{projectbox}
 Your \textbf{Breast Cancer Detection} project uses ResNet-18 with transfer learning to classify medical images as benign/malignant. Your \textbf{AgriXnest} project uses CNNs for plant identification. Both follow this workflow: load pre-trained model, add classification head, fine-tune on domain data, evaluate with recall-focused metrics.
@@ -8818,6 +9333,17 @@ Your \textbf{CareerForge AI} uses NLP for resume parsing and skill extraction---
 
 This chapter covers the most important architecture in modern AI: the \textbf{Transformer}. Every large language model (GPT, Claude, Gemini, Llama, BERT) is built on Transformers. Understanding this architecture is essential for any AI engineer.
 
+\begin{notebox}
+\textbf{How to study this chapter productively:}
+\begin{enumerate}[leftmargin=2em]
+    \item first understand the problem RNNs had
+    \item then understand the core idea of attention
+    \item then understand encoder vs decoder roles
+    \item only after that move into BERT, GPT, prompting, fine-tuning, and safety
+\end{enumerate}
+Trying to memorize every subcomponent at once makes Transformers feel harder than they really are.
+\end{notebox}
+
 \section{The Problem Transformers Solve}
 
 Before Transformers (introduced in the 2017 paper ``Attention Is All You Need''), sequential models like RNNs and LSTMs processed text one word at a time. This had two major problems:
@@ -8855,6 +9381,26 @@ For each word:
 \end{enumerate}
 
 $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right) V$$
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.3cm]
+    \node[databox] (tokens) {Input tokens};
+    \node[flowbox, right=of tokens] (embed) {Embeddings};
+    \node[flowbox, right=of embed] (qkv) {Project to\\Q, K, V};
+    \node[flowbox, right=of qkv] (scores) {Attention scores\\+ softmax};
+    \node[storagebox, right=of scores] (context) {Context-aware\\outputs};
+
+    \draw[flowarrow] (tokens) -- (embed);
+    \draw[flowarrow] (embed) -- (qkv);
+    \draw[flowarrow] (qkv) -- (scores);
+    \draw[flowarrow] (scores) -- (context);
+\end{tikzpicture}
+\caption{A simplified self-attention flow}
+\label{fig:self-attention-flow}
+\end{figure}
+
+This diagram matters because it makes the Q/K/V story concrete: tokens are embedded, projected into attention components, scored against each other, and turned into richer context-aware representations.
 
 \begin{lstlisting}[language=Python, caption={Simplified self-attention in NumPy}]
 import numpy as np
@@ -8905,6 +9451,10 @@ Instead of computing attention once, Transformers compute it \textbf{multiple ti
 \end{itemize}
 
 The outputs of all heads are concatenated and linearly transformed.
+
+\begin{intuitionbox}
+If self-attention is the core idea, then multi-head attention is the idea repeated in several different ``ways of looking'' at the same sequence. Different heads can focus on different relationships.
+\end{intuitionbox}
 
 \section{Transformer Architecture}
 
@@ -8966,6 +9516,16 @@ Examples & BERT, RoBERTa, DeBERTa & GPT-3, GPT-4, Llama, Mistral \\
     \item \textbf{Inference:} Using a trained model to generate predictions. This is what happens when you send a prompt to ChatGPT.
 \end{itemize}
 
+\section{A Simple Transformer Revision Ladder}
+
+\begin{enumerate}[leftmargin=2em]
+    \item problem: RNNs were slow and weak on long-range dependencies
+    \item solution: attention lets tokens relate directly to each other
+    \item architecture: encoder and decoder blocks stack attention and feed-forward layers
+    \item products: BERT for understanding, GPT for generation
+    \item practice: prompting, retrieval, fine-tuning, safety, and evaluation
+\end{enumerate}
+
 \section{Fine-Tuning vs.\,Prompting}
 
 \begin{center}
@@ -8984,6 +9544,10 @@ When to use & Quick experiments, general tasks & Domain-specific, production app
 \end{center}
 
 \textbf{Start with prompting.} Only fine-tune if prompting does not meet your quality requirements and you have sufficient labelled data.
+
+\begin{warningbox}
+Do not frame fine-tuning as ``the advanced option'' and prompting as ``the beginner option.'' In real products, prompting is often the right first engineering choice because it is cheaper, faster to iterate, and easier to evaluate early.
+\end{warningbox}
 
 \section{Model Scale and Parameters}
 
@@ -9060,6 +9624,10 @@ In your RevSync project, ECU firmware modifications can affect vehicle safety. A
 \textbf{Study goal:} learn how LLM-based products are actually built. The focus is not only on calling an API, but on grounding, retrieval, structured outputs, tool use, verification, and evaluation of reliability.
 \end{studybox}
 
+\begin{notebox}
+\textbf{How to study this chapter:} do not treat it as a glossary of AI buzzwords. Read it as one pipeline. A real LLM product usually has: user input, prompt construction, optional retrieval, optional tools, model output, and then validation or verification before the final response is trusted.
+\end{notebox}
+
 \section{What Are LLMs?}
 
 \textbf{Large Language Models (LLMs)} are neural networks trained on massive amounts of text data that can understand and generate human language. They are the technology behind ChatGPT, Claude, Gemini, and similar AI assistants.
@@ -9080,6 +9648,43 @@ In your RevSync project, ECU firmware modifications can affect vehicle safety. A
     \item \textbf{Llama (Meta):} Open-source. Llama 2, Llama 3. Can self-host.
     \item \textbf{Mistral:} Open-source, efficient. Good performance/size ratio.
 \end{itemize}
+
+\section{A Practical Mental Model for an LLM Product}
+
+If you strip away the hype, many real LLM systems are doing a simple sequence of work:
+\begin{enumerate}[leftmargin=2em]
+    \item receive a user request
+    \item gather the right context or tools
+    \item ask the model to produce a draft answer or action
+    \item inspect, validate, or repair the result
+    \item return something the product can actually trust
+\end{enumerate}
+
+\begin{intuitionbox}
+The model is often only one component in the pipeline. Product quality depends just as much on retrieval, validation, structured outputs, and system design as on model choice.
+\end{intuitionbox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.15cm]
+    \node[databox] (user) {User question};
+    \node[flowbox, right=of user] (context) {Retrieve context\\or tools};
+    \node[flowbox, right=of context] (prompt) {Prompt builder};
+    \node[flowbox, right=of prompt] (llm) {LLM};
+    \node[warnbox, right=of llm] (verify) {Validate / verify};
+    \node[databox, right=of verify] (answer) {Trusted answer\\or safe fallback};
+
+    \draw[flowarrow] (user) -- (context);
+    \draw[flowarrow] (context) -- (prompt);
+    \draw[flowarrow] (prompt) -- (llm);
+    \draw[flowarrow] (llm) -- (verify);
+    \draw[flowarrow] (verify) -- (answer);
+\end{tikzpicture}
+\caption{A practical LLM product pipeline}
+\label{fig:llm-product-pipeline}
+\end{figure}
+
+The point of the diagram is that the model is not the whole product. Reliable applications surround the model with retrieval, constraints, and validation logic.
 
 \section{Transformer Foundations}
 
@@ -9189,6 +9794,10 @@ If asked ``Why are transformers important?'', do not answer vaguely with ``becau
 \section{Prompt Engineering}
 
 \textbf{Prompt engineering} is the art and science of writing instructions (prompts) that make LLMs produce the best possible output. This is a critical skill for AI engineers.
+
+\begin{notebox}
+A prompt is not magic wording. It is part instruction, part interface design, and part risk control. Good prompts reduce ambiguity, narrow the task, and make outputs easier to validate.
+\end{notebox}
 
 \subsection{Prompt Patterns}
 
@@ -9305,6 +9914,10 @@ print(data)
     \item \textbf{Generation:} Feed the retrieved chunks + user question to the LLM, which generates an answer grounded in your data.
 \end{enumerate}
 
+\begin{examtipbox}
+If asked ``When should I use RAG?'', a strong answer is: use it when the model needs access to changing, private, domain-specific, or evidence-sensitive information that is not safe to leave to parametric memory alone.
+\end{examtipbox}
+
 \subsection{RAG Pipeline Diagram}
 
 \begin{verbatim}
@@ -9322,6 +9935,30 @@ User Question
      v
 Grounded Answer (with citations)
 \end{verbatim}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.1cm]
+    \node[databox] (q) {Question};
+    \node[flowbox, right=of q] (embed) {Query embedding};
+    \node[storagebox, right=of embed] (db) {Vector DB};
+    \node[flowbox, right=of db] (chunks) {Relevant chunks};
+    \node[flowbox, right=of chunks] (llm) {LLM with context};
+    \node[warnbox, below=1.35cm of llm] (verify) {Verifier /\\citations};
+    \node[databox, right=of llm] (out) {Grounded answer};
+
+    \draw[flowarrow] (q) -- (embed);
+    \draw[flowarrow] (embed) -- (db);
+    \draw[flowarrow] (db) -- (chunks);
+    \draw[flowarrow] (chunks) -- (llm);
+    \draw[flowarrow] (llm) -- (out);
+    \draw[softarrow] (llm) -- (verify);
+\end{tikzpicture}
+\caption{Retrieval-augmented generation as a product system}
+\label{fig:rag-system}
+\end{figure}
+
+Use this picture to remember where the main failure points live: retrieval can miss evidence, generation can misuse context, and verification is where groundedness becomes a product-level safeguard.
 
 \section{Embeddings and Vector Databases}
 
@@ -9473,6 +10110,22 @@ context = ranked_chunks[:3]
     \item reranking improves precision before generation
     \item this often produces more grounded answers without increasing context-window waste
 \end{itemize}
+
+\section{How to Reason About a Weak RAG System}
+
+When a RAG application performs badly, ask where the failure happened:
+\begin{enumerate}[leftmargin=2em]
+    \item was the source content weak or poorly structured?
+    \item was chunking too coarse or too fragmented?
+    \item did retrieval miss the right evidence?
+    \item did reranking fail to prioritize the best chunk?
+    \item did the prompt misuse or ignore the retrieved context?
+    \item did the product trust the output without verification?
+\end{enumerate}
+
+\begin{warningbox}
+Many teams say ``the model hallucinated'' when the real problem was retrieval failure, poor chunking, weak prompts, or lack of output validation. Diagnose the pipeline, not just the model.
+\end{warningbox}
 
 \section{Complete RAG Pipeline}
 
@@ -9677,6 +10330,26 @@ print(result)
 If asked how to improve an LLM application, answer systematically: better retrieval, better chunking, reranking, stricter prompting, structured outputs, tool validation, and evaluation against labeled examples. That is stronger than saying only ``use a better model.''
 \end{examtipbox}
 
+\section{Common LLM and RAG Confusions}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{``A better model removes the need for retrieval.''} Usually false when the data is private, changing, or evidence-sensitive.
+    \item \textbf{``If the answer sounds fluent, it is probably right.''} Fluency is not proof. Grounding and verification matter.
+    \item \textbf{``RAG means the answer is automatically trustworthy.''} Retrieval helps, but irrelevant or weak context still produces weak answers.
+    \item \textbf{``Agents are always more advanced and therefore better.''} Simpler pipelines are often more reliable.
+    \item \textbf{``Prompt engineering is just wording tricks.''} Good prompting is task design, constraint design, and output-shape design.
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{LLM systems revision drill:}
+\begin{enumerate}[leftmargin=2em]
+    \item Explain the difference between prompting, retrieval, tool use, and verification.
+    \item Name one scenario where prompting alone is enough.
+    \item Name one scenario where RAG is necessary.
+    \item Name one scenario where deterministic business rules should override the model completely.
+\end{enumerate}
+\end{exercisebox}
+
 \section{AI Ethics and Safety}
 
 As an AI engineer, you have a responsibility to build systems that are safe, fair, and transparent:
@@ -9783,6 +10456,33 @@ Git stores project history as a chain of snapshots.
 \begin{intuitionbox}
 If Git feels confusing, it is usually because the commands are being learned without the snapshot model. Once you understand that commits are history points and branches are labels pointing at them, the workflow becomes much clearer.
 \end{intuitionbox}
+
+This diagram makes that snapshot model visible:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.8cm]
+    \node[circle, draw, fill=primaryblue!15, inner sep=2.5pt, label=below:{A}] (a) {};
+    \node[circle, draw, fill=primaryblue!15, inner sep=2.5pt, right=of a, label=below:{B}] (b) {};
+    \node[circle, draw, fill=primaryblue!15, inner sep=2.5pt, right=of b, label=below:{C}] (c) {};
+    \node[circle, draw, fill=tipgreen!15, inner sep=2.5pt, above right=1.1cm and 1.3cm of c, label=above:{D}] (d) {};
+    \node[circle, draw, fill=tipgreen!15, inner sep=2.5pt, right=of d, label=above:{E}] (e) {};
+    \node[circle, draw, fill=warnyellow!18, inner sep=2.5pt, right=1.8cm of c, label=below:{M}] (m) {};
+
+    \draw[softarrow] (a) -- (b) -- (c);
+    \draw[softarrow] (c) -- (d) -- (e);
+    \draw[softarrow] (c) -- (m);
+    \draw[softarrow] (e) -- (m);
+
+    \node[font=\small, below=0.65cm of c] {main};
+    \node[font=\small, above=0.65cm of e] {feature branch};
+    \node[font=\small, below=0.65cm of m] {merge commit};
+\end{tikzpicture}
+\caption{A simple branch and merge history}
+\label{fig:git-branch-merge}
+\end{figure}
+
+Seeing the graph helps because a branch is not a second copy of the project. It is a pointer into history, and merge combines two lines of snapshots into one shared line again.
 
 \section{Working Tree, Staging Area, and Repository}
 
@@ -10054,6 +10754,25 @@ Docker reduces that drift by packaging the application together with the runtime
 The deepest value of Docker is not ``containers are modern.'' The value is \textbf{reproducibility}. If the same image runs in development, CI, staging, and production, debugging becomes much more honest.
 \end{intuitionbox}
 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.6cm]
+    \node[warnbox, minimum width=11.6cm, minimum height=5cm, label=above:{Host machine}] (host) {};
+    \node[flowbox] (docker) at ($(host.north)+(0,-1.0)$) {Docker engine};
+    \node[storagebox, below left=1.4cm and 2.6cm of docker] (app) {app\\container};
+    \node[storagebox, below=1.4cm of docker] (db) {database\\container};
+    \node[storagebox, below right=1.4cm and 2.6cm of docker] (cache) {cache / queue\\container};
+
+    \draw[flowarrow] (docker) -- (app);
+    \draw[flowarrow] (docker) -- (db);
+    \draw[flowarrow] (docker) -- (cache);
+\end{tikzpicture}
+\caption{A simple multi-container application on one host}
+\label{fig:docker-layout}
+\end{figure}
+
+This picture matters because it separates three things learners often blur together: the host machine, the Docker engine, and the individual containers that run separate services.
+
 \section{Dockerfile Thinking and Image Layers}
 
 Each Dockerfile instruction creates a \textbf{layer}. Layers are cached, so ordering matters.
@@ -10152,6 +10871,31 @@ A healthy CI pipeline is a quality gate, not just a ceremony.
 \begin{examtipbox}
 If asked what CI should run, answer in layers: style checks, static analysis, unit tests, integration tests, build, then deployment. That sounds much stronger than ``run the tests.''
 \end{examtipbox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.15cm]
+    \node[databox] (push) {Git push\\or PR};
+    \node[flowbox, right=of push] (lint) {Lint / format};
+    \node[flowbox, right=of lint] (tests) {Tests};
+    \node[flowbox, right=of tests] (build) {Build};
+    \node[storagebox, right=of build] (staging) {Staging};
+    \node[databox, right=of staging] (prod) {Production};
+    \node[warnbox, below=1.4cm of staging] (obs) {Metrics, alerts,\\rollback};
+
+    \draw[flowarrow] (push) -- (lint);
+    \draw[flowarrow] (lint) -- (tests);
+    \draw[flowarrow] (tests) -- (build);
+    \draw[flowarrow] (build) -- (staging);
+    \draw[flowarrow] (staging) -- (prod);
+    \draw[softarrow] (staging) -- (obs);
+    \draw[softarrow] (prod) -- (obs);
+\end{tikzpicture}
+\caption{A practical CI/CD pipeline}
+\label{fig:cicd-flow}
+\end{figure}
+
+The point of this flow is not decoration. It shows deployment as a sequence of confidence-building checks rather than one risky jump from laptop to production.
 
 \subsection{Continuous Delivery vs Continuous Deployment}
 
@@ -10483,6 +11227,10 @@ When asked about cloud or Kubernetes, avoid listing tool names without purpose. 
 \textbf{How to study this chapter:} do not rush through the vulnerability list. For each risk, ask four things: what is the attack, why does it work, what damage can it cause, and what specific coding or infrastructure practice prevents it?
 \end{studybox}
 
+\begin{notebox}
+\textbf{A useful reading pattern for security:} trace every issue as a path. Start with an input, follow the trust boundary it crosses, identify the unsafe assumption, then name the damage and the defensive control. This makes security easier to remember because it becomes causal rather than abstract.
+\end{notebox}
+
 \section{Security Mindset}
 
 \textbf{The first rule of security:} Never trust user input. Every piece of data that comes from outside your system---form fields, URL parameters, headers, file uploads, API requests---must be treated as potentially malicious.
@@ -10492,6 +11240,22 @@ When asked about cloud or Kubernetes, avoid listing tool names without purpose. 
 \begin{intuitionbox}
 Security is really the discipline of asking, ``What happens if someone uses this system in the worst possible way?'' Good security engineering does not assume users, networks, or clients behave ideally.
 \end{intuitionbox}
+
+\section{A Repeatable Security Thinking Loop}
+
+When you meet a new system, run through this sequence:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Identify the asset.} What are you protecting: passwords, money, tokens, firmware, personal data?
+    \item \textbf{Identify the entry point.} Which form, endpoint, file upload, cookie, or service accepts external input?
+    \item \textbf{Identify the trust mistake.} What is the system assuming without proof?
+    \item \textbf{Identify the impact.} Could the attacker read, change, delete, impersonate, escalate, or disrupt?
+    \item \textbf{Identify the control.} What concrete mechanism blocks or limits the attack?
+    \item \textbf{Identify the evidence.} If the attack happens anyway, what will you log, alert on, or audit?
+\end{enumerate}
+
+\begin{examtipbox}
+In exams and interviews, security answers become much stronger when you explain \emph{attack path + impact + control}, not just a list of buzzwords.
+\end{examtipbox}
 
 \section{OWASP Top 10 Vulnerabilities}
 
@@ -10627,6 +11391,30 @@ print(clean)  # '<b>Hello</b>' -- script tag removed
 
 \section{JWT (JSON Web Token) Security}
 
+The figure below separates authentication from authorization in one secure login flow. This helps because learners often blur ``who are you?'' and ``are you allowed to do this?'' into one step.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.15cm]
+    \node[databox] (login) {Login request};
+    \node[flowbox, right=of login] (verify) {Verify password\\hash};
+    \node[storagebox, right=of verify] (tokens) {Issue access +\\refresh tokens};
+    \node[flowbox, right=of tokens] (api) {Protected API\\request};
+    \node[warnbox, right=of api] (authz) {Authorization\\check};
+    \node[databox, right=of authz] (result) {Allow or deny};
+
+    \draw[flowarrow] (login) -- (verify);
+    \draw[flowarrow] (verify) -- (tokens);
+    \draw[flowarrow] (tokens) -- (api);
+    \draw[flowarrow] (api) -- (authz);
+    \draw[flowarrow] (authz) -- (result);
+\end{tikzpicture}
+\caption{A secure login and protected-request flow}
+\label{fig:secure-login-flow}
+\end{figure}
+
+What you are looking at is two different decisions: authentication proves identity, then authorization checks whether that identity may perform the requested action.
+
 \begin{lstlisting}[language=Python, caption={Secure JWT implementation in Django}]
 # settings.py -- Django Simple JWT configuration
 from datetime import timedelta
@@ -10743,6 +11531,26 @@ app.use("/api/auth/", authLimiter);
     \item \textbf{Rotate secrets} regularly (API keys, JWT secrets, database passwords).
 \end{enumerate}
 
+\section{Common Security Thinking Mistakes}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Trusting frontend validation.} Client-side checks improve UX, not security.
+    \item \textbf{Thinking auth is enough without authorization.} Knowing who a user is does not prove they may perform an action.
+    \item \textbf{Adding one control and assuming the problem is solved.} Security needs layers because real systems fail imperfectly.
+    \item \textbf{Ignoring logs and monitoring.} A secure design also needs detection and traceability.
+    \item \textbf{Treating security as a later polish pass.} Many security problems come from architecture and defaults, not just one bad line of code.
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{Security reasoning drill:}
+\begin{enumerate}[leftmargin=2em]
+    \item Pick one endpoint from a project you know.
+    \item Name the input it accepts.
+    \item State one likely abuse case.
+    \item State one preventive control and one monitoring signal.
+\end{enumerate}
+\end{exercisebox}
+
 \begin{cautionbox}
 Security is not optional. A single vulnerability can expose all your users' data. Your RevSync project handles ECU firmware---a security breach could have real-world physical consequences. Treat every line of security code as critical.
 \end{cautionbox}
@@ -10801,6 +11609,24 @@ Security is not optional. A single vulnerability can expose all your users' data
 \textbf{How to study this chapter:} treat it as a day-to-day engineering workflow chapter. These ideas matter most when code stops being a toy and starts being something other people rely on.
 \end{studybox}
 
+\begin{intuitionbox}
+Testing, debugging, and documentation are all feedback systems. They help you answer three questions repeatedly: ``Does it work?'', ``Why did it fail?'', and ``Can someone else understand or trust it?''
+\end{intuitionbox}
+
+\section{How to Study This Chapter Without Getting Lost}
+
+This chapter contains multiple workflows rather than one single concept. A useful order is:
+\begin{enumerate}[leftmargin=2em]
+    \item learn what a good test is
+    \item learn the difference between unit, integration, and end-to-end tests
+    \item learn how failures guide debugging
+    \item learn how documentation preserves understanding over time
+\end{enumerate}
+
+\begin{notebox}
+If you have ever written code that ``worked yesterday'' and then broke after a change, this chapter explains how professionals reduce that pain.
+\end{notebox}
+
 \section{Why Testing Matters}
 
 \textbf{Testing} is how you prove your code works correctly and continues working as you make changes. Without tests, every code change is a gamble---you might break something without knowing.
@@ -10815,6 +11641,23 @@ Security is not optional. A single vulnerability can expose all your users' data
 \begin{notebox}
 \textbf{The testing pyramid rule:} Write many unit tests, some integration tests, and few E2E tests. If E2E tests are the majority, your test suite will be slow and fragile.
 \end{notebox}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+    \draw[fill=primaryblue!10, draw=primaryblue!70] (0,0) -- (7,0) -- (6,1.2) -- (1,1.2) -- cycle;
+    \draw[fill=tipgreen!10, draw=tipgreen!70!black] (1,1.2) -- (6,1.2) -- (4.8,2.4) -- (2.2,2.4) -- cycle;
+    \draw[fill=warnyellow!15, draw=warnyellow!80!black] (2.2,2.4) -- (4.8,2.4) -- (4,3.5) -- (3,3.5) -- cycle;
+
+    \node at (3.5,0.6) {\small Many unit tests};
+    \node at (3.5,1.8) {\small Some integration tests};
+    \node at (3.5,2.95) {\small Few end-to-end tests};
+\end{tikzpicture}
+\caption{The testing pyramid}
+\label{fig:testing-pyramid}
+\end{figure}
+
+This visual matters because it teaches test strategy at a glance: the faster and more focused tests should dominate the suite, while full user-flow tests should stay selective.
 
 \section{Testing in Python (pytest)}
 
@@ -11042,6 +11885,21 @@ def test_fetch_weather(mock_get):
 TDD forces you to think about requirements and edge cases \emph{before} coding. It produces better-designed, more testable code. Not every scenario needs TDD, but it is excellent for complex logic, algorithms, and critical business rules.
 \end{tipbox}
 
+\section{What a Failed Test Is Trying to Tell You}
+
+A failed test is not only a red mark. It is feedback about one of a few things:
+\begin{itemize}[leftmargin=2em]
+    \item the code is wrong
+    \item the test expectation is wrong
+    \item the setup or fixture is wrong
+    \item the interface changed and the test was not updated intentionally
+    \item the test is flaky and depends on time, randomness, ordering, or external systems
+\end{itemize}
+
+\begin{warningbox}
+Do not train yourself to fear red tests. Train yourself to investigate them systematically. Teams become dangerous when they start treating failing tests as noise.
+\end{warningbox}
+
 \section{Debugging Strategy}
 
 When something breaks, follow this systematic approach:
@@ -11061,6 +11919,10 @@ When something breaks, follow this systematic approach:
     \item \textbf{Fix the root cause}, not the symptom. A quick hack will come back to haunt you.
     \item \textbf{Write a regression test} to prevent the bug from recurring.
 \end{enumerate}
+
+\begin{examtipbox}
+In technical interviews, strong debugging answers sound structured. Saying ``I would reproduce the issue, narrow the scope, inspect assumptions, and then add a regression test'' sounds far stronger than ``I would try a few things.''
+\end{examtipbox}
 
 \section{Documentation Best Practices}
 
@@ -11610,6 +12472,24 @@ System design interviews test your ability to: (1) clarify requirements, (2) est
 \textbf{How to study this chapter:} move from passive reading to active rehearsal. Interview preparation becomes real only when you explain solutions aloud, solve problems under time pressure, and review weak areas honestly.
 \end{studybox}
 
+\begin{notebox}
+\textbf{The core rule for this chapter:} do not treat reading as practice. Reading can prepare you, but only speaking, solving, sketching, and reviewing create interview skill.
+\end{notebox}
+
+\section{How to Use This Chapter Effectively}
+
+Interview preparation becomes more manageable when you split it into four separate abilities:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{coding fluency} for problem solving
+    \item \textbf{system thinking} for architecture questions
+    \item \textbf{communication} for explaining clearly under time pressure
+    \item \textbf{storytelling} for behavioural questions and project discussion
+\end{enumerate}
+
+\begin{intuitionbox}
+Many candidates are stronger in one of these areas than they realise and weaker in another than they admit. A balanced preparation plan is more effective than obsessing over one LeetCode pattern only.
+\end{intuitionbox}
+
 \section{Coding Interview Preparation}
 
 \subsection{The Interview Format}
@@ -11624,6 +12504,10 @@ Most tech company interviews include:
 \subsection{LeetCode Problem Patterns}
 
 Most coding interview problems fall into these patterns. Learn the pattern, not individual problems:
+
+\begin{notebox}
+Patterns are useful because they reduce cognitive load. Instead of seeing every problem as brand new, you start asking, ``Is this a window, traversal, search, heap, or DP problem?''
+\end{notebox}
 
 \begin{enumerate}[leftmargin=2em]
     \item \textbf{Two Pointers:} Use two indices moving from opposite ends or same direction. Problems: two sum (sorted array), remove duplicates, container with most water, trapping rain water.
@@ -11732,6 +12616,16 @@ For every behavioural question, structure your answer as:
 
     \emph{Focus on:} What you learned from the failure and how you applied that lesson going forward. Show growth, not perfection.
 \end{enumerate}
+
+\begin{exercisebox}
+\textbf{Behavioural drill:} write one STAR answer for each of these:
+\begin{enumerate}[leftmargin=2em]
+    \item a technical problem you solved
+    \item a time you disagreed with someone
+    \item a time you made a mistake
+    \item a project where you improved quality, reliability, or performance
+\end{enumerate}
+\end{exercisebox}
 
 \section{Portfolio Best Practices}
 
@@ -11909,6 +12803,24 @@ The roadmap is working only if your outputs become more public and more explaina
 
 This chapter provides side-by-side comparisons to help you choose the right tool for each job. Refer back to this when making architectural decisions.
 
+\begin{intuitionbox}
+Comparison tables reduce mental overload by putting choices next to each other. Their job is not to give you a universal winner. Their job is to help you think in terms of trade-offs, context, and constraints.
+\end{intuitionbox}
+
+\section{How to Revise From Comparison Tables}
+
+Do not just stare at the rows. Turn each table into decisions:
+\begin{enumerate}[leftmargin=2em]
+    \item cover one column and try to explain it from memory
+    \item pick a realistic scenario and choose one option
+    \item justify the choice using constraints such as scale, speed, team size, or data shape
+    \item explain one downside of your choice
+\end{enumerate}
+
+\begin{notebox}
+If you can turn a table into one spoken answer such as ``I would choose Django here because built-in auth and admin matter more than minimalism,'' then the table has become useful knowledge rather than passive reading material.
+\end{notebox}
+
 \section{Language Comparison}
 
 \begin{center}
@@ -12076,6 +12988,81 @@ Complexity & Low & Medium & Higher \\
 \end{tabular}
 \end{center}
 
+\section{Process vs.\,Thread}
+
+\begin{center}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Feature} & \textbf{Process} & \textbf{Thread} \\
+\midrule
+Memory & Separate memory space & Shares memory with other threads in same process \\
+Isolation & Stronger isolation & Weaker isolation \\
+Communication & Slower, explicit IPC & Faster shared-memory communication \\
+Failure impact & Crash usually isolated & One bad thread can destabilize the process \\
+Best for & Strong separation and reliability & Concurrent tasks within one application \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Supervised vs.\,Unsupervised vs.\,Reinforcement Learning}
+
+\begin{center}
+\begin{tabular}{l l l l}
+\toprule
+\textbf{Learning Type} & \textbf{Data} & \textbf{Goal} & \textbf{Example} \\
+\midrule
+Supervised & Labeled inputs and outputs & Predict target values or classes & spam detection, price prediction \\
+Unsupervised & Unlabeled data & Discover structure or groups & clustering customers \\
+Reinforcement & Feedback through rewards & Learn actions over time & game-playing agent, robotics \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{BERT vs.\,GPT}
+
+\begin{center}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Feature} & \textbf{BERT-style models} & \textbf{GPT-style models} \\
+\midrule
+Architecture emphasis & Encoder-focused & Decoder-focused \\
+Reading pattern & Bidirectional context & Left-to-right generation \\
+Best at & understanding and classification & generation and continuation \\
+Typical tasks & search, classification, NER & chat, drafting, coding assistance \\
+Prompting role & less central historically & central in modern product use \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Prompting vs.\,Fine-Tuning}
+
+\begin{center}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Feature} & \textbf{Prompting} & \textbf{Fine-Tuning} \\
+\midrule
+What changes & instructions only & model weights or adapted model behavior \\
+Speed to iterate & very fast & slower and more expensive \\
+Best for & format control, task guidance, rapid prototyping & repeated specialized behavior at scale \\
+Data requirement & little or none & curated training data needed \\
+Operational complexity & lower & higher \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{examtipbox}
+Comparison tables are most useful when you turn them into decisions. When revising, ask not only ``what is the difference?'' but also ``under what constraints would I choose one over the other?''
+\end{examtipbox}
+
+\begin{exercisebox}
+\textbf{Revision drill:} pick any three tables in this chapter and answer:
+\begin{enumerate}[leftmargin=2em]
+    \item which option would you choose for a startup MVP?
+    \item which option would you choose for long-term scale?
+    \item what is the main trade-off behind that choice?
+\end{enumerate}
+\end{exercisebox}
+
 \begin{summarybox}
 \begin{itemize}[leftmargin=2em]
     \item Comparison tables are useful because engineering choices are trade-offs, not rankings.
@@ -12091,6 +13078,8 @@ Complexity & Low & Medium & Higher \\
     \item Why is Docker not the same thing as a virtual machine?
 \end{enumerate}
 \end{recallbox}
+
+\checkpoint{You now have a compact comparison layer for languages, frameworks, databases, APIs, ML models, auth approaches, deployment tools, and AI choices. Use this chapter to support decisions and revision, not as a substitute for deeper chapter understanding.}
 
 
 % ============================================================
@@ -12217,7 +13206,37 @@ Use the glossary for rapid revision and confidence checks. If a definition feels
     \item[Word Embedding] Dense vector representation of words where similar words have similar vectors (Word2Vec, GloVe).
     \item[XSS] Cross-Site Scripting---attack injecting malicious scripts into web pages viewed by other users.
     \item[YAML] YAML Ain't Markup Language---human-readable data serialisation format used for configuration files.
+    \item[Zero-shot Prompting] Asking an LLM to perform a task without giving explicit examples, relying on the instruction alone.
+    \item[Few-shot Prompting] Giving an LLM a small number of examples in the prompt to shape the desired output pattern.
+    \item[Precision] Of the items predicted as positive, the proportion that were actually correct.
+    \item[Recall] Of the truly positive items, the proportion the model successfully found.
+    \item[F1 Score] Harmonic mean of precision and recall, useful when balancing false positives and false negatives.
+    \item[Observability] The ability to understand a running system from logs, metrics, traces, and alerts.
+    \item[Process] An independent running program with its own memory space.
+    \item[Thread] A unit of execution within a process that shares memory with other threads in that process.
+    \item[Rate Limiting] Restricting how often a client may perform an action within a time window.
+    \item[Schema] The defined structure of stored data, such as table columns, field types, and relationships.
+    \item[Feature Flag] A runtime switch that enables or disables functionality without redeploying code.
+    \item[Window Function] A SQL function that performs calculations across a related set of rows without collapsing them into one row.
 \end{description}
+
+\section{How to Revise with the Glossary}
+
+\begin{itemize}[leftmargin=2em]
+    \item cover the definitions and try to explain the term aloud from memory
+    \item group related terms together, such as \texttt{authentication / authorisation / session / JWT}
+    \item identify pairs you still confuse and review the chapter where they were originally taught
+    \item revisit this glossary weekly instead of reading it once
+\end{itemize}
+
+\begin{exercisebox}
+\textbf{Glossary drill:} choose ten terms at random and do all three:
+\begin{enumerate}[leftmargin=2em]
+    \item define the term in plain English
+    \item give one practical project example
+    \item explain one nearby term that is easy to confuse with it
+\end{enumerate}
+\end{exercisebox}
 
 \begin{summarybox}
 \begin{itemize}[leftmargin=2em]
@@ -12233,6 +13252,8 @@ Use the glossary for rapid revision and confidence checks. If a definition feels
     \item Which glossary terms connect directly to the projects you want to build next?
 \end{enumerate}
 \end{recallbox}
+
+\checkpoint{You now have a large revision glossary covering programming, backend, frontend, databases, DevOps, testing, security, ML, NLP, LLMs, and system design. Use it to spot weak vocabulary and tighten conceptual recall.}
 
 
 
@@ -12269,6 +13290,48 @@ For each capstone, define:
 \end{itemize}
 \end{projectbox}
 
+\section{How to Choose the Right Capstone}
+
+Choose capstones that match the career story you want to tell.
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Backend/product engineer:} full-stack SaaS app, mobile-first marketplace
+    \item \textbf{AI engineer:} RAG system with verification, ML-powered API
+    \item \textbf{data engineer / analytics engineer:} data pipeline + dashboard
+    \item \textbf{real-time systems / platform engineer:} chat system with WebSockets and Redis
+\end{itemize}
+
+\begin{warningbox}
+Do not build six half-finished capstones. Two complete, tested, documented, explainable capstones are far more valuable than many shallow ones.
+\end{warningbox}
+
+\section{Capstone Build Phases}
+
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Scope:} define users, core problem, and MVP.
+    \item \textbf{Design:} sketch architecture, data model, and API contracts.
+    \item \textbf{Build:} implement the core workflow first.
+    \item \textbf{Harden:} add validation, tests, logging, error handling, and auth.
+    \item \textbf{Deploy:} make the project runnable by someone else.
+    \item \textbf{Present:} write the README, diagrams, screenshots, and interview story.
+\end{enumerate}
+
+\section{Capstone Deliverables Checklist}
+
+\begin{exercisebox}
+\textbf{Before you call a capstone complete, check all of these:}
+\begin{enumerate}[leftmargin=2em]
+    \item clear README with setup steps
+    \item architecture overview
+    \item database or data-flow design
+    \item validation and error handling
+    \item tests for core workflows
+    \item deployment or local run instructions
+    \item screenshots, demo, or sample API calls
+    \item one section on trade-offs and future improvements
+\end{enumerate}
+\end{exercisebox}
+
 \section{Capstone Evaluation Rubric}
 
 Judge each capstone on these criteria:
@@ -12300,11 +13363,17 @@ A capstone becomes much more valuable in interviews if you can explain what fail
 \end{enumerate}
 \end{recallbox}
 
+\checkpoint{You now have a capstone framework for turning knowledge into portfolio-grade evidence: choose projects strategically, build them in phases, and finish them to a standard that supports demos, interviews, and deeper learning.}
+
 
 % ============================================================
 % CHAPTER 39 — NEXT STEPS TO BECOME ELITE
 % ============================================================
 \chapter{Next Steps to Become Elite}
+
+\begin{studybox}
+\textbf{Study goal:} move from handbook completion to long-term professional growth. This chapter is about habits, direction, and deliberate practice after the bootcamp phase ends.
+\end{studybox}
 
 \section{Continuous Learning}
 \begin{enumerate}[leftmargin=2em]
@@ -12330,6 +13399,32 @@ A capstone becomes much more valuable in interviews if you can explain what fail
     \item \textbf{Rust / Go:} High-performance systems programming.
 \end{itemize}
 
+\section{Choose a Primary Growth Path}
+
+You do not need to become equally deep in every area at once. It is often smarter to build a strong primary identity and a broad secondary awareness.
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Full-stack path:} deepen React, Django/Node, SQL, system design, deployment
+    \item \textbf{AI engineer path:} deepen Python, data pipelines, ML, deep learning, LLM systems, evaluation
+    \item \textbf{Backend/platform path:} deepen APIs, databases, caching, queues, DevOps, observability
+    \item \textbf{Mobile/product path:} deepen React Native, product workflows, API contracts, performance, release engineering
+\end{itemize}
+
+\begin{notebox}
+Breadth is still valuable, but career momentum usually accelerates when other people can describe you clearly: ``strong backend engineer,'' ``promising AI engineer,'' ``excellent product-minded full-stack engineer,'' and so on.
+\end{notebox}
+
+\section{A Sustainable 12-Month Growth Loop}
+
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Quarter 1:} learn and ship a focused project
+    \item \textbf{Quarter 2:} improve quality, testing, and deployment
+    \item \textbf{Quarter 3:} study a deeper specialty topic and apply it
+    \item \textbf{Quarter 4:} consolidate your portfolio, interview story, and public credibility
+\end{enumerate}
+
+\textbf{Repeat with better projects and harder problems.}
+
 \section{Long-Term Growth Habits}
 
 \begin{itemize}[leftmargin=2em]
@@ -12338,6 +13433,16 @@ A capstone becomes much more valuable in interviews if you can explain what fail
     \item alternate between breadth phases and depth phases
     \item build the habit of explaining technical decisions in writing
     \item keep practicing interviews even before applications start
+\end{itemize}
+
+\section{Signals That You Are Actually Improving}
+
+\begin{itemize}[leftmargin=2em]
+    \item you can explain concepts more clearly than six months ago
+    \item your projects are easier to run, test, and deploy
+    \item you spot design and debugging mistakes earlier
+    \item you can compare trade-offs instead of asking only for the ``best'' tool
+    \item your portfolio artifacts look more trustworthy and complete
 \end{itemize}
 
 \section{Final Words}
@@ -12365,5 +13470,16 @@ The engineers who become truly elite are the ones who never stop building. Start
     \item What will you build next to turn this handbook into real capability?
 \end{enumerate}
 \end{recallbox}
+
+\begin{exercisebox}
+\textbf{Final planning task:} write down three things:
+\begin{enumerate}[leftmargin=2em]
+    \item your primary engineering path for the next 6--12 months
+    \item the next capstone or major project you will build
+    \item the one weak area from this handbook you most need to revisit
+\end{enumerate}
+\end{exercisebox}
+
+\checkpoint{You now have a long-term growth framework: keep building, choose a primary direction, revisit weak concepts deliberately, and turn projects into progressively stronger evidence of real engineering capability.}
 
 \end{document}
